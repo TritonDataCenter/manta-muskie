@@ -1,0 +1,91 @@
+<?xml version="1.0"?>
+<!DOCTYPE service_bundle SYSTEM "/usr/share/lib/xml/dtd/service_bundle.dtd.1">
+<!--
+    This Source Code Form is subject to the terms of the Mozilla Public
+    License, v. 2.0. If a copy of the MPL was not distributed with this
+    file, You can obtain one at http://mozilla.org/MPL/2.0/.
+-->
+
+<!--
+    Copyright (c) 2014, Joyent, Inc.
+-->
+
+<service_bundle type="manifest" name="muskie">
+    <service name="manta/application/muskie" type="service" version="1">
+
+	<create_default_instance enabled="false" />
+	<single_instance />
+
+	<dependency name="network"
+		    grouping="require_all"
+		    restart_on="error"
+		    type="service">
+	    <service_fmri value="svc:/network/physical" />
+	</dependency>
+
+	<dependency name="filesystem"
+		    grouping="require_all"
+		    restart_on="error"
+		    type="service">
+	    <service_fmri value="svc:/system/filesystem/local" />
+	</dependency>
+
+	<dependency name="mdata"
+		    grouping="require_all"
+		    restart_on="none"
+		    type="service">
+	    <service_fmri value="svc:/smartdc/mdata:execute" />
+	</dependency>
+
+    <dependency name="config-agent"
+                grouping="optional_all"
+                restart_on="none"
+                type="service">
+        <service_fmri value="svc:/smartdc/application/config-agent" />
+    </dependency>
+
+	<exec_method type="method"
+		     name="start"
+		     exec="node --abort-on-uncaught-exception main.js -f etc/config.json -i %{muskie/insecure_port} -p %{muskie/port} &amp;"
+		     timeout_seconds="30">
+	    <method_context working_directory="/opt/smartdc/muskie">
+                <method_credential user="nobody"
+                                   group="nobody"
+                                   privileges="basic,net_privaddr"/>
+                <method_environment>
+                    <envvar name="PATH"
+                            value="/opt/smartdc/muskie/build/node/bin:/opt/local/bin:/usr/bin:/usr/sbin:/bin"/>
+                    <envvar name="LD_PRELOAD_32"
+                            value="/usr/lib/extendedFILE.so.1" />
+                    <envvar name="NODE_NDEBUG" value="1" />
+		</method_environment>
+            </method_context>
+	</exec_method>
+
+	<exec_method type="method"
+		     name="stop"
+		     exec=":kill"
+		     timeout_seconds="30" />
+
+        <exec_method type="method"
+                     name="refresh"
+                     exec=":kill -HUP"
+                     timeout_seconds="30" />
+
+        <instance name="@@MUSKIE_INSTANCE_NAME@@" enabled="true">
+            <property_group name="muskie" type="application">
+                <propval name="port" type="astring" value="@@MUSKIE_PORT@@" />
+                <propval name="insecure_port" type="astring" value="@@MUSKIE_INSECURE_PORT@@" />
+            </property_group>
+        </instance>
+
+	<stability value='Unstable' />
+
+	<template>
+	    <common_name>
+		<loctext xml:lang="C">Joyent Manta Storage Service Public API</loctext>
+	    </common_name>
+	</template>
+
+    </service>
+</service_bundle>

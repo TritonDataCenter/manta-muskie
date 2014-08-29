@@ -1,0 +1,226 @@
+#!/usr/bin/env node
+// -*- mode: js -*-
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
+/*
+ * Copyright (c) 2014, Joyent, Inc.
+ */
+
+var fs = require('fs');
+var path = require('path');
+
+var assert = require('assert-plus');
+var bunyan = require('bunyan');
+var dashdash = require('dashdash');
+var libmanta = require('libmanta');
+var libuuid = require('libuuid');
+var mahi = require('mahi');
+var manta = require('manta');
+var once = require('once');
+var restify = require('restify');
+var vasync = require('vasync');
+
+var app = require('../lib');
+var common = require('../lib/common');
+
+
+
+///--- Globals
+
+var CLIENT;
+var DEFAULT_CFG = path.join(__dirname, '../etc/config.json');
+var LOG = bunyan.createLogger({
+    name: require('path').basename(process.argv[1]),
+    level: (process.env.LOG_LEVEL || 'info'),
+    stream: process.stderr,
+    serializers: restify.bunyan.serializers
+});
+var OPTIONS = [
+    {
+        names: ['help', 'h'],
+        type: 'bool',
+        help: 'Print this help and exit.'
+    },
+    {
+        names: ['file', 'f'],
+        type: 'string',
+        help: 'Configuration file to use.',
+        helpArg: 'FILE'
+    },
+    {
+        names: ['verbose', 'v'],
+        type: 'arrayOfBool',
+        help: 'Verbose output. Use multiple times for more verbose.'
+    }
+];
+
+
+
+///--- Helpers
+
+function createAuthCacheClient(opts, cb) {
+    assert.object(opts, 'options');
+    assert.string(opts.url, 'options.url');
+    assert.func(cb, 'callback');
+
+    cb = once(cb);
+
+    opts.log = LOG.child({component: 'authCache'}, true);
+    var client = mahi.createClient(opts);
+    setTimeout(cb, 0, null, client);
+}
+
+
+function createMorayClient(opts, cb) {
+    assert.object(opts, 'options');
+    assert.string(opts.host, 'options.host');
+    assert.number(opts.port, 'options.port');
+    assert.func(cb, 'callback');
+
+    var log = LOG.child({component: 'moray'}, true);
+    opts.log = log;
+
+    var client = new libmanta.createMorayClient(opts);
+
+    client.once('error', function (err) {
+        cb(err);
+    });
+
+    client.once('connect', function onConnect() {
+        cb(null, client);
+    });
+}
+
+
+function configure() {
+    var cfg;
+    var opts;
+    var parser = new dashdash.Parser({options: OPTIONS});
+
+    function usage(msg) {
+        var help = parser.help({includeEnv: true}).trimRight();
+        if (msg)
+            console.error(msg);
+        console.error('usage: mlocate [OPTIONS] PATH\n'
+                      + 'options:\n'
+                      + help);
+        process.exit(msg ? 1 : 0);
+    }
+
+    try {
+        opts = parser.parse(process.argv);
+        assert.object(opts, 'options');
+    } catch (e) {
+        LOG.fatal(e, 'invalid options');
+        process.exit(1);
+    }
+
+    if (opts.help)
+        usage();
+
+    cfg = JSON.parse(fs.readFileSync(opts.file || DEFAULT_CFG, 'utf8'));
+
+    if (opts.verbose) {
+        opts.verbose.forEach(function () {
+            LOG.level(Math.max(bunyan.TRACE, (LOG.level() - 10)));
+        });
+    }
+
+    if (LOG.level() <= bunyan.DEBUG)
+        LOG = LOG.child({src: true});
+
+    cfg.log = LOG;
+    if (opts._args.length < 1)
+        usage('path required');
+
+    cfg.paths = opts._args.map(function (p) {
+        return (path.normalize(p));
+    });
+
+    return (cfg);
+}
+
+
+
+///--- Mainline
+
+(function main() {
+    var cfg = configure();
+
+    assert.object(cfg, 'no configuration');
+    assert.object(cfg.auth, 'no auth in configuration');
+    assert.object(cfg.moray, 'no moray in configuration');
+
+    var mahic;
+    var moray;
+
+    var barrier = vasync.barrier();
+    function ready() {
+        if (!mahic || !moray)
+            return;
+
+        function resolve(p) {
+            var login = decodeURIComponent(p.split('/', 2).pop());
+            mahic.getUuid({ 'account': login }, function (err, result) {
+                if (err) {
+                    console.error('mahi: unable to resolve %s: %s',
+                                  login, err.toString());
+                    process.exit(1);
+                } else if (!result || !result.account) {
+                    console.error('%s is not a known account', login);
+                    process.exit(1);
+                }
+
+                LOG.debug(result, 'loaded %s', login);
+
+                var key = p.replace(common.PATH_LOGIN_RE,
+                                    '/' + result.account + '/');
+
+                var opts = {
+                    key: key,
+                    requestId: libuuid.create()
+                };
+                moray.getMetadata(opts, function (err2, md, rawMd) {
+                    if (err2) {
+                        console.error('error loading %s: %s', p, err2);
+                        process.exit(1);
+                    }
+
+                    md._key = opts.path;
+                    md._moray = moray.url;
+                    md._node = rawMd._node;
+                    console.log(JSON.stringify(md));
+                    barrier.done(p);
+                });
+            });
+        }
+
+        cfg.paths.forEach(function (p) {
+            barrier.start(p);
+            setImmediate(function () {
+                resolve(p);
+            });
+        });
+
+        barrier.once('drain', function () {
+            process.exit(0);
+        });
+    }
+
+    createAuthCacheClient(cfg.auth, function (err, client) {
+        assert.ifError(err, 'auth cache failure');
+        mahic = client;
+        ready();
+    });
+
+    createMorayClient(cfg.moray, function (err, client) {
+        assert.ifError(err, 'moray failure');
+        moray = client;
+        ready();
+    });
+
+})();

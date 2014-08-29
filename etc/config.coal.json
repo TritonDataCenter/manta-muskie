@@ -1,0 +1,78 @@
+{
+    "clearProxyPort": 9080,
+    "bunyan": {
+        "level": "info",
+        "syslog": {
+            "facility": "local0",
+            "type": "udp"
+        }
+    },
+    "maxObjectCopies": 6,
+    "maxRequestAge": 600,
+    "numWorkers": 4,
+    "port": 8080,
+    "auth": {
+        "url": "http://authcache.coal.joyent.us",
+        "maxAuthCacheSize": 1000,
+        "maxAuthCacheAgeMs": 300,
+        "maxTranslationCacheSize": 1000,
+        "maxTranslationCacheAgeMs": 300
+    },
+    "moray": {
+        "connectTimeout": 2000,
+        "host": "electric-moray.coal.joyent.us",
+        "port": 2020
+    },
+    "marlin": {
+        "connectTimeout": 2000,
+        "url": "tcp://1.moray.coal.joyent.us:2020",
+        "jobCache": {
+            "size": 500,
+            "expiry": 30
+        }
+    },
+    "medusa": {
+        "moray": {
+            "host": "electric-moray.coal.joyent.us",
+            "port": 2020
+        },
+        "reflector": {
+            "host": "medusa.coal.joyent.us",
+            "port": 8381
+        }
+    },
+    "storage": {
+        "connectTimeout": 2000,
+        "lag": 86400,
+        "url": "tcp://1.moray.coal.joyent.us:2020",
+        "multiDC": false
+    },
+    "sharkConfig": {
+        "connectTimeout": 2000,
+        "maxIdleTime": 1000,
+        "maxClients": 50,
+        "retry": {
+            "retries": 2
+        }
+    },
+    "authToken": {
+        "salt": "C93A670ACC05C166",
+        "key": "5163205CA0C7F2752FD3A574E30F64DD",
+        "iv": "6B11F0F0B786F96812D5A0799D5B217A",
+        "maxAge": 604800000
+    },
+    "ufds": {
+        "url": "ldaps://ufds.coal.joyent.us",
+        "bindDN": "cn=root",
+        "bindPassword": "secret",
+        "cache": {
+            "size": 5000,
+            "expiry": 60
+        },
+        "maxConnections": 1,
+        "retry": {
+            "initialDelay": 1000
+        },
+        "clientTimeout": 120000
+    }
+}

@@ -1,0 +1,5 @@
+{
+    "name": "muskie",
+    "path": "/opt/smartdc/muskie/etc/config.json",
+	"master": true
+}
