@@ -1,0 +1,78 @@
+{
+  "clearProxyPort": 81,
+  "bunyan": {
+    "level": "info",
+    "syslog": {
+      "facility": "local0",
+      "type": "udp"
+    }
+  },
+  "maxObjectCopies": 6,
+  "maxRequestAge": 600,
+  "numWorkers": 4,
+  "port": 80,
+  "auth": {
+    "url": "http://{{AUTH_SERVICE}}",
+    "maxAuthCacheSize": 1000,
+    "maxAuthCacheAgeMs": 300,
+    "maxTranslationCacheSize": 1000,
+    "maxTranslationCacheAgeMs": 300
+  },
+  "moray": {
+    "connectTimeout": 2000,
+    "host": "{{ELECTRIC_MORAY}}",
+    "port": 2020
+  },
+  "marlin": {
+    "connectTimeout": 2000,
+    "url": "tcp://{{MARLIN_MORAY_SHARD}}:2020",
+    "jobCache": {
+      "size": 500,
+      "expiry": 30
+    }
+  },
+  "medusa": {
+    "moray": {
+      "host": "{{ELECTRIC_MORAY}}",
+      "port": 2020
+    },
+    "reflector": {
+      "host": "{{MEDUSA_REFLECTOR}}",
+      "port": 8381
+    }
+  },
+  "storage": {
+    "connectTimeout": 2000,
+    "lag": 86400,
+    "url": "tcp://{{STORAGE_MORAY_SHARD}}:2020",
+    "multiDC": {{MUSKIE_MULTI_DC}}
+  },
+  "sharkConfig": {
+    "connectTimeout": 2000,
+    "maxIdleTime": 1000,
+    "maxClients": 50,
+    "retry": {
+      "retries": 2
+    }
+  },
+  "authToken": {
+    "salt": "{{MUSKIE_JOB_TOKEN_AES_SALT}}",
+    "key": "{{MUSKIE_JOB_TOKEN_AES_KEY}}",
+    "iv": "{{MUSKIE_JOB_TOKEN_AES_IV}}",
+    "maxAge": 604800000
+  },
+  "ufds": {
+      "url": "{{{UFDS_URL}}}",
+      "bindDN": "{{{UFDS_ROOT_DN}}}",
+      "bindPassword": "{{{UFDS_ROOT_PW}}}",
+      "cache": {
+          "size": 5000,
+          "expiry": 60
+      },
+      "maxConnections": 1,
+      "retry": {
+          "initialDelay": 1000
+      },
+      "clientTimeout": 120000
+  }
+}

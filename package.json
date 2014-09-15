@@ -1,0 +1,48 @@
+{
+    "name": "muskie",
+    "description": "Manta public-facing WebAPI",
+    "version": "1.0.0",
+    "author": "Joyent (joyent.com)",
+    "private": true,
+    "repository": {
+        "type": "git",
+        "url": "git+ssh://git@github.com:joyent/muskie.git"
+    },
+    "dependencies": {
+        "aperture-config": "git+ssh://git@github.com:joyent/aperture-config.git#master",
+        "assert-plus": "0.1.5",
+        "backoff": "2.3.0",
+        "bunyan": "0.22.1",
+        "bunyan-syslog": "0.2.2",
+        "dashdash": "1.3.2",
+        "deep-equal": "0.0.0",
+        "dtrace-provider": "0.2.8",
+        "http-signature": "0.10.0",
+        "keep-alive-agent": "0.0.1",
+        "keyapi": "git+ssh://git@github.com:joyent/keyapi.git#708745c",
+        "libmanta": "git+ssh://git@github.com:joyent/node-libmanta.git#master",
+        "libuuid": "0.1.2",
+        "lru-cache": "2.3.1",
+        "lstream": "0.0.4",
+        "mahi": "git+ssh://git@github.com:joyent/node-mahi.git#master",
+        "marlin": "git+ssh://git@github.com:joyent/manta-marlin.git#master",
+        "mime": "1.2.11",
+        "moray": "git+ssh://git@github.com:joyent/node-moray.git#master",
+        "once": "1.3.0",
+        "restify": "2.6.3",
+        "vasync": "1.4.3",
+        "watershed": "0.3.0",
+        "xtend": "2.1.1"
+    },
+    "devDependencies": {
+        "smartdc": "git+ssh://git@github.com:joyent/node-smartdc.git#v7.3",
+        "manta": "git+ssh://git@github.com:joyent/node-manta.git#access-control",
+        "nodeunit": "0.8.6",
+        "node-uuid": "1.4.1"
+    },
+    "scripts": {
+        "start": "./build/node/bin/node ./main.js",
+        "test": "./node_modules/.bin/nodeunit test/*.test.js 2>&1 | ./node_modules/.bin/bunyan"
+    },
+    "license": "MPL-2.0"
+}

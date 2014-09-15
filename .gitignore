@@ -1,0 +1,13 @@
+.coverage_data
+cover_html/
+/node_modules
+/tmp
+build
+docs/*.json
+docs/*.html
+cscope.in.out
+cscope.po.out
+cscope.out
+smf/manifests/*.xml
+*.tar.bz2
+*.log
