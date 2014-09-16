@@ -36,7 +36,7 @@
     },
     "devDependencies": {
         "smartdc": "git+ssh://git@github.com:joyent/node-smartdc.git#v7.3",
-        "manta": "git+ssh://git@github.com:joyent/node-manta.git#access-control",
+        "manta": "1.4.5",
         "nodeunit": "0.8.6",
         "node-uuid": "1.4.1"
     },

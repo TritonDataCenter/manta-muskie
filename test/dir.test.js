@@ -43,7 +43,7 @@ function writeObject(client, key, cb) {
 
 before(function (cb) {
     this.client = helper.createClient();
-    this.top = '/' + this.client.account;
+    this.top = '/' + this.client.user;
     this.root = this.top + '/stor';
     this.dir = this.root + '/' + uuid.v4();
     this.key = this.dir + '/' + uuid.v4();

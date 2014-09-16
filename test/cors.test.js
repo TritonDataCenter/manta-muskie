@@ -57,7 +57,7 @@ before(function (cb) {
 
     this.client = helper.createClient();
     this.httpClient = helper.createRawClient();
-    this.root = '/' + this.client.account + '/stor';
+    this.root = '/' + this.client.user + '/stor';
     this.dir = this.root + '/' + uuid.v4();
     this.key = this.dir + '/' + uuid.v4();
 

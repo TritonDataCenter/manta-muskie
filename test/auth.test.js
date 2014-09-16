@@ -66,7 +66,7 @@ function writeObject(client, key, cb) {
 // Used to stub out signed requests
 function authorization(opts) {
     opts = opts || {};
-    opts.user = opts.user || process.env.MANTA_ACCOUNT;
+    opts.user = opts.user || process.env.MANTA_USER;
     opts.keyId = opts.keyId || process.env.MANTA_KEY_ID;
     opts.algorithm = opts.algorithm || 'rsa-sha256';
     opts.signature = opts.signature || uuid.v4();
@@ -113,7 +113,7 @@ function getHttpAuthToken(opts, cb) {
     var loginopts = {
         permissions: '{}',
         nonce: Math.random().toString(36).substring(7),
-        keyid: '/' + process.env.MANTA_ACCOUNT + '/keys/' + keyid,
+        keyid: '/' + process.env.MANTA_USER + '/keys/' + keyid,
         now: new Date().toUTCString()
     };
 
@@ -152,10 +152,10 @@ before(function (cb) {
 
     this.client = helper.createClient();
     this.rawClient = helper.createRawClient();
-    this.root = '/' + this.client.account + '/stor';
+    this.root = '/' + this.client.user + '/stor';
     this.dir = this.root + '/' + uuid.v4();
     this.key = this.dir + '/' + uuid.v4();
-    this.link = '/' + this.client.account + '/public/' + uuid.v4();
+    this.link = '/' + this.client.user + '/public/' + uuid.v4();
 
     var acct = {
         roles: {},
@@ -170,6 +170,13 @@ before(function (cb) {
     var opts = {
         caller: acct
     };
+
+    ['salt', 'key', 'iv'].forEach(function (env) {
+        if (!TOKEN_CFG[env]) {
+            cb(new Error('MUSKIE_' + env.toUpperCase() + ' required'));
+            return;
+        }
+    });
 
     auth.createAuthToken(opts, TOKEN_CFG, function (err, token) {
         if (err) {
@@ -461,7 +468,7 @@ test('presigned URL ok, directory trailing slash', function (t) {
 test('create auth token ok', function (t) {
     var opts = {
         method: 'POST',
-        path: '/' + process.env.MANTA_ACCOUNT + '/tokens'
+        path: '/' + process.env.MANTA_USER + '/tokens'
     };
     helper.signUrl(opts, function (err, path) {
         t.ifError(err);
@@ -523,14 +530,14 @@ test('anonymous get 403', function (t) {
 });
 
 
-test('access 403 (fails if MANTA_ACCOUNT is operator)', function (t) {
+test('access 403 (fails if MANTA_USER is operator)', function (t) {
     writeObject(this.client, '/poseidon/public/agent.sh', function (err) {
         t.ok(err);
         if (!err) {
             t.end();
             return;
         }
-        t.equal(err.name, 'AccountBlockedError');
+        t.equal(err.name, 'AuthorizationFailedError');
         t.ok(err.message);
         t.end();
     });
@@ -551,7 +558,7 @@ test('access unapproved and operator /public', function (t) { // MANTA-2214
 });
 
 
-test('create auth token 403 (fails if MANTA_ACCOUNT is operator)',
+test('create auth token 403 (fails if MANTA_USER is operator)',
         function (t) {
 
     var opts = {
@@ -576,7 +583,7 @@ test('create auth token 403 (fails if MANTA_ACCOUNT is operator)',
 
 if (process.env.SSO_URL) {
     var _AUTH_NAME = 'HTTP delegated auth token (fails if SSO_URL, SSO_LOGIN' +
-        ', SSO_PASSWORD aren\'t set, or if MANTA_ACCOUNT is not a registered ' +
+        ', SSO_PASSWORD aren\'t set, or if MANTA_USER is not a registered ' +
         'developer)';
     test(_AUTH_NAME, function (t) {
         var opts = {

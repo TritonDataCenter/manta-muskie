@@ -109,8 +109,8 @@ before(function (cb) {
     var self = this;
 
     this.client = helper.createClient();
-    this.jobs_root = '/' + this.client.account + '/jobs';
-    this.root = '/' + this.client.account + '/stor';
+    this.jobs_root = '/' + this.client.user + '/jobs';
+    this.root = '/' + this.client.user + '/stor';
     this.dir = this.root + '/' + uuid.v4();
     this.keys = [];
 

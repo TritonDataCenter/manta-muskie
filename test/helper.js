@@ -53,11 +53,11 @@ function createClient() {
             key: key,
             keyId: process.env.MANTA_KEY_ID,
             log: log,
-            account: process.env.MANTA_ACCOUNT || 'admin'
+            user: process.env.MANTA_USER || 'admin'
         }),
         rejectUnauthorized: false,
         url: process.env.MANTA_URL || 'http://localhost:8080',
-        account: process.env.MANTA_ACCOUNT || 'admin'
+        user: process.env.MANTA_USER || 'admin'
     });
 
     return (client);
@@ -76,13 +76,13 @@ function createUserClient(login) {
             key: key,
             keyId: process.env.MANTA_KEY_ID,
             log: log,
-            account: process.env.MANTA_ACCOUNT || 'admin',
-            user: login
+            user: process.env.MANTA_USER || 'admin',
+            subuser: login
         }),
         rejectUnauthorized: false,
         url: process.env.MANTA_URL || 'http://localhost:8080',
-        account: process.env.MANTA_ACCOUNT || 'admin',
-        user: login
+        user: process.env.MANTA_USER || 'admin',
+        subuser: login
     });
 
     return (client);
@@ -174,12 +174,12 @@ function signUrl(opts, expires, cb) {
     var key = fs.readFileSync(process.env.HOME + '/.ssh/id_rsa', 'utf8');
     var keyId = process.env.MANTA_KEY_ID;
     var url = process.env.MANTA_URL || 'http://localhost:8080';
-    var account = process.env.MANTA_ACCOUNT;
     var user = process.env.MANTA_USER;
+    var subuser = process.env.MANTA_SUBUSER;
 
     if (opts.client) {
-        account = opts.client._account;
-        user = opts.client._user;
+        user = opts.client.user;
+        subuser = opts.client.subuser;
     }
 
     manta.signUrl({
@@ -196,11 +196,11 @@ function signUrl(opts, expires, cb) {
             key: key,
             keyId: keyId,
             log: createLogger(),
-            account: account,
-            user: user
+            user: user,
+            subuser: subuser
         }),
-        account: account,
-        user: user
+        user: user,
+        subuser: subuser
     }, cb);
 }
 

@@ -171,7 +171,7 @@ after(function (cb) {
 
 test('default role', function (t) {
     var self = this;
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.account);
+    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
     var roles = 'muskie_test_role_default';
     writeObject(self.client, path, roles, function (err) {
         if (err) {
@@ -196,7 +196,7 @@ test('default role', function (t) {
 
 test('inactive role', function (t) {
     var self = this;
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.account);
+    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
     var roles = 'muskie_test_role_limit';
     writeObject(self.client, path, roles, function (err) {
         if (err) {
@@ -220,7 +220,7 @@ test('inactive role', function (t) {
 
 test('assume non-default role', function (t) {
     var self = this;
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.account);
+    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
     var roles = 'muskie_test_role_limit';
     writeObject(self.client, path, roles, function (err) {
         if (err) {
@@ -249,7 +249,7 @@ test('assume non-default role', function (t) {
 
 test('assume multiple roles', function (t) {
     var self = this;
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.account);
+    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
     var roles = 'muskie_test_role_limit';
     writeObject(self.client, path, roles, function (err) {
         if (err) {
@@ -278,7 +278,7 @@ test('assume multiple roles', function (t) {
 
 test('assume wrong role', function (t) {
     var self = this;
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.account);
+    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
     var roles = 'muskie_test_role_default';
     writeObject(self.client, path, roles, function (err) {
         if (err) {
@@ -306,7 +306,7 @@ test('assume wrong role', function (t) {
 
 test('assume limit roles (*)', function (t) {
     var self = this;
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.account);
+    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
     var roles = 'muskie_test_role_limit';
     writeObject(self.client, path, roles, function (err) {
         if (err) {
@@ -335,7 +335,7 @@ test('assume limit roles (*)', function (t) {
 
 test('assume bad role', function (t) {
     var self = this;
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.account);
+    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
     var roles = 'muskie_test_role_other';
     writeObject(self.client, path, roles, function (err) {
         if (err) {
@@ -363,7 +363,7 @@ test('assume bad role', function (t) {
 
 test('mchmod', function (t) {
     var self = this;
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.account);
+    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
     var roles = 'muskie_test_role_write';
     writeObject(self.client, path, roles, function (err) {
         if (err) {
@@ -401,7 +401,7 @@ test('mchmod', function (t) {
 
 test('mchmod bad role', function (t) {
     var self = this;
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.account);
+    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
     var roles = 'muskie_test_role_write';
     writeObject(self.client, path, roles, function (err) {
         if (err) {
@@ -431,8 +431,8 @@ test('mchmod bad role', function (t) {
 
 test('created object gets roles', function (t) {
     var self = this;
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.account);
-    var dir = sprintf('/%s/stor', self.client.account);
+    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
+    var dir = sprintf('/%s/stor', self.client.user);
     addTag(self.client, dir, 'muskie_test_role_write', function (err) {
         if (err) {
             t.fail(err);
@@ -479,7 +479,7 @@ test('created object gets roles', function (t) {
 
 test('create object parent directory check', function (t) {
     var self = this;
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.account);
+    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
     writeObject(self.userClient, path, {
         'role': 'muskie_test_role_write'
     }, function (err2) {
@@ -498,7 +498,7 @@ test('create object parent directory check', function (t) {
 
 test('create object parent directory check', function (t) {
     var self = this;
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.account);
+    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
     writeObject(self.userClient, path, {
         'role': 'muskie_test_role_write'
     }, function (err) {
@@ -517,7 +517,7 @@ test('create object parent directory check', function (t) {
 
 test('create directory parent directory check', function (t) {
     var self = this;
-    var path = sprintf('/%s/stor/muskie_test_dir', self.client.account);
+    var path = sprintf('/%s/stor/muskie_test_dir', self.client.user);
     self.userClient.mkdir(path, {
         headers: {
             'role': 'muskie_test_role_write'
@@ -541,7 +541,7 @@ test('create directory parent directory check', function (t) {
 // since this requires an additional lookup, we're just returning 404s for now.
 test('get nonexistent object 404', function (t) {
     var self = this;
-    var path = sprintf('/%s/stor/muskie_test_dir', self.client.account);
+    var path = sprintf('/%s/stor/muskie_test_dir', self.client.user);
     self.client.get(path, function (err2) {
         if (!err2) {
             t.fail('error expected');
@@ -556,7 +556,7 @@ test('get nonexistent object 404', function (t) {
 
 test('signed URL uses default roles', function (t) {
     var self = this;
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.account);
+    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
     var roles = 'muskie_test_role_default';
     var signed;
 
@@ -604,7 +604,7 @@ test('signed URL uses default roles', function (t) {
 
 test('signed URL ignores role headers', function (t) {
     var self = this;
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.account);
+    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
     var roles = 'muskie_test_role_limit';
     var signed;
 
@@ -656,7 +656,7 @@ test('signed URL ignores role headers', function (t) {
 
 test('signed URL with included role', function (t) {
     var self = this;
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.account);
+    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
     var roles = 'muskie_test_role_limit';
     var signed;
 
@@ -705,7 +705,7 @@ test('signed URL with included role', function (t) {
 
 test('signed URL with included wrong role', function (t) {
     var self = this;
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.account);
+    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
     var roles = 'muskie_test_role_default';
     var signed;
 
@@ -755,7 +755,7 @@ test('signed URL with included wrong role', function (t) {
 
 test('signed URL with included invalid role', function (t) {
     var self = this;
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.account);
+    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
     var roles = 'muskie_test_role_default';
     var signed;
 
@@ -830,7 +830,7 @@ test('create job ACL check failure', function (t) {
 
 test('create job ACL check success', function (t) {
     var self = this;
-    var path = sprintf('/%s/jobs', self.client.account);
+    var path = sprintf('/%s/jobs', self.client.user);
     var job = {
         name: 'muskie_test_word_count',
         phases: [ {
@@ -872,8 +872,8 @@ test('create job ACL check success', function (t) {
 
 test('job inputs - no managejob on /jobs', function (t) {
     var self = this;
-    var jobRoot = sprintf('/%s/jobs', self.client.account);
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.account);
+    var jobRoot = sprintf('/%s/jobs', self.client.user);
+    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
     var job = {
         name: 'muskie_test_word_count',
         phases: [ {
@@ -939,8 +939,8 @@ test('job inputs - no managejob on /jobs', function (t) {
 
 test('job inputs - no managejob active', function (t) {
     var self = this;
-    var jobRoot = sprintf('/%s/jobs', self.client.account);
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.account);
+    var jobRoot = sprintf('/%s/jobs', self.client.user);
+    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
     var job = {
         name: 'muskie_test_word_count',
         phases: [ {
@@ -1004,8 +1004,8 @@ test('job inputs - no managejob active', function (t) {
 
 test('job inputs - no getobject on input key', function (t) {
     var self = this;
-    var jobRoot = sprintf('/%s/jobs', self.client.account);
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.account);
+    var jobRoot = sprintf('/%s/jobs', self.client.user);
+    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
     var job = {
         name: 'muskie_test_word_count',
         phases: [ {
@@ -1118,8 +1118,8 @@ test('job inputs - no getobject on input key', function (t) {
 
 test('job inputs - context change after job creation', function (t) {
     var self = this;
-    var jobRoot = sprintf('/%s/jobs', self.client.account);
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.account);
+    var jobRoot = sprintf('/%s/jobs', self.client.user);
+    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
     var job = {
         name: 'muskie_test_word_count',
         phases: [ {
@@ -1211,7 +1211,7 @@ test('job inputs - context change after job creation', function (t) {
 
 test('no putdirectory on job creation', function (t) {
     var self = this;
-    var jobRoot = sprintf('/%s/jobs', self.client.account);
+    var jobRoot = sprintf('/%s/jobs', self.client.user);
     var job = {
         name: 'muskie_test_word_count',
         phases: [ {
@@ -1261,8 +1261,8 @@ test('no putdirectory on job creation', function (t) {
 
 test('job OK', function (t) {
     var self = this;
-    var jobRoot = sprintf('/%s/jobs', self.client.account);
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.account);
+    var jobRoot = sprintf('/%s/jobs', self.client.user);
+    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
     var job = {
         name: 'muskie_test_word_count',
         phases: [ {
@@ -1376,9 +1376,9 @@ test('job OK', function (t) {
 
 test('assets - no getobject on asset', function (t) {
     var self = this;
-    var jobRoot = sprintf('/%s/jobs', self.client.account);
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.account);
-    var asset = sprintf('/%s/stor/muskie_test_aasset', self.client.account);
+    var jobRoot = sprintf('/%s/jobs', self.client.user);
+    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
+    var asset = sprintf('/%s/stor/muskie_test_aasset', self.client.user);
     var job = {
         name: 'muskie_test_word_count',
         phases: [ {

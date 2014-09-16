@@ -56,8 +56,8 @@ before(function (cb) {
     var self = this;
 
     this.client = helper.createClient();
-    this.pubRoot = '/' + this.client.account + '/public';
-    this.root = '/' + this.client.account + '/stor';
+    this.pubRoot = '/' + this.client.user + '/public';
+    this.root = '/' + this.client.user + '/stor';
     this.dir = this.root + '/' + uuid.v4();
     this.pubKey = this.pubRoot + '/' + uuid.v4();
     this.key = this.dir + '/' + uuid.v4();
