@@ -12,6 +12,8 @@ var domain = require('domain');
 var http = require('http');
 var https = require('https');
 
+var auth = require('../lib/auth');
+
 var bunyan = require('bunyan');
 var fs = require('fs');
 var manta = require('manta');
@@ -25,6 +27,16 @@ var smartdc = require('smartdc');
 
 http.globalAgent.maxSockets = 50;
 https.globalAgent.maxSockets = 50;
+
+var TOKEN_CFG = {
+    salt: process.env.MUSKIE_SALT,
+    key: process.env.MUSKIE_KEY,
+    iv: process.env.MUSKIE_IV,
+    maxAge: +process.env.MUSKIE_MAX_AGE || 604800000
+};
+
+var POSEIDON_ID = process.env.MUSKIE_POSEIDON_ID ||
+        '930896af-bf8c-48d4-885c-6573a94b1853';
 
 
 ///--- Helpers
@@ -163,6 +175,34 @@ function checkResponse(t, res, code) {
 }
 
 
+function createAuthToken(opts, cb) {
+    var check = ['salt', 'key', 'iv'].every(function (env) {
+        if (!TOKEN_CFG[env]) {
+            cb(new Error('MUSKIE_' + env.toUpperCase() + ' required'));
+            return (false);
+        } else {
+            return (true);
+        }
+    });
+
+    if (!check) {
+        return;
+    }
+
+    auth.createAuthToken(opts, TOKEN_CFG, function (err, token) {
+        if (err) {
+            cb(err);
+            return;
+        } else if (!token) {
+            cb(new Error('no token'));
+            return;
+        }
+        cb(null, token);
+    });
+}
+
+
+
 function signUrl(opts, expires, cb) {
     if (typeof (opts) === 'string') {
         opts = { path: opts };
@@ -281,11 +321,13 @@ module.exports = {
         };
     },
 
+    POSEIDON_ID: POSEIDON_ID,
     createClient: createClient,
     createJsonClient: createJsonClient,
     createRawClient: createRawClient,
     createUserClient: createUserClient,
     createSDCClient: createSDCClient,
     createLogger: createLogger,
+    createAuthToken: createAuthToken,
     signUrl: signUrl
 };

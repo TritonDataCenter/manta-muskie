@@ -628,3 +628,120 @@ test('get job failures', function (t) {
         });
     });
 });
+
+
+test('access other account\'s job by id 404', function (t) {
+    var tokenopts = {
+        caller: {
+            account: {
+                uuid: helper.POSEIDON_ID
+            }
+        }
+    };
+
+    var job = {
+        name: 'muskie-test',
+        phases: [ {
+            exec: 'wc'
+        } ]
+    };
+
+    helper.createAuthToken(tokenopts, function (token_err, token) {
+        t.ifError(token_err);
+        if (token_err) {
+            t.end();
+            return;
+        }
+        var client = helper.createJsonClient();
+        var authedClient = helper.createClient();
+        var opts = {
+            path: '/poseidon/jobs',
+            headers: {
+                authorization: 'Token ' + token
+            }
+        };
+        client.post(opts, job, function (create_err, create_req, create_res) {
+            if (create_err) {
+                t.ifError(create_err);
+                t.end();
+                return;
+            }
+            var jobid = create_res.headers.location;
+            var path = jobid.replace('poseidon', authedClient.user) +
+                    '/live/status';
+            authedClient.get(path, function (get_err) {
+                t.ok(get_err);
+                if (get_err) {
+                    t.equal(get_err.statusCode, 404);
+                }
+
+                opts.path = jobid + '/live/in/end';
+                client.post(opts, function (end_err) {
+                    if (end_err) {
+                        console.error('error ending job ' + jobid);
+                        console.error('error: ' + end_err);
+                    }
+                    t.end();
+                });
+            });
+        });
+    });
+});
+
+
+test('access other account\'s job by id 403', function (t) {
+    var tokenopts = {
+        caller: {
+            account: {
+                uuid: helper.POSEIDON_ID
+            }
+        }
+    };
+
+    var job = {
+        name: 'muskie-test',
+        phases: [ {
+            exec: 'wc'
+        } ]
+    };
+
+    helper.createAuthToken(tokenopts, function (token_err, token) {
+        t.ifError(token_err);
+        if (token_err) {
+            t.end();
+            return;
+        }
+        var client = helper.createJsonClient();
+        var authedClient = helper.createClient();
+        var opts = {
+            path: '/poseidon/jobs',
+            headers: {
+                authorization: 'Token ' + token
+            }
+        };
+        client.post(opts, job, function (create_err, create_req, create_res) {
+            if (create_err) {
+                t.ifError(create_err);
+                t.end();
+                return;
+            }
+            var jobid = create_res.headers.location;
+            var path = jobid + '/live/status';
+            authedClient.get(path, function (get_err) {
+                t.ok(get_err);
+                if (get_err) {
+                    t.equal(get_err.statusCode, 403);
+                }
+
+                opts.path = jobid + '/live/in/end';
+                client.post(opts, function (end_err) {
+                    if (end_err) {
+                        console.error('error ending job ' + jobid);
+                        console.error('error: ' + end_err);
+                    }
+                    t.end();
+                });
+            });
+        });
+    });
+});

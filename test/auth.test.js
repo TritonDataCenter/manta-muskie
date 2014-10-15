@@ -18,8 +18,6 @@ var uuid = require('node-uuid');
 var crypto = require('crypto');
 var fs = require('fs');
 
-var auth = require('../lib/auth');
-
 var _helper = __dirname + '/helper.js';
 if (require.cache[_helper])
     delete require.cache[_helper];
@@ -36,13 +34,6 @@ var test = helper.test;
 var sprintf = util.format;
 
 var SIG_FMT = 'Signature keyId="/%s/keys/%s",algorithm="%s",signature="%s"';
-var TOKEN_CFG = {
-    salt: process.env.MUSKIE_SALT,
-    key: process.env.MUSKIE_KEY,
-    iv: process.env.MUSKIE_IV,
-    maxAge: process.env.MUSKIE_MAX_AGE || 604800000
-};
-
 
 
 ///--- Helpers
@@ -157,51 +148,19 @@ before(function (cb) {
     this.key = this.dir + '/' + uuid.v4();
     this.link = '/' + this.client.user + '/public/' + uuid.v4();
 
-    var acct = {
-        roles: {},
-        account: {
-            uuid: '930896af-bf8c-48d4-885c-6573a94b1853',
-            login: 'poseidon',
-            isOperator: true,
-            groups: ['operators']
-        }
-    };
-
-    var opts = {
-        caller: acct
-    };
-
-    ['salt', 'key', 'iv'].forEach(function (env) {
-        if (!TOKEN_CFG[env]) {
-            cb(new Error('MUSKIE_' + env.toUpperCase() + ' required'));
+    self.client.mkdir(self.dir, function (err2) {
+        if (err2) {
+            cb(err2);
             return;
         }
-    });
 
-    auth.createAuthToken(opts, TOKEN_CFG, function (err, token) {
-        if (err) {
-            cb(err);
-            return;
-        } else if (!token) {
-            cb(new Error('no token'));
-            return;
-        }
-        self.token = token;
-
-        self.client.mkdir(self.dir, function (err2) {
-            if (err2) {
-                cb(err2);
+        writeObject(self.client, self.key, function (err3) {
+            if (err3) {
+                cb(err3);
                 return;
             }
 
-            writeObject(self.client, self.key, function (err3) {
-                if (err3) {
-                    cb(err3);
-                    return;
-                }
-
-                self.client.ln(self.key, self.link, cb);
-            });
+            self.client.ln(self.key, self.link, cb);
         });
     });
 });
@@ -232,29 +191,48 @@ test('access $self', function (t) {
 
 
 test('auth with token (operator)', function (t) {
-    var client = helper.createRawClient();
-    var self = this;
-    var opts = {
-        path: '/poseidon/stor',
-        headers: {
-            authorization: 'Token ' + self.token
+    var tokenopts = {
+        caller: {
+            account: {
+                uuid: helper.POSEIDON_ID
+            }
         }
     };
-    client.get(opts, function (connect_err, req) {
-        t.ifError(connect_err);
-        if (connect_err) {
+
+    helper.createAuthToken(tokenopts, function (err, token) {
+        t.ifError(err);
+        if (err) {
             t.end();
             return;
         }
-
-        req.on('result', function (err, res) {
-            t.ifError(err);
-            res.once('end', function () {
+        var client = helper.createRawClient();
+        var opts = {
+            path: '/poseidon/stor',
+            headers: {
+                authorization: 'Token ' + token
+            }
+        };
+        client.get(opts, function (connect_err, req) {
+            t.ifError(connect_err);
+            if (connect_err) {
                 t.end();
+                return;
+            }
+
+            req.on('result', function (result_err, res) {
+                t.ifError(result_err);
+                if (result_err) {
+                    t.end();
+                    return;
+                }
+                res.once('end', function () {
+                    t.end();
+                });
+                res.resume();
             });
-            res.resume();
         });
     });
+
 });
 
 
