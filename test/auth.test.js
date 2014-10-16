@@ -18,6 +18,8 @@ var uuid = require('node-uuid');
 var crypto = require('crypto');
 var fs = require('fs');
 
+var auth = require('../lib/auth');
+
 var _helper = __dirname + '/helper.js';
 if (require.cache[_helper])
     delete require.cache[_helper];
@@ -186,6 +188,47 @@ test('access $self', function (t) {
         } else {
             t.end();
         }
+    });
+});
+
+
+test('auth with bad token crypto', function (t) {
+    var self = this;
+    var token_cfg = {
+        salt: 'AAAAAAAAAAAAAAAA',
+        key: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+        iv: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+        maxAge: 604800000
+    };
+
+    var tokenopts = {
+        caller: {
+            account: {
+                uuid: helper.POSEIDON_ID
+            }
+        }
+    };
+
+    auth.createAuthToken(tokenopts, token_cfg, function (auth_err, token) {
+        if (auth_err || !token) {
+            t.ifError(auth_err || new Error('no token'));
+            t.end();
+            return;
+        }
+        var opts = {
+            path: self.key,
+            headers: {
+                authorization: 'Token ' + token
+            }
+        };
+        rawRequest(opts, function (err, res) {
+            t.ok(err);
+            if (err) {
+                t.equal(err.statusCode, 403);
+                t.equal(err.restCode, 'InvalidAuthenticationToken');
+            }
+            t.end();
+        });
     });
 });
 
