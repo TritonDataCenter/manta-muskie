@@ -45,7 +45,8 @@
     "connectTimeout": 2000,
     "lag": 86400,
     "url": "tcp://{{STORAGE_MORAY_SHARD}}:2020",
-    "multiDC": {{MUSKIE_MULTI_DC}}
+    "multiDC": {{MUSKIE_MULTI_DC}}{{#MUSKIE_IGNORE_SIZE}},
+    "ignoreSize": {{MUSKIE_IGNORE_SIZE}}{{/MUSKIE_IGNORE_SIZE}}
   },
   "sharkConfig": {
     "connectTimeout": 2000,

@@ -200,7 +200,8 @@ function createPickerClient(cfg) {
         lag: cfg.lag,
         log: LOG.child({component: 'picker'}, true),
         multiDC: cfg.multiDC,
-        url: cfg.url
+        url: cfg.url,
+        ignoreSize: cfg.ignoreSize
     };
 
     var client = app.picker.createClient(opts);
