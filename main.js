@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2014, Joyent, Inc.
+ * Copyright (c) 2015, Joyent, Inc.
  */
 
 var fs = require('fs');
@@ -25,6 +25,7 @@ var mahi = require('mahi');
 var marlin = require('marlin');
 var once = require('once');
 var restify = require('restify');
+var vasync = require('vasync');
 var medusa = require('./lib/medusa');
 var keyapi = require('keyapi');
 
@@ -263,21 +264,41 @@ function createMarlinClient(opts) {
         setup_jobs: true,
         log: log
     };
+
     marlin.createClient(_opts, function (err, client) {
         if (err) {
             LOG.fatal(err, 'marlin: unable to create a client');
             process.nextTick(createMarlinClient.bind(null, opts));
         } else {
+            var barrier;
+
             MARLIN = client;
             LOG.info({
                 remote: MARLIN.ma_client.host
             }, 'marlin: ready');
+
+            /*
+             * In general, for various failures, we should get both an 'error'
+             * and a 'close' event.  We want to wait for both so that we don't
+             * start reconnecting while the first client is still connected.  (A
+             * persistent error could result in way too many Moray connections.)
+             */
+            barrier = vasync.barrier();
+            barrier.start('wait-for-close');
+            MARLIN.on('close', function () {
+                barrier.done('wait-for-close');
+            });
+
+            barrier.start('wait-for-error');
             MARLIN.on('error', function (marlin_err) {
                 LOG.error(marlin_err, 'marlin error');
-                MARLIN.close(function () {
-                    MARLIN = null;
-                    createMarlinClient(opts);
-                });
+                barrier.done('wait-for-error');
+                MARLIN.close();
+            });
+
+            barrier.on('drain', function doReconnect() {
+                LOG.info('marlin: reconnecting');
+                createMarlinClient(opts);
             });
         }
     });
