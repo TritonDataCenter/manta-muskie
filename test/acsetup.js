@@ -104,11 +104,11 @@ var ROLES = [
         members: [ 'muskie_test_user' ],
         policies: [ 'muskie_test_job' ]
     },
-    //{
-    //    name: 'muskie_test_role_fromjob',
-    //    members: [ 'muskie_test_user' ],
-    //    policies: [ 'muskie_test_fromjob' ]
-    //},
+    {
+        name: 'muskie_test_role_fromjob',
+        members: [ 'muskie_test_user' ],
+        policies: [ 'muskie_test_fromjob' ]
+    },
     {
         name: 'muskie_test_role_all',
         members: [ 'muskie_test_user' ],

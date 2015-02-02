@@ -1183,7 +1183,7 @@ test('job inputs - context change after job creation', function (t) {
                     cb();
                     return;
                 }
-                t.equal(errors[0].code, 'AuthorizationError');
+                t.equal(errors[0].code, 'InternalError');
                 cb();
             });
         }
