@@ -53,11 +53,6 @@ var MARLIN;
 var KEYAPI;
 var OPTIONS = [
     {
-        names: ['help', 'h'],
-        type: 'bool',
-        help: 'Print this help and exit.'
-    },
-    {
         names: ['file', 'f'],
         type: 'string',
         help: 'Configuration file to use.',
@@ -101,7 +96,11 @@ function configure() {
         assert.object(opts, 'options');
     } catch (e) {
         LOG.fatal(e, 'invalid options');
-        process.exit(1);
+        usage(parser, e.message);
+    }
+
+    if (!opts.file) {
+        usage(parser, '-f option is required');
     }
 
     cfg = JSON.parse(readFile(opts.file));
@@ -193,6 +192,13 @@ function configure() {
     return (cfg);
 }
 
+function usage(parser, message)
+{
+    console.error('muskie: %s', message);
+    console.error('usage: node main.js OPTIONS\n');
+    console.error(parser.help());
+    process.exit(2);
+}
 
 function createPickerClient(cfg) {
     var opts = {
