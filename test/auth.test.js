@@ -638,6 +638,52 @@ if (process.env.SSO_URL) {
             });
         });
     });
+
+    test('HTTP delegated auth token with missing signature', function (t) {
+        var opts = {
+            ssoUrl: process.env.SSO_URL,
+            ssoLogin: process.env.SSO_LOGIN,
+            ssoPassword: process.env.SSO_PASSWORD,
+            keyid: process.env.MANTA_KEY_ID,
+            privatekey: fs.readFileSync(process.env.HOME + '/.ssh/id_rsa',
+                                        'utf8')
+        };
+        var self = this;
+
+        getHttpAuthToken(opts, function (token) {
+            if (!token) {
+                t.ifError('Could not retrieve token');
+                t.end();
+                return;
+            }
+
+            var url = '/' + process.env.SSO_LOGIN + '/stor';
+            var _opts = {
+                headers: {
+                    'x-auth-token': token
+                },
+                path: url
+            };
+
+            self.rawClient.get(_opts, function (err, req) {
+                t.ifError(err);
+                if (err) {
+                    t.end();
+                    return;
+                }
+
+                req.once('result', function (err2, res) {
+                    t.ok(err2);
+                    if (!err2) {
+                        t.end();
+                        return;
+                    }
+                    t.equal(err2.statusCode === 401);
+                    t.end();
+                });
+            });
+        });
+    });
 }
 
 
