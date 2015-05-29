@@ -43,7 +43,7 @@
   },
   "storage": {
     "connectTimeout": 2000,
-    "lag": 86400,
+    "lag": 60000,
     "url": "tcp://{{STORAGE_MORAY_SHARD}}:2020",
     "multiDC": {{MUSKIE_MULTI_DC}}{{#MUSKIE_IGNORE_SIZE}},
     "ignoreSize": {{MUSKIE_IGNORE_SIZE}}{{/MUSKIE_IGNORE_SIZE}}
