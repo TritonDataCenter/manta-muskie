@@ -26,7 +26,7 @@ var CLI_OPTS = [
         type: 'string',
         help: 'Configuration file to use.',
         helpArg: 'FILE',
-        'default': path.resolve(__filename, '../etc/config.json')
+        'default': path.resolve(__dirname, '../etc/config.json')
     },
     {
         names: ['help', 'h'],
