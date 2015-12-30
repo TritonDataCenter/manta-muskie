@@ -10,7 +10,7 @@ apisections: Directories, Objects, Links, Compute, Jobs, SnapLinks
 -->
 
 <!--
-    Copyright (c) 2014, Joyent, Inc.
+    Copyright (c) 2015, Joyent, Inc.
 -->
 
 # REST API
@@ -51,15 +51,22 @@ over TLS.
 
 In most situations, you will only need to sign the lowercase `date: ` and value
 of the HTTP `Date` header using your SSH private key; doing this allows you to
-create interactive shell functions (see below).  All requests require an HTTP Authorization header where the scheme is `Signature`.
+create interactive shell functions (see below).  All requests require an HTTP
+Authorization header where the scheme is `Signature`.
 
 Full details are available in the `http signatures` specification, but a simple
 form is:
 
     Authorization: Signature keyId="/:login/keys/:fp",algorithm="rsa-sha256",signature="$base64_signature"
 
-The `keyId` for the service is always `/$your_joyent_login/keys/$ssh_fingerprint`,
-and the supported algorithms are: `rsa-sha1`, `rsa-sha256` and `dsa-sha`.
+The `keyId` for the service is always
+`/$your_joyent_login/keys/$ssh_fingerprint`, and the supported algorithms are:
+`rsa-sha1`, `rsa-sha256` and `dsa-sha`. The ssh key fingerprint must be a MD5
+fingerprint (ex. `a1:b2:c3:d4:e5:f6:a7:b8:c9:d0:e1:f2:a3:b4:c5:d6`)
+
+To make a request for an RBAC subuser, change the `keyId` for the signature to
+`/$your_joyent_login/$subuser_login/keys/$ssh_fingerprint`. To make a request
+using a RBAC role, include the HTTP header `Role`.
 
 ## Signed URLS
 
