@@ -59,7 +59,9 @@ form is:
     Authorization: Signature keyId="/:login/keys/:fp",algorithm="rsa-sha256",signature="$base64_signature"
 
 The `keyId` for the service is always `/$your_joyent_login/keys/$ssh_fingerprint`,
-and the supported algorithms are: `rsa-sha1`, `rsa-sha256` and `dsa-sha`.
+and the supported algorithms are: `rsa-sha1`, `rsa-sha256` and `dsa-sha`. The ssh key fingerprint must be a MD5 fingerprint (ex. `a1:b2:c3:d4:e5:f6:a7:b8:c9:d0:e1:f2:a3:b4:c5:d6`)
+
+To make a request for a subuser, change the `keyId` for the signature to `/$your_joyent_login/$subuser_login/keys/$ssh_fingerprint`. To make a request using a RBAC role, include the HTTP header `Role`.
 
 ## Signed URLS
 
