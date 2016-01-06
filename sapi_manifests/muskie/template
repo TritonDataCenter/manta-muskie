@@ -14,9 +14,9 @@
   "auth": {
     "url": "http://{{AUTH_SERVICE}}",
     "maxAuthCacheSize": 1000,
-    "maxAuthCacheAgeMs": 300,
+    "maxAuthCacheAgeMs": 300000,
     "maxTranslationCacheSize": 1000,
-    "maxTranslationCacheAgeMs": 300
+    "maxTranslationCacheAgeMs": 300000
   },
   "moray": {
     "connectTimeout": 2000,
