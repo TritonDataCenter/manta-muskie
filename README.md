@@ -34,6 +34,7 @@ prerequisites in your development environment:
    to Manta.  The manta-deployment zone includes a tool called add-dev-user that
    can be used to do this.  You can find it at
    /opt/smartdc/manta-deployment/tools/add-dev-user.
+   Note: You should not use the "poseidon" user for running the tests.
 2. The ssh key that you use to authenticate as this account should be
    passwordless.  It must also be stored locally, with the public key being
    called $HOME/.ssh/id\_rsa.pub.
@@ -124,6 +125,12 @@ check first before reporting problems:
 3. If a test fails with a message like "Error: MUSKIE\_SALT required", then
    check that you've specified the three MUSKIE environment variables described
    above.
+4. If a test fails due to authorization errors (perhaps while completing a job),
+   you may have an incorrect muskie configuration. Check that the MUSKIE\_ID,
+   MUSKIE\_KEY and MUSKIE\_IV attributes in your config.json match the environment
+   variables set for the user running the tests ($MANTA\_USER).
+
+
 
 If you're changing anything about the way muskie is deployed, configured, or
 started, you should definitely test creating a muskie image and deploying that

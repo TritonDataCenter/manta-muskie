@@ -225,6 +225,7 @@ function createPickerClient(cfg) {
             LOG.info('picker: reconnected %s', client.toString());
         });
         client.on('error', function (err) {
+            onError(err);
             LOG.warn(err, 'picker: error (reconnecting)');
         });
     }
