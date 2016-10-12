@@ -31,6 +31,23 @@
       "expiry": 30
     }
   },
+  "cueballHttpAgent": {
+    "resolver": ["nameservice.{{DOMAIN_NAME}}"],
+    "initialDomains": [
+      "{{AUTH_SERVICE}}"
+    ],
+    "spares": 4,
+    "maximum": 20,
+    "recovery": {
+      "default": {
+        "timeout": 2000,
+        "maxTimeout": 10000,
+        "retries": 5,
+        "delay": 250,
+        "maxDelay": 2000
+      }
+    }
+  },
   "medusa": {
     "moray": {
       "host": "{{ELECTRIC_MORAY}}",

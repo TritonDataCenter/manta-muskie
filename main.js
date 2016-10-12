@@ -28,6 +28,7 @@ var restify = require('restify');
 var vasync = require('vasync');
 var medusa = require('./lib/medusa');
 var keyapi = require('keyapi');
+var cueball = require('cueball');
 
 var app = require('./lib');
 
@@ -48,6 +49,7 @@ var LOG = bunyan.createLogger({
     } ],
     serializers: restify.bunyan.serializers
 });
+var AGENT;
 var MAHI;
 var MARLIN;
 var KEYAPI;
@@ -200,6 +202,10 @@ function usage(parser, message)
     process.exit(2);
 }
 
+function createCueballHttpAgent(cfg) {
+    AGENT = new cueball.HttpAgent(cfg);
+}
+
 function createPickerClient(cfg) {
     var opts = {
         connectTimeout: cfg.connectTimeout,
@@ -251,6 +257,7 @@ function createAuthCacheClient(options) {
     options.log = log;
 
     options.typeTable = options.typeTable || apertureConfig.typeTable || {};
+    options.agent = AGENT;
 
     MAHI = mahi.createClient(options);
 }
@@ -396,6 +403,7 @@ function version() {
 (function main() {
     var cfg = configure();
 
+    createCueballHttpAgent(cfg.cueballHttpAgent);
     createMarlinClient(cfg.marlin);
     createPickerClient(cfg.storage);
     createAuthCacheClient(cfg.auth);
