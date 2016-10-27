@@ -31,6 +31,30 @@
             "expiry": 30
         }
     },
+    "cueballHttpAgent": {
+        "resolver": ["nameservice.coal.joyent.us"],
+        "initialDomains": [
+          "authservice.coal.joyent.us"
+        ],
+        "spares": 8,
+        "maximum": 200,
+        "recovery": {
+          "default": {
+            "timeout": 2000,
+            "maxTimeout": 10000,
+            "retries": 5,
+            "delay": 250,
+            "maxDelay": 2000
+          },
+          "dns_srv": {
+            "timeout": 2000,
+            "maxTimeout": 10000,
+            "retries": 1,
+            "delay": 0,
+            "maxDelay": 0
+          }
+        }
+    },
     "medusa": {
         "moray": {
             "host": "electric-moray.coal.joyent.us",
@@ -49,11 +73,16 @@
     },
     "sharkConfig": {
         "connectTimeout": 2000,
-        "maxIdleTime": 1000,
+        "maxTimeout": 10000,
+        "delay": 250,
+        "maxIdleTime": 10000,
         "maxClients": 50,
         "retry": {
-            "retries": 2
-        }
+          "retries": 2
+        },
+        "spares": 2,
+        "maximum": 2000,
+        "resolver": ["nameservice.coal.joyent.us"]
     },
     "authToken": {
         "salt": "C93A670ACC05C166",

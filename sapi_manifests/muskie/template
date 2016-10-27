@@ -31,23 +31,102 @@
       "expiry": 30
     }
   },
+
+  {{!
+    These settings are used for the generic cueball HttpAgent. This is used
+    for talking to all HTTP APIs (in muskie's case, this means mahi)
+  }}
   "cueballHttpAgent": {
+
+    {{! Use "bootstrap" mode to find binder, then use it for lookups. }}
     "resolver": ["nameservice.{{DOMAIN_NAME}}"],
+
+    {{! Pre-populate pools to make startup faster. }}
     "initialDomains": [
       "{{AUTH_SERVICE}}"
     ],
-    "spares": 4,
-    "maximum": 20,
+
+    {{!
+      The spares value here should be larger than sharkConfig.spares, by
+      a factor probably >2, <10. Mahi connections are shared amongst all reqs
+      unlike shark connections, so we need more of them.
+    }}
+    "spares": 8,
+    {{!
+      We never want to hit this cap, so make it plenty big. This value (200) is
+      an order of magnitude above the max socket usage seen in lab tests.
+    }}
+    "maximum": 200,
+
     "recovery": {
       "default": {
+        {{!
+          Values less than 2s seem to yield lots of false failures. Cueball
+          will double the timeout until it hits maxTimeout.
+        }}
         "timeout": 2000,
         "maxTimeout": 10000,
+        {{!
+          Number of retries until the backend is declared "dead". 3-5 seems to
+          work well in SDC.
+        }}
         "retries": 5,
+        {{! Delay between retries, to space them out. }}
         "delay": 250,
         "maxDelay": 2000
+      },
+
+      {{!
+        No retries on DNS SRV lookups, because mahi currently registers itself
+        in DNS as a redis service, not HTTP. See MANTA-3017 and related bugs.
+      }}
+      "dns_srv": {
+        "timeout": 2000,
+        "maxTimeout": 10000,
+        "retries": 1,
+        "delay": 0,
+        "maxDelay": 0
       }
     }
   },
+
+  {{!
+    These settings are used to set up the per-shark cueball agent. This
+    manages connections from the muskie out to makos for storing/retrieving
+    actual object data.
+  }}
+  "sharkConfig": {
+    {{! These are translated into cueball recovery parameters. }}
+    "connectTimeout": 2000,
+    "maxTimeout": 10000,
+    "delay": 250,
+    "retry": {
+      "retries": 2
+    },
+
+    {{! Use bootstrap mode to find binder, same as for cueballHttpAgent. }}
+    "resolver": ["nameservice.{{DOMAIN_NAME}}"],
+
+    {{! TCP keepalive initial timeout. }}
+    "maxIdleTime": 10000,
+    "maxClients": 50,
+
+    {{!
+      We want spares to be small: for the sake of prudence we don't want lots
+      of idle sockets sitting around for no reason. We also want it to be large:
+      we want to be able to have a margin to soak up load transients. It was
+      originally proposed that this be set to 1, but this causes suffering under
+      transient load. The value 2 seems to work ok in the lab.
+    }}
+    "spares": 2,
+    {{!
+      This needs to be very high, as some requests to sharks may take a very
+      long time to complete (and this is normal). We need plenty of headroom
+      to make sure we don't queue requests unnecessarily.
+    }}
+    "maximum": 2000
+  },
+
   "medusa": {
     "moray": {
       "host": "{{ELECTRIC_MORAY}}",
@@ -64,14 +143,6 @@
     "url": "tcp://{{STORAGE_MORAY_SHARD}}:2020",
     "multiDC": {{MUSKIE_MULTI_DC}}{{#MUSKIE_IGNORE_SIZE}},
     "ignoreSize": {{MUSKIE_IGNORE_SIZE}}{{/MUSKIE_IGNORE_SIZE}}
-  },
-  "sharkConfig": {
-    "connectTimeout": 2000,
-    "maxIdleTime": 1000,
-    "maxClients": 50,
-    "retry": {
-      "retries": 2
-    }
   },
   "authToken": {
     "salt": "{{MUSKIE_JOB_TOKEN_AES_SALT}}",
