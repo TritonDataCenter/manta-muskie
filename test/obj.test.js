@@ -597,6 +597,15 @@ test('put parent not directory', function (t) {
 
 
 test('put too big', function (t) {
+    // Since MANTA-2510 we use multiDC=false and ignoreSize=true config for
+    // COAL. Therefore, this test will never throw a NotEnoughSpaceError but
+    // instead an UploadTimeoutError. Avoid running it if we find we're
+    // running in COAL:
+    if (process.env.SDC_URL && process.env.SDC_URL.indexOf('coal') !== -1) {
+        t.end();
+        return;
+    }
+
     var opts = {
         size: 1000000000000000,
         type: 'text/plain'
