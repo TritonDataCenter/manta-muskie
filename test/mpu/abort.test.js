@@ -87,13 +87,13 @@ test('abort upload: upload already aborted', function (t) {
             }
 
             self.abortUpload(self.uploadId, function (err3) {
-                if (ifErr(t, err, 'aborted upload')) {
+                if (ifErr(t, err3, 'aborted upload')) {
                     t.end();
                     return;
                 }
 
                 self.getUpload(self.uploadId, function (err4, upload) {
-                    if (ifErr(t, err, 'got upload')) {
+                    if (ifErr(t, err4, 'got upload')) {
                         t.end();
                         return;
                     }
@@ -129,10 +129,11 @@ test('abort upload: upload already committed', function (t) {
             self.abortUpload(self.uploadId, function (err3) {
                 t.ok(err3);
                 if (!err3) {
-                    return (t.end());
+                    t.end();
+                    return;
                 }
                 t.ok(verror.hasCauseWithName(err3,
-                    'InvalidMultipartUploadStateError'), err);
+                    'InvalidMultipartUploadStateError'), err3);
                 t.end();
             });
         });
