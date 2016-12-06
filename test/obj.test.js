@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2014, Joyent, Inc.
+ * Copyright (c) 2017, Joyent, Inc.
  */
 
 var crypto = require('crypto');
@@ -269,12 +269,13 @@ test('put object (3 copies)', function (t) {
 });
 
 
-test('put object (7 copies)', function (t) {
+// Default maximum is 9 copies.
+test('put object (10 copies)', function (t) {
     var stream = new MemoryStream();
     var text = 'The lazy brown fox \nsomething \nsomething foo';
     var size = Buffer.byteLength(text);
     var _opts = {
-        copies: 7,
+        copies: 10,
         size: size
     };
     process.nextTick(stream.end.bind(stream, text));
