@@ -11,3 +11,4 @@ cscope.out
 smf/manifests/*.xml
 *.tar.bz2
 *.log
+*.swp
