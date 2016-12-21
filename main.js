@@ -211,7 +211,7 @@ function createCueballHttpAgent(cfg, sharkCfg) {
 
     /* Used only for connections to sharks. */
     var sharkCueball = {
-        resolver: sharkCfg.resolver,
+        resolvers: sharkCfg.resolvers,
         spares: sharkCfg.spares,
         maximum: sharkCfg.maximum,
         linger: sharkCfg.maxIdleTime,

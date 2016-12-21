@@ -39,7 +39,7 @@
   "cueballHttpAgent": {
 
     {{! Use "bootstrap" mode to find binder, then use it for lookups. }}
-    "resolver": ["nameservice.{{DOMAIN_NAME}}"],
+    "resolvers": ["nameservice.{{DOMAIN_NAME}}"],
 
     {{! Pre-populate pools to make startup faster. }}
     "initialDomains": [
@@ -105,7 +105,7 @@
     },
 
     {{! Use bootstrap mode to find binder, same as for cueballHttpAgent. }}
-    "resolver": ["nameservice.{{DOMAIN_NAME}}"],
+    "resolvers": ["nameservice.{{DOMAIN_NAME}}"],
 
     {{! TCP keepalive initial timeout. }}
     "maxIdleTime": 10000,

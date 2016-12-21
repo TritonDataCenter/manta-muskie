@@ -32,7 +32,7 @@
         }
     },
     "cueballHttpAgent": {
-        "resolver": ["nameservice.coal.joyent.us"],
+        "resolvers": ["nameservice.coal.joyent.us"],
         "initialDomains": [
           "authservice.coal.joyent.us"
         ],
@@ -82,7 +82,7 @@
         },
         "spares": 2,
         "maximum": 2000,
-        "resolver": ["nameservice.coal.joyent.us"]
+        "resolvers": ["nameservice.coal.joyent.us"]
     },
     "authToken": {
         "salt": "C93A670ACC05C166",
