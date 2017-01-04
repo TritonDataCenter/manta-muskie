@@ -19,6 +19,7 @@
         "deep-equal": "0.0.0",
         "dtrace-provider": "0.2.8",
         "http-signature": "1.1.0",
+        "kang": "1.1.0",
         "keep-alive-agent": "0.0.1",
         "keyapi": "git+ssh://git@github.com:joyent/keyapi.git#c30dd2710ad2175095dc0e96479686fa774b8063",
         "libmanta": "git+ssh://git@github.com:joyent/node-libmanta.git#master",

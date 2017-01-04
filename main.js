@@ -29,6 +29,7 @@ var vasync = require('vasync');
 var medusa = require('./lib/medusa');
 var keyapi = require('keyapi');
 var cueball = require('cueball');
+var kang = require('kang');
 
 var app = require('./lib');
 
@@ -205,9 +206,11 @@ function usage(parser, message)
     process.exit(2);
 }
 
-function createCueballHttpAgent(cfg, sharkCfg) {
+function createCueballHttpAgent(cfg) {
+    var sharkCfg = cfg.sharkConfig;
+
     /* Used for connections to mahi and other services. */
-    AGENT = new cueball.HttpAgent(cfg);
+    AGENT = new cueball.HttpAgent(cfg.cueballHttpAgent);
 
     /* Used only for connections to sharks. */
     var sharkCueball = {
@@ -233,6 +236,24 @@ function createCueballHttpAgent(cfg, sharkCfg) {
         }
     };
     SHARKAGENT = new cueball.HttpAgent(sharkCueball);
+
+    /*
+     * Set up the cueball kang monitoring listener. This serves information
+     * about all the cueball Pools and Sets in the entire process. This includes
+     * those managed by the Agents we create here, but also the Moray client
+     * Sets.
+     */
+    var kangOpts = cueball.poolMonitor.toKangOptions();
+    kangOpts.port = cfg.port + 800;
+    /*
+     * Note that we can't use kang.knStartServer here, as kang's restify
+     * version does not match ours and the two will clobber each other.
+     */
+    var kangServer = restify.createServer({ serverName: 'Kang' });
+    kangServer.get(new RegExp('.*'), kang.knRestifyHandler(kangOpts));
+    kangServer.listen(kangOpts.port, '0.0.0.0', function () {
+        LOG.info('cueball kang monitor started on port %d', kangOpts.port);
+    });
 }
 
 function createPickerClient(cfg) {
@@ -432,7 +453,7 @@ function version() {
 (function main() {
     var cfg = configure();
 
-    createCueballHttpAgent(cfg.cueballHttpAgent, cfg.sharkConfig);
+    createCueballHttpAgent(cfg);
     createMarlinClient(cfg.marlin);
     createPickerClient(cfg.storage);
     createAuthCacheClient(cfg.auth);
