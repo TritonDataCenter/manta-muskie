@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2015, Joyent, Inc.
+ * Copyright (c) 2017, Joyent, Inc.
  */
 
 var fs = require('fs');
@@ -269,32 +269,10 @@ function createPickerClient(cfg) {
 
     var client = app.picker.createClient(opts);
 
-    function onConnect() {
-        client.removeListener('error', onError);
+    client.once('connect', function onConnect() {
         LOG.info('picker connected %s', client.toString());
         PICKER = client;
-
-        client.on('close', function () {
-            LOG.error('picker: connection closed (reconnecting)');
-        });
-        client.on('connect', function () {
-            LOG.info('picker: reconnected %s', client.toString());
-        });
-        client.on('error', function (err) {
-            onError(err);
-            LOG.warn(err, 'picker: error (reconnecting)');
-        });
-    }
-
-    function onError(err) {
-        client.removeListener('connect', onConnect);
-        LOG.error(err, 'picker: connection failed');
-        PICKER = null;
-        setTimeout(createPickerClient.bind(null, cfg), 1000);
-    }
-
-    client.once('connect', onConnect);
-    client.once('error', onError);
+    });
 }
 
 
@@ -408,15 +386,8 @@ function createMedusaConnector(opts) {
 
     var client = medusa.createConnector(opts);
 
-    client.once('error', function (err) {
-        log.error(err, 'medusa initialisation error');
-    });
-
     client.once('connect', function onConnect() {
-        client.removeAllListeners('error');
-
         log.info('medusa: connected');
-
         MEDUSA = client;
     });
 }
