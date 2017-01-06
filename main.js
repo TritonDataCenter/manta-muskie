@@ -258,12 +258,11 @@ function createCueballHttpAgent(cfg) {
 
 function createPickerClient(cfg) {
     var opts = {
-        connectTimeout: cfg.connectTimeout,
         interval: cfg.interval,
         lag: cfg.lag,
+        moray: cfg.moray,
         log: LOG.child({component: 'picker'}, true),
         multiDC: cfg.multiDC,
-        url: cfg.url,
         ignoreSize: cfg.ignoreSize
     };
 
@@ -349,9 +348,7 @@ function createMarlinClient(opts) {
 
 function createMorayClient(opts) {
     assert.object(opts, 'options');
-    assert.string(opts.host, 'options.host');
     assert.object(opts.log, 'options.log');
-    assert.number(opts.port, 'options.port');
 
     var log = LOG.child({component: 'moray'}, true);
     opts.log = log;
