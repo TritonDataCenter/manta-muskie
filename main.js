@@ -225,7 +225,7 @@ function createCueballHttpAgent(cfg) {
                 retries: sharkCfg.retry.retries,
                 timeout: sharkCfg.connectTimeout,
                 maxTimeout: sharkCfg.maxTimeout,
-                delay: sharkCfg.maxTimeout
+                delay: sharkCfg.delay
             },
             'dns_srv': {
                 retries: 0,

@@ -98,10 +98,10 @@
   "sharkConfig": {
     {{! These are translated into cueball recovery parameters. }}
     "connectTimeout": 2000,
-    "maxTimeout": 10000,
-    "delay": 250,
+    "maxTimeout": 30000,
+    "delay": 500,
     "retry": {
-      "retries": 2
+      "retries": 5
     },
 
     {{! Use bootstrap mode to find binder, same as for cueballHttpAgent. }}
