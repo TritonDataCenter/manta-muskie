@@ -77,8 +77,6 @@ function createAuthCacheClient(opts, cb) {
 
 function createMorayClient(opts, cb) {
     assert.object(opts, 'options');
-    assert.string(opts.host, 'options.host');
-    assert.number(opts.port, 'options.port');
     assert.func(cb, 'callback');
 
     var log = LOG.child({component: 'moray'}, true);
