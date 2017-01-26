@@ -301,7 +301,7 @@ function createKeyAPIClient(opts) {
 function createMarlinClient(opts) {
     var log = opts.log.child({component: 'marlin'}, true);
     var _opts = {
-        moray: opts,
+        moray: opts.moray,
         setup_jobs: true,
         log: log
     };

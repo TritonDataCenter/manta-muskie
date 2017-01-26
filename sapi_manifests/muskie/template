@@ -27,8 +27,12 @@
     }
   },
   "marlin": {
-    "connectTimeout": 2000,
-    "url": "tcp://{{MARLIN_MORAY_SHARD}}:2020",
+    "moray": {
+        "srvDomain": "{{MARLIN_MORAY_SHARD}}",
+        "cueballOptions": {
+            "resolvers": ["nameservice.{{DOMAIN_NAME}}"]
+        }
+    },
     "jobCache": {
       "size": 500,
       "expiry": 30

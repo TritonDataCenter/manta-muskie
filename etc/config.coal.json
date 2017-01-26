@@ -27,8 +27,12 @@
         }
     },
     "marlin": {
-        "connectTimeout": 2000,
-        "url": "tcp://1.moray.coal.joyent.us:2020",
+	"moray": {
+            "srvDomain": "1.moray.coal.joyent.us",
+            "cueballOptions": {
+                "resolvers": [ "nameservice.coal.joyent.us" ]
+            }
+	},
         "jobCache": {
             "size": 500,
             "expiry": 30
