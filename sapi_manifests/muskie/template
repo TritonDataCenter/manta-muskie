@@ -128,7 +128,7 @@
   },
 
   {{#MPU_ENABLE}}
-  "mpuEnable": true,
+  "enableMPU": true,
   {{/MPU_ENABLE}}
 
   "medusa": {
