@@ -127,6 +127,10 @@
     "maximum": 2000
   },
 
+  {{#MPU_ENABLE}}
+  "mpuEnable": true,
+  {{/MPU_ENABLE}}
+
   "medusa": {
     "moray": {
       "host": "{{ELECTRIC_MORAY}}",
@@ -164,4 +168,5 @@
       },
       "clientTimeout": 120000
   }
+
 }
