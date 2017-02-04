@@ -19,13 +19,20 @@
     "maxTranslationCacheAgeMs": 300000
   },
   "moray": {
-    "connectTimeout": 2000,
-    "host": "{{ELECTRIC_MORAY}}",
-    "port": 2020
+    "morayOptions": {
+        "srvDomain": "{{ELECTRIC_MORAY}}",
+        "cueballOptions": {
+            "resolvers": ["nameservice.{{DOMAIN_NAME}}"]
+        }
+    }
   },
   "marlin": {
-    "connectTimeout": 2000,
-    "url": "tcp://{{MARLIN_MORAY_SHARD}}:2020",
+    "moray": {
+        "srvDomain": "{{MARLIN_MORAY_SHARD}}",
+        "cueballOptions": {
+            "resolvers": ["nameservice.{{DOMAIN_NAME}}"]
+        }
+    },
     "jobCache": {
       "size": 500,
       "expiry": 30
@@ -133,8 +140,10 @@
 
   "medusa": {
     "moray": {
-      "host": "{{ELECTRIC_MORAY}}",
-      "port": 2020
+      "srvDomain": "{{ELECTRIC_MORAY}}",
+      "cueballOptions": {
+          "resolvers": ["nameservice.{{DOMAIN_NAME}}"]
+      }
     },
     "reflector": {
       "host": "{{MEDUSA_REFLECTOR}}",
@@ -142,11 +151,15 @@
     }
   },
   "storage": {
-    "connectTimeout": 2000,
     "lag": 60000,
-    "url": "tcp://{{STORAGE_MORAY_SHARD}}:2020",
     "multiDC": {{MUSKIE_MULTI_DC}}{{#MUSKIE_IGNORE_SIZE}},
-    "ignoreSize": {{MUSKIE_IGNORE_SIZE}}{{/MUSKIE_IGNORE_SIZE}}
+    "ignoreSize": {{MUSKIE_IGNORE_SIZE}}{{/MUSKIE_IGNORE_SIZE}},
+    "moray": {
+        "srvDomain": "{{STORAGE_MORAY_SHARD}}",
+        "cueballOptions": {
+            "resolvers": ["nameservice.{{DOMAIN_NAME}}"]
+        }
+    }
   },
   "authToken": {
     "salt": "{{MUSKIE_JOB_TOKEN_AES_SALT}}",

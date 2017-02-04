@@ -19,13 +19,20 @@
         "maxTranslationCacheAgeMs": 300
     },
     "moray": {
-        "connectTimeout": 2000,
-        "host": "electric-moray.coal.joyent.us",
-        "port": 2020
+        "morayOptions": {
+            "srvDomain": "electric-moray.coal.joyent.us",
+            "cueballOptions": {
+                "resolvers": [ "nameservice.coal.joyent.us" ]
+            }
+        }
     },
     "marlin": {
-        "connectTimeout": 2000,
-        "url": "tcp://1.moray.coal.joyent.us:2020",
+	"moray": {
+            "srvDomain": "1.moray.coal.joyent.us",
+            "cueballOptions": {
+                "resolvers": [ "nameservice.coal.joyent.us" ]
+            }
+	},
         "jobCache": {
             "size": 500,
             "expiry": 30
@@ -57,8 +64,10 @@
     },
     "medusa": {
         "moray": {
-            "host": "electric-moray.coal.joyent.us",
-            "port": 2020
+          "srvDomain": "electric-moray.coal.joyent.us",
+          "cueballOptions": {
+              "resolvers": ["nameservice.coal.joyent.us"]
+          }
         },
         "reflector": {
             "host": "medusa.coal.joyent.us",
@@ -66,10 +75,14 @@
         }
     },
     "storage": {
-        "connectTimeout": 2000,
         "lag": 86400,
-        "url": "tcp://1.moray.coal.joyent.us:2020",
-        "multiDC": false
+        "multiDC": false,
+        "moray": {
+            "srvDomain": "1.moray.coal.joyent.us",
+            "cueballOptions": {
+                "resolvers": ["nameservice.coal.joyent.us"]
+            }
+        }
     },
     "sharkConfig": {
         "connectTimeout": 2000,
