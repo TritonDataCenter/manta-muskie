@@ -6,7 +6,7 @@
 -->
 
 <!--
-    Copyright (c) 2014, Joyent, Inc.
+    Copyright (c) 2017, Joyent, Inc.
 -->
 
 <html lang="en">
@@ -40,7 +40,7 @@
 </head>
 <body>
 <div id="header">
-    <div class="logo"><a href="http://joyent.com"><img src="%(mediaroot)s/img/logo.svg"></a></div>
-    <h1>Manta Documentation</h1>
-    <a class="dev-center" href="http://joyent.com/developers"><span>For More Documentation and Support</span><br>Visit the Joyent Dev Center</a>
+    <div class="logo"><a href="https://joyent.com"><img src="%(mediaroot)s/img/logo.svg"></a></div>
+    <h1>Object Storage and Converged Analytics</h1>
+    <a class="dev-center" href="https://www.joyent.com/getting-started"><span>For More Documentation and Support</span><br>Visit the Getting Started page</a>
 </div>
