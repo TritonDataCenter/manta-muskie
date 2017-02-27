@@ -5,7 +5,7 @@
 -->
 
 <!--
-    Copyright (c) 2015, Joyent, Inc.
+    Copyright (c) 2017, Joyent, Inc.
 -->
 
 # manta-muskie: The Manta WebAPI
@@ -19,8 +19,9 @@ manta-muskie holds the source code for the Manta WebAPI, otherwise known as
 docs for API information, but effectively this is where you go to call
 PUT/GET/DEL on your stuff, as well as to submit and control compute jobs.
 
-API, design and developer documentation are in the `docs` directory as
-[restdown](https://github.com/trentm/restdown) files.
+API documentation is in [docs/index.md](./docs/index.md).  Some design
+documentation (possibly quite dated) is in [docs/internal](./docs/internal).
+Developer notes are in this README.
 
 
 ## Testing
@@ -130,8 +131,40 @@ check first before reporting problems:
    MUSKIE\_KEY and MUSKIE\_IV attributes in your config.json match the environment
    variables set for the user running the tests ($MANTA\_USER).
 
-
-
 If you're changing anything about the way muskie is deployed, configured, or
 started, you should definitely test creating a muskie image and deploying that
 into your Manta.  This is always a good idea anyway.
+
+
+## Notes on DNS and service discovery
+
+Like most other components in Triton and Manta, Muskie (deployed with service
+name "webapi") uses [Registrar](https://github.com/joyent/registrar/) to
+register its instances in internal DNS so that other components can find them.
+The general mechanism is [documented in detail in the Registrar
+README](https://github.com/joyent/registrar/blob/master/README.md).  There are
+some quirks worth noting about how Muskie uses this mechanism.
+
+First, while most components use local config-agent manifests that are checked
+into the component repository (e.g., `$repo_root/sapi_manifest/registrar`),
+Muskie still uses an application-provided SAPI manifest.  See
+[MANTA-3173](https://smartos.org/bugview/MANTA-3173) for details.
+
+Second, Muskie registers itself with DNS domain `manta.$dns_suffix` (where
+`$dns_suffix` is the DNS suffix for the whole deployment).  This is the same DNS
+name that the "loadbalancer" service uses for its instances.  If you look up
+`manta.$dns_suffix` in a running Manta deployment, you get back the list of
+"loadbalancer" instances -- not any of the "webapi" (muskie) instances.  That's
+because "loadbalancer" treats this like an ordinary service registration with a
+service record at `manta.$dns_suffix` and `load_balancer` records underneath
+that that represent individual instances of the `manta.$dns_suffix` service, but
+"webapi" registers `host` records underneath that domain.  As the
+above-mentioned Registrar docs explain, `host` records are not included in DNS
+results when a client queries for the service DNS name.  They can only be used
+to query for the IP address of a specific instance.  **The net result of all
+this is that you can find the IP address of a Muskie zone whose zonename you
+know by querying for `$zonename.manta.$dns_suffix`, but there is no way to
+enumerate the Muskie instances using DNS, nor is there a way to add that without
+changing the DNS name for webapi instances, which would be a flag day for
+Muppet.**  (This may explain why [muppet](https://github.com/joyent/muppet) is a
+ZooKeeper consumer rather than just a DNS client.)
