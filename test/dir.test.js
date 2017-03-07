@@ -199,11 +199,11 @@ test('ls top', function (t) {
             t.ok(http_res);
             t.checkResponse(http_res, 200);
             t.equal(0, objs.length);
-            t.equal(4, dirs.length);
+            t.equal(5, dirs.length);
             var names = dirs.map(function (d) {
                 return (d.name);
             }).sort();
-            t.deepEqual(['jobs', 'public', 'reports', 'stor'],
+            t.deepEqual(['jobs', 'public', 'reports', 'stor', 'uploads'],
                         names);
             t.end();
         });
@@ -238,11 +238,11 @@ test('ls top with marker', function (t) {
             t.ok(http_res);
             t.checkResponse(http_res, 200);
             t.equal(0, objs.length);
-            t.equal(2, dirs.length);
+            t.equal(3, dirs.length);
             var names = dirs.map(function (d) {
                 return (d.name);
             }).sort();
-            t.deepEqual(['reports', 'stor'], names);
+            t.deepEqual(['reports', 'stor', 'uploads'], names);
             t.end();
         });
     });
