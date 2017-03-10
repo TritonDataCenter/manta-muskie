@@ -68,6 +68,7 @@ function createClient() {
             user: process.env.MANTA_USER || 'admin'
         }),
         rejectUnauthorized: false,
+        subuser: process.env.MANTA_SUBUSER,
         url: process.env.MANTA_URL || 'http://localhost:8080',
         user: process.env.MANTA_USER || 'admin'
     });

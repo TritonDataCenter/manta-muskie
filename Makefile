@@ -91,7 +91,7 @@ CLEAN_FILES += $(NODEUNIT) ./node_modules/.bin/nodeunit cover_html .coverage_dat
 
 .PHONY: test
 test: all
-	$(NODEUNIT) test/*.test.js
+	$(NODEUNIT) test/*.test.js test/mpu/*.test.js
 
 .PHONY: cover
 cover: $(NODECOVER)
