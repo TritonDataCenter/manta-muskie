@@ -215,10 +215,17 @@ function createCueballHttpAgent(cfg) {
     /* Used only for connections to sharks. */
     var sharkCueball = {
         resolvers: sharkCfg.resolvers,
+
         spares: sharkCfg.spares,
         maximum: sharkCfg.maximum,
-        linger: sharkCfg.maxIdleTime,
+        /*
+         * Note that this path doesn't actually have to be handled by the
+         * authcache (any non-5xx response code is accepted, e.g. 404 is fine).
+         */
+        ping: '/ping',
+        pingInterval: sharkCfg.pingInterval,
         tcpKeepAliveInitialDelay: sharkCfg.maxIdleTime,
+
         log: sharkCfg.log,
         recovery: {
             default: {
@@ -227,6 +234,10 @@ function createCueballHttpAgent(cfg) {
                 maxTimeout: sharkCfg.maxTimeout,
                 delay: sharkCfg.delay
             },
+            /*
+             * Avoid SRV retries, since authcache doesn't currently register
+             * any useable SRV records for HTTP (it only registers redis)
+             */
             'dns_srv': {
                 retries: 0,
                 timeout: sharkCfg.connectTimeout,
