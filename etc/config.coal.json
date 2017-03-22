@@ -43,6 +43,8 @@
         "initialDomains": [
           "authservice.coal.joyent.us"
         ],
+        "pingInterval": 60000,
+        "tcpKeepAliveInitialDelay": 10000,
         "spares": 8,
         "maximum": 200,
         "recovery": {
@@ -90,6 +92,7 @@
         "delay": 250,
         "maxIdleTime": 10000,
         "maxClients": 50,
+        "pingInterval": 14400000,
         "retry": {
           "retries": 2
         },

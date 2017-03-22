@@ -54,6 +54,21 @@
     ],
 
     {{!
+      Make sure that if a socket is left idle for >60sec, a dummy "ping"
+      request is made on it. This stops the node.js 2-minute server socket
+      timeout on the authcache side from closing our sockets (and potentially
+      racing with our use of that socket).
+    }}
+    "pingInterval": 60000,
+
+    {{!
+      Separately, we want to enable TCP-level keep-alives on the sockets, to
+      ensure that we notice quickly if an entire CN running an authcache panics
+      or is netsplit from us, to avoid handing it requests that will fail.
+    }}
+    "tcpKeepAliveInitialDelay": 10000,
+
+    {{!
       The spares value here should be larger than sharkConfig.spares, by
       a factor probably >2, <10. Mahi connections are shared amongst all reqs
       unlike shark connections, so we need more of them.
@@ -117,6 +132,9 @@
     {{! TCP keepalive initial timeout. }}
     "maxIdleTime": 10000,
     "maxClients": 50,
+
+    {{! nginx has much longer max idle times than node.js }}
+    "pingInterval": 14400000,
 
     {{!
       We want spares to be small: for the sake of prudence we don't want lots
