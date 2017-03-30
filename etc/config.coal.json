@@ -9,6 +9,7 @@
     },
     "maxObjectCopies": 6,
     "maxRequestAge": 600,
+    "enableMPU": true,
     "numWorkers": 4,
     "port": 8080,
     "auth": {
