@@ -59,6 +59,7 @@
       timeout on the authcache side from closing our sockets (and potentially
       racing with our use of that socket).
     }}
+    "ping": "/ping",
     "pingInterval": 60000,
 
     {{!
@@ -134,6 +135,7 @@
     "maxClients": 50,
 
     {{! nginx has much longer max idle times than node.js }}
+    "ping": "/ping",
     "pingInterval": 14400000,
 
     {{!

@@ -222,7 +222,7 @@ function createCueballHttpAgent(cfg) {
          * Note that this path doesn't actually have to be handled by the
          * authcache (any non-5xx response code is accepted, e.g. 404 is fine).
          */
-        ping: '/ping',
+        ping: sharkCfg.ping,
         pingInterval: sharkCfg.pingInterval,
         tcpKeepAliveInitialDelay: sharkCfg.maxIdleTime,
 
