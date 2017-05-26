@@ -519,6 +519,79 @@ test('ls with obj and dir', function (t) {
 });
 
 
+test('ls escapes path', function (t) {
+    var self = this;
+    var key = this.dir + '/*needs=(escaping)';
+    this.client.mkdir(key, function (err, res) {
+        t.ifError(err);
+        t.ok(res);
+        t.checkResponse(res, 204);
+        self.client.ls(key, function (err2, res2) {
+            t.ifError(err2);
+            t.ok(res2);
+
+            res2.once('error', function (err3) {
+                t.ifError(err3);
+                t.end();
+            });
+            res2.once('end', function (http_res) {
+                t.ok(http_res);
+                t.checkResponse(http_res, 200);
+                t.end();
+            });
+        });
+    });
+});
+
+
+test('ls escapes marker', function (t) {
+    var self = this;
+    var key = 'needs)*(=escaping';
+    var files = ['aaa', key, 'zzz'];
+    vasync.pipeline({
+        funcs: files.map(function (file) {
+            return function (_, cb) {
+                var path = self.dir + '/' + file;
+                writeObject(self.client, path, cb);
+            };
+        })
+    }, function (verr) {
+        t.ifError(verr);
+        self.client.ls(self.dir, { marker: key }, function (err, res) {
+            t.ifError(err);
+            t.ok(res);
+
+            var objs = [];
+
+            res.on('object', function (obj) {
+                t.ok(obj, 'fail, no obj!');
+                objs.push(obj);
+            });
+
+            res.on('directory', function (dir) {
+                t.ok(!dir, 'fail, unexpected dir!');
+            });
+
+            res.once('error', function (err2) {
+                t.ifError(err2);
+                t.end();
+            });
+
+            res.once('end', function (http_res) {
+                t.ok(http_res);
+                t.checkResponse(http_res, 200);
+                t.equal(2, objs.length);
+                var names = objs.map(function (d) {
+                    return (d.name);
+                }).sort();
+                t.deepEqual([key, 'zzz'], names);
+                t.end();
+            });
+        });
+    });
+});
+
+
 test('ls 404', function (t) {
     this.client.ls(this.dir + '/' + uuid.v4(), function (err, res) {
         t.ok(err);
