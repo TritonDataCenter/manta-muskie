@@ -43,8 +43,8 @@ prerequisites in your development environment:
    instances that you're testing with.  The SDC and Manta variables should refer
    to the same user account, and they should both refer to the ssh key stored in
    $HOME/.ssh/id\_rsa.pub mentioned above.
-4. Before running the tests, you must set the MUSKIE\_SALT, MUSKIE\_KEY, and
-   MUSKIE\_IV environment variables to the same values being used for the muskie
+4. Before running the tests, you must set the `MUSKIE_SALT`, `MUSKIE_KEY`, and
+   `MUSKIE_IV` environment variables to the same values being used for the muskie
    instances in your existing Manta installation.  You can find these values in
    SAPI, using:
 
@@ -63,24 +63,24 @@ prerequisites in your development environment:
       Manta components.
 
    b. Replace the "salt", "key", and "iv" values in the "authToken" section with
-      the corresponding MUSKIE\_ configuration variables described in step 4
+      the corresponding `MUSKIE_` configuration variables described in step 4
       above.
 
 In summary, you should make sure these environment variables are set properly:
 
 | **Environment variable** | **Details** |
 | ------------------------ | ----------- |
-| MANTA\_URL               | points to port 8080 the instance of muskie that you're testing |
-| MANTA\_USER              | refers to your non-operator user created above |
-| MANTA\_KEY\_ID           | refers to a passwordless ssh key in $HOME/.ssh/id\_rsa |
-| MANTA\_TLS\_INSECURE     | usually 1 in an environment with self-signed certificates |
-| SDC\_URL                 | points to the SDC deployment that you're using to test |
-| SDC\_ACCOUNT             | same value as MANTA\_USER |
-| SDC\_KEY\_ID             | same value as MANTA\_KEY\_ID |
-| SDC\_TESTING             | analogous to MANTA\_TLS\_INSECURE, but for SDC |
-| MUSKIE\_IV               | from values in SAPI (see above) |
-| MUSKIE\_KEY              | from values in SAPI (see above) |
-| MUSKIE\_SALT             | from values in SAPI (see above) |
+| `MANTA_URL`               | points to port 8080 the instance of muskie that you're testing |
+| `MANTA_USER`              | refers to your non-operator user created above |
+| `MANTA_KEY_ID`            | refers to a passwordless ssh key in $HOME/.ssh/id\_rsa |
+| `MANTA_TLS_INSECURE `     | usually 1 in an environment with self-signed certificates |
+| `SDC_URL`                 | points to the SDC deployment that you're using to test |
+| `SDC_ACCOUNT`             | same value as `MANTA_USER` |
+| `SDC_KEY_ID`              | same value as `MANTA_KEY_ID` |
+| `SDC_TESTING`             | analogous to `MANTA_TLS_INSECURE`, but for SDC |
+| `MUSKIE_IV`               | from values in SAPI (see above) |
+| `MUSKIE_KEY`              | from values in SAPI (see above) |
+| `MUSKIE_SALT`             | from values in SAPI (see above) |
 
 On a test system called "emy-10.joyent.us", these may look like this:
 
@@ -95,8 +95,8 @@ On a test system called "emy-10.joyent.us", these may look like this:
 
 To run the tests:
 
-1. Run "make" to build muskie.  This will pull down the correct Node executable
-   for your platform and your version of muskie and then "npm install" dependent
+1. Run `make` to build muskie.  This will pull down the correct Node executable
+   for your platform and your version of muskie and then `npm install` dependent
    modules.
 2. Configure your user account for access control by running:
 
@@ -109,7 +109,7 @@ To run the tests:
 
         $ build/node/bin/node main.js -f etc/config.json
 
-4. Run "make test".  (Due to
+4. Run `make test`.  (Due to
    [npm issue #4191](https://github.com/npm/npm/issues/4191), this step always
    reinstalls several dependencies.)
 
@@ -118,18 +118,21 @@ version of #master, please let us know.  There are are a couple of things to
 check first before reporting problems:
 
 1. If a test fails that has a name like "(fails if MANTA\_USER is operator)",
-   then check to see that your MANTA\_USER is indeed **not** an operator.
+   then check to see that your `MANTA_USER` is indeed **not** an operator.
 2. If a test fails with an InvalidRoleTag error, whose message may say something
    like 'Role tag "muskie\_test\_role\_default" is invalid.', then check that
    you ran the acsetup script described above for the user that you're using.
    (Note that you may see some other muskie\_test\_role in the message.)
 3. If a test fails with a message like "Error: MUSKIE\_SALT required", then
-   check that you've specified the three MUSKIE environment variables described
+   check that you've specified the three `MUSKIE_` environment variables described
    above.
 4. If a test fails due to authorization errors (perhaps while completing a job),
-   you may have an incorrect muskie configuration. Check that the MUSKIE\_ID,
-   MUSKIE\_KEY and MUSKIE\_IV attributes in your config.json match the environment
-   variables set for the user running the tests ($MANTA\_USER).
+   you may have an incorrect muskie configuration. Check that the `MUSKIE_ID`,
+   `MUSKIE_KEY` and `MUSKIE_IV` attributes in your config.json match the environment
+   variables set for the user running the tests (`$MANTA_USER`).
+5. If the "rmdir mpuRoot" and "ls top" tests fail, MPU may not be enabled. If
+   you recently upgraded from a pre-MPU muskie version, ensure the line
+   '"enableMPU": true' is present in your config.json.
 
 If you're changing anything about the way muskie is deployed, configured, or
 started, you should definitely test creating a muskie image and deploying that
