@@ -35,23 +35,28 @@ prerequisites in your development environment:
    to Manta.  The manta-deployment zone includes a tool called add-dev-user that
    can be used to do this.  You can find it at
    /opt/smartdc/manta-deployment/tools/add-dev-user.
-   Note: You should not use the "poseidon" user for running the tests.
 2. The ssh key that you use to authenticate as this account should be
    passwordless.  It must also be stored locally, with the public key being
    called $HOME/.ssh/id\_rsa.pub.
-3. Your SDC and Manta environment variables should point at the SDC and Manta
+3. Some tests also require an operator account to test with.  By default, the
+   tests will use the "poseidon" account, but you must provide a valid private
+   key for the poseidon account at `$HOME/.ssh/id_rsa_poseidon`.
+   Optionally, you can provide a separate operator SDC account by setting
+   `MUSKIETEST_OPERATOR_USER` and the location of its private key at
+   `MUSKIETEST_OPERATOR_KEYFILE` in your environment.
+4. Your SDC and Manta environment variables should point at the SDC and Manta
    instances that you're testing with.  The SDC and Manta variables should refer
    to the same user account, and they should both refer to the ssh key stored in
    $HOME/.ssh/id\_rsa.pub mentioned above.
-4. Before running the tests, you must set the `MUSKIE_SALT`, `MUSKIE_KEY`, and
-   `MUSKIE_IV` environment variables to the same values being used for the
-   muskie instances in your existing Manta installation.  You can find these
-   values in SAPI, using:
+5. Before running the tests, you must set the `MUSKIE_SALT`, `MUSKIE_KEY`, and
+   `MUSKIE_IV` environment variables to the same values being used for the muskie
+   instances in your existing Manta installation.  You can find these values in
+   SAPI, using:
 
         sdc-sapi /services?application_uuid="$(sdc-sapi \
             /applications?name=manta | json -H application_uuid)&name=webapi" |
             json -H -a metadata
-5. You'll need to create a muskie configuration file that's appropriate for your
+6. You'll need to create a muskie configuration file that's appropriate for your
    environment.  The easiest way to do this is to copy "etc/config.coal.json" in
    this repo into a new file "config.json".  Then:
 
@@ -81,6 +86,8 @@ In summary, you should make sure these environment variables are set properly:
 | `MANTA_USER`              | refers to your non-operator user created above |
 | `MANTA_KEY_ID`            | refers to a passwordless ssh key in $HOME/.ssh/id\_rsa |
 | `MANTA_TLS_INSECURE `     | usually 1 in an environment with self-signed certificates |
+| `MUSKIETEST_OPERATOR_USER`| operator account for testing (optional, "poseidon" used by default) |
+| `MUSKIETEST_OPERATOR_KEYFILE` | path to a passwordless ssh key for `MUSKIETEST_OPERATOR_USER` (optional, `$HOME/.ssh/id_rsa_poseidon` used by default) |
 | `SDC_URL`                 | points to the SDC deployment that you're using to test |
 | `SDC_ACCOUNT`             | same value as `MANTA_USER` |
 | `SDC_KEY_ID`              | same value as `MANTA_KEY_ID` |

@@ -11,9 +11,12 @@
 var assert = require('assert-plus');
 var crypto = require('crypto');
 var jsprim = require('jsprim');
+var fs = require('fs');
+var manta = require('manta');
 var MemoryStream = require('stream').PassThrough;
 var obj = require('../../lib/obj');
 var path = require('path');
+var sshpk = require('sshpk');
 var util = require('util');
 var uuid = require('node-uuid');
 
@@ -41,6 +44,14 @@ var ZERO_BYTE_MD5 = obj.ZERO_BYTE_MD5;
 var TEXT = 'The lazy brown fox \nsomething \nsomething foo';
 var TEXT_MD5 = crypto.createHash('md5').update(TEXT).digest('base64');
 
+/*
+ * We need an operator account for some tests, so we use poseidon, unless an
+ * alternate one is provided.
+ */
+var TEST_OPERATOR = process.env.MUSKIETEST_OPERATOR_USER || 'poseidon';
+var TEST_OPERATOR_KEY = process.env.MUSKIETEST_OPERATOR_KEYFILE ||
+        (process.env.HOME + '/.ssh/id_rsa_poseidon');
+
 
 ///--- Helpers
 
@@ -60,6 +71,8 @@ function initMPUTester(tcb) {
 
     self.client = testHelper.createClient();
     self.userClient = testHelper.createUserClient('muskie_test_user');
+    self.operatorClient = createOperatorClient(TEST_OPERATOR,
+        TEST_OPERATOR_KEY);
 
     self.uploadsRoot = '/' + self.client.user + '/uploads';
     self.root = '/' + self.client.user + '/stor';
@@ -74,36 +87,36 @@ function initMPUTester(tcb) {
 
     // Thin wrappers around the MPU API.
     self.createUpload = function create(p, headers, cb) {
-        createUploadHelper.call(self, p, headers, false, cb);
+        createUploadHelper.call(self, p, headers, self.client, cb);
     };
     self.abortUpload = function abort(id, cb) {
-        abortUploadHelper.call(self, id, false, cb);
+        abortUploadHelper.call(self, id, self.client, cb);
     };
     self.commitUpload = function commit(id, etags, cb) {
-        commitUploadHelper.call(self, id, etags, false, cb);
+        commitUploadHelper.call(self, id, etags, self.client, cb);
     };
     self.getUpload = function get(id, cb) {
-        getUploadHelper.call(self, id, false, cb);
+        getUploadHelper.call(self, id, self.client, cb);
     };
     self.writeTestObject = function writeObject(id, partNum, cb) {
-        writeObjectHelper.call(self, id, partNum, TEXT, false, cb);
+        writeObjectHelper.call(self, id, partNum, TEXT, self.client, cb);
     };
 
     // Wrappers using subusers as the caller.
     self.createUploadSubuser = function createSubuser(p, headers, cb) {
-        createUploadHelper.call(self, p, headers, true, cb);
+        createUploadHelper.call(self, p, headers, self.userClient, cb);
     };
     self.abortUploadSubuser = function abortSubuser(id, cb) {
-        abortUploadHelper.call(self, id, true, cb);
+        abortUploadHelper.call(self, id, self.userClient, cb);
     };
     self.commitUploadSubuser = function commitSubuser(id, etags, cb) {
-        commitUploadHelper.call(self, id, etags, true, cb);
+        commitUploadHelper.call(self, id, etags, self.userClient, cb);
     };
     self.getUploadSubuser = function getSubuser(id, cb) {
-        getUploadHelper.call(self, id, true, cb);
+        getUploadHelper.call(self, id, self.userClient, cb);
     };
     self.writeTestObjectSubuser = function writeObjectSubuser(id, partNum, cb) {
-        writeObjectHelper.call(self, id, partNum, TEXT, true, cb);
+        writeObjectHelper.call(self, id, partNum, TEXT, self.userClient, cb);
     };
 
    /*
@@ -192,6 +205,38 @@ function cleanupMPUTester(cb) {
 
 
 /*
+ * Helper to create a Manta client for the operator account.
+ *
+ * Parameters:
+ *  - user: the operator account
+ *  - keyFile: local path to the private key for this account
+ */
+function createOperatorClient(user, keyFile) {
+    var key = fs.readFileSync(keyFile);
+    var keyId = sshpk.parseKey(key, 'auto').fingerprint('md5').toString();
+
+    var log = testHelper.createLogger();
+    var client = manta.createClient({
+        agent: false,
+        connectTimeout: 2000,
+        log: log,
+        retry: false,
+        sign: manta.privateKeySigner({
+            key: key,
+            keyId: keyId,
+            log: log,
+            user: user
+        }),
+        rejectUnauthorized: false,
+        url: process.env.MANTA_URL || 'http://localhost:8080',
+        user: user
+    });
+
+    return (client);
+}
+
+
+/*
  * Helper that creates an upload and passes the object returned from `create`
  * to the callback. On success, it will do a basic sanity check on the object
  * returned by create using the tester.
@@ -199,12 +244,13 @@ function cleanupMPUTester(cb) {
  * Parameters:
  *  - p: the target object path to pass to `create`
  *  - h: a headers object to pass to `create`
- *  - subuser: bool representing whether to try with a subuser
+ *  - client: client to use for the request
  *  - cb: callback of the form cb(err, object)
  */
-function createUploadHelper(p, h, subuser, cb) {
+function createUploadHelper(p, h, client, cb) {
     var self = this;
     assert.object(self);
+    assert.object(client);
     assert.func(cb);
 
     var opts = {
@@ -214,11 +260,6 @@ function createUploadHelper(p, h, subuser, cb) {
         },
         path: self.uploadsRoot
     };
-
-    var client = self.client;
-    if (subuser) {
-        client = self.userClient;
-    }
 
     client.signRequest({
         headers: opts.headers
@@ -260,20 +301,15 @@ function createUploadHelper(p, h, subuser, cb) {
  *
  * Parameters:
  *  - id: the upload ID to `get`
- *  - subuser: bool representing whether to try with a subuser
+ *  - client: client to use for the request
  *  - cb: callback of the form cb(err, upload)
  */
-function getUploadHelper(id, subuser, cb) {
+function getUploadHelper(id, client, cb) {
     var self = this;
     assert.object(self);
     assert.string(id);
-    assert.bool(subuser);
+    assert.object(client);
     assert.func(cb);
-
-    var client = self.client;
-    if (subuser) {
-        client = self.userClient;
-    }
 
     var opts = {
         account: self.client.user,
@@ -300,20 +336,15 @@ function getUploadHelper(id, subuser, cb) {
  *
  * Parameters:
  *  - id: the upload ID
- *  - subuser: bool representing whether to try with a subuser
+ *  - client: client to use for the request
  *  - cb: callback of the form cb(err)
  */
-function abortUploadHelper(id, subuser, cb) {
+function abortUploadHelper(id, client, cb) {
     var self = this;
     assert.object(self);
     assert.string(id);
-    assert.bool(subuser);
+    assert.object(client);
     assert.func(cb);
-
-    var client = self.client;
-    if (subuser) {
-        client = self.userClient;
-    }
 
     var opts = {
         account: self.client.user,
@@ -338,20 +369,15 @@ function abortUploadHelper(id, subuser, cb) {
  * Parameters:
  *  - id: the upload ID
  *  - etags: an array of etags representing parts to commit
- *  - subuser: bool representing whether to try with a subuser
+ *  - client: client to use for the request
  *  - cb: callback of the form cb(err)
  */
-function commitUploadHelper(id, etags, subuser, cb) {
+function commitUploadHelper(id, etags, client, cb) {
     var self = this;
     assert.object(self);
     assert.string(id);
-    assert.bool(subuser);
+    assert.object(client);
     assert.func(cb);
-
-    var client = self.client;
-    if (subuser) {
-        client = self.userClient;
-    }
 
     var opts = {
         account: self.client.user,
@@ -376,18 +402,15 @@ function commitUploadHelper(id, etags, subuser, cb) {
  *  - id: the upload ID
  *  - partNum: the part number
  *  - string: string representing the object data
- *  - subuser: bool representing whether to try with a subuser
+ *  - client: client to use for the request
  *  - cb: callback of the form cb(err, res)
  */
-function writeObjectHelper(id, partNum, string, subuser, cb) {
+function writeObjectHelper(id, partNum, string, client, cb) {
     var self = this;
     assert.object(self);
     assert.string(string);
-
-    var client = self.client;
-    if (subuser) {
-        client = self.userClient;
-    }
+    assert.object(client);
+    assert.func(cb);
 
     var opts = {
         account: self.client.user,
