@@ -291,8 +291,10 @@ test('auth caller not found', function (t) {
     rawRequest(opts, function (err, _, __, obj) {
         t.ok(err);
         t.equal(err.statusCode, 403);
-        t.equal(err.restCode, 'AccountDoesNotExist');
+        t.equal(err.restCode, 'InvalidCredentials');
         t.ok(err.message);
+        t.strictEqual(err.message.indexOf('AccountDoesNotExist'), -1);
+        this.firstCredError = err.message;
         t.end();
     });
 });
@@ -310,8 +312,9 @@ test('auth key not found', function (t) {
     rawRequest(opts, function (err, _, __, obj) {
         t.ok(err);
         t.equal(err.statusCode, 403);
-        t.equal(err.restCode, 'KeyDoesNotExist');
+        t.equal(err.restCode, 'InvalidCredentials');
         t.ok(err.message);
+        t.strictEqual(err.message, this.firstCredError);
         t.end();
     });
 });
@@ -327,8 +330,9 @@ test('signature invalid', function (t) {
     rawRequest(opts, function (err, _, __, obj) {
         t.ok(err);
         t.equal(err.statusCode, 403);
-        t.equal(err.restCode, 'InvalidSignature');
+        t.equal(err.restCode, 'InvalidCredentials');
         t.ok(err.message);
+        t.strictEqual(err.message, this.firstCredError);
         t.end();
     });
 });
@@ -416,7 +420,7 @@ test('presigned URL invalid signature', function (t) {
         rawRequest(path, function (err2, req, res, obj) {
             t.ok(err2);
             t.equal(res.statusCode, 403);
-            t.equal(obj.code, 'InvalidSignature');
+            t.equal(obj.code, 'InvalidCredentials');
             t.ok(obj.message);
             t.end();
         });
@@ -578,6 +582,48 @@ test('access unapproved and operator /public', function (t) { // MANTA-2214
     });
 });
 
+test('nonexistent user fake /public', function (t) {
+    this.client.get('/nonexistentuseraaa/public', function (err, stream) {
+        t.ifError(err);
+        t.ok(stream);
+        if (stream) {
+            stream.once('end', t.end.bind(t));
+            stream.resume();
+        } else {
+            t.end();
+        }
+    });
+});
+
+test('nonexistent user fake /public/thing', function (t) {
+    var opts = {
+        path: '/nonexistentuseraaa/public/thing',
+        headers: {
+        }
+    };
+    rawRequest(opts, function (err, _, __, obj) {
+        t.ok(err);
+        t.equal(err.statusCode, 404);
+        t.equal(err.restCode, 'ResourceNotFound');
+        t.ok(err.message);
+        t.end();
+    });
+});
+
+test('nonexistent user stor 403', function (t) {
+    var opts = {
+        path: '/nonexistentuseraaa/stor',
+        headers: {
+        }
+    };
+    rawRequest(opts, function (err, _, __, obj) {
+        t.ok(err);
+        t.equal(err.statusCode, 403);
+        t.equal(err.restCode, 'AuthorizationFailed');
+        t.ok(err.message);
+        t.end();
+    });
+});
 
 test('create auth token 403 (fails if MANTA_USER is operator)',
         function (t) {
