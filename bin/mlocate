@@ -81,6 +81,7 @@ function createMorayClient(opts, cb) {
 
     var log = LOG.child({component: 'moray'}, true);
     opts.log = log;
+    opts.readOnly = true;
 
     var client = new libmanta.createMorayClient(opts);
 
