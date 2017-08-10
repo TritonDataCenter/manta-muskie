@@ -200,6 +200,9 @@
           "initialDelay": 1000
       },
       "clientTimeout": 120000
-  }
+  },
+  "datacenter": "{{DATACENTER}}",
+  "server_uuid": "{{auto.SERVER_UUID}}",
+  "zone_uuid": "{{auto.ZONENAME}}"
 
 }

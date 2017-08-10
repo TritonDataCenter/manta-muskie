@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2014, Joyent, Inc.
+ * Copyright (c) 2017, Joyent, Inc.
  */
 
 var domain = require('domain');
@@ -20,6 +20,7 @@ var manta = require('manta');
 var once = require('once');
 var restify = require('restify');
 var smartdc = require('smartdc');
+var VError = require('verror').VError;
 
 
 
@@ -27,6 +28,13 @@ var smartdc = require('smartdc');
 
 http.globalAgent.maxSockets = 50;
 https.globalAgent.maxSockets = 50;
+
+// Check the environment variables before we do anything else.
+var envErr = checkEnvironment();
+if (envErr) {
+    console.error('Environment error: ' + envErr.message);
+    process.exit(1);
+}
 
 var TOKEN_CFG = {
     salt: process.env.MUSKIE_SALT,
@@ -37,6 +45,7 @@ var TOKEN_CFG = {
 
 var POSEIDON_ID = process.env.MUSKIE_POSEIDON_ID ||
         '930896af-bf8c-48d4-885c-6573a94b1853';
+
 
 
 ///--- Helpers
@@ -244,6 +253,39 @@ function signUrl(opts, expires, cb) {
     }, cb);
 }
 
+/*
+ * Loop through the required environment variables to make sure they are all
+ * set. If one or more are not set, the names of the variables are combined
+ * into an array and an error is returned.
+ */
+function checkEnvironment() {
+    var environment = {
+        'MANTA_URL': process.env.MANTA_URL,
+        'MANTA_USER': process.env.MANTA_USER,
+        'MANTA_KEY_ID': process.env.MANTA_KEY_ID,
+        'MANTA_TLS_INSECURE': process.env.MANTA_TLS_INSECURE,
+        'SDC_URL': process.env.SDC_URL,
+        'SDC_ACCOUNT': process.env.SDC_ACCOUNT,
+        'SDC_KEY_ID': process.env.SDC_KEY_ID,
+        'SDC_TESTING': process.env.SDC_TESTING,
+        'MUSKIE_IV': process.env.MUSKIE_IV,
+        'MUSKIE_KEY': process.env.MUSKIE_KEY,
+        'MUSKIE_SALT': process.env.MUSKIE_SALT
+    };
+
+    var unset = [];
+    Object.keys(environment).forEach(function (key)  {
+        if (typeof (environment[key]) !== 'string') {
+            unset.push(key);
+        }
+    });
+    if (unset.length > 0) {
+        var errString = unset.join(', ');
+        return (new VError('Environment variables ' + errString +
+            ' must be set'));
+    }
+}
+
 
 
 ///--- Exports
@@ -285,6 +327,7 @@ module.exports = {
             });
 
             d.run(function () {
+
                 setup.call(self, function (err) {
                     if (err) {
                         console.error('before:\n' + err.stack);

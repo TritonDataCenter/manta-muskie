@@ -10,6 +10,7 @@
     },
     "dependencies": {
         "aperture-config": "git+https://github.com/joyent/aperture-config.git#master",
+        "artedi": "1.0.0",
         "assert-plus": "0.1.5",
         "backoff": "2.3.0",
         "bunyan": "0.22.1",
@@ -40,6 +41,7 @@
     },
     "devDependencies": {
         "smartdc": "7.3.1",
+        "strsplit": "1.0.0",
         "manta": "4.3.0",
         "nodeunit": "0.9.1",
         "node-uuid": "1.4.1"

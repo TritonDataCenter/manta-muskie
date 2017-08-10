@@ -66,6 +66,13 @@ prerequisites in your development environment:
       the corresponding `MUSKIE_` configuration variables described in step 4
       above.
 
+   c. If you would like, replace the "datacenter", "server\_uuid", and
+      "zone\_uuid" fields with appropriate values from your setup. If these
+      fields are not updated, the metric collection facility will use the
+      defaults provided in the file, which may not represent the real values of
+      your machine. This step is not required.
+
+
 In summary, you should make sure these environment variables are set properly:
 
 | **Environment variable** | **Details** |
@@ -138,6 +145,25 @@ If you're changing anything about the way muskie is deployed, configured, or
 started, you should definitely test creating a muskie image and deploying that
 into your Manta.  This is always a good idea anyway.
 
+## Metrics
+
+Muskie exposes metrics via [node-artedi](https://github.com/joyent/node-artedi).
+See the [design](./docs/internal/design.md) document for more information about
+the metrics that are exposed, and how to access them. For development, it is
+probably easiest to use `curl` to scrape metrics:
+
+```
+$ curl http://localhost:8881/metrics
+```
+
+Notably, some metadata labels are not being collected due to their potential
+for high cardinality.  Specifically, remote IP address, object owner, and caller
+username are not collected.  Metadata labels that have a large number of unique
+values cause memory strain on metric client processes (muskie) as well as
+metric servers (Prometheus).  It's important to understand what kind of an
+effect on the entire system the addition of metrics and metadata labels can have
+before adding them. This is an issue that would likely not appear in a
+development or staging environment.
 
 ## Notes on DNS and service discovery
 

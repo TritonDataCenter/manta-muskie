@@ -14,6 +14,7 @@ var os = require('os');
 var path = require('path');
 
 var apertureConfig = require('aperture-config').config;
+var artedi = require('artedi');
 var assert = require('assert-plus');
 var bsyslog = require('bunyan-syslog');
 var bunyan = require('bunyan');
@@ -149,6 +150,15 @@ function configure() {
         cfg.storage.defaultMaxStreamingSizeMB = 51200;
     }
 
+    cfg.collector = artedi.createCollector({
+        labels: {
+            datacenter: cfg.datacenter,
+            server: cfg.server_uuid,
+            zonename: cfg.zone_uuid,
+            pid: process.pid
+        }
+    });
+
     if (LOG.level() <= bunyan.DEBUG)
         LOG = LOG.child({src: true});
 
@@ -235,6 +245,33 @@ function usage(parser, message)
     process.exit(2);
 }
 
+function createMonitoringServer(cfg) {
+    /*
+     * Set up the monitoring server. This exposes a cueball kang monitoring
+     * listener and an artedi-based metric collector.
+     *
+     * The cueball monitoring listener serves information about the cueball
+     * Pools and Sets for connections to mahi, sharks, other services, and also
+     * the moray client connections.
+     *
+     * The artedi-based metric collector is used to track various muskie
+     * metrics including operation latency, and request counts.
+     */
+    var kangOpts;
+    var monitorServer;
+    var port;
+    kangOpts = cueball.poolMonitor.toKangOptions();
+    port = cfg.port + 800;
+
+    monitorServer = restify.createServer({ serverName: 'Monitor' });
+    monitorServer.get('/metrics', app.getMetricsHandler(cfg.collector));
+    monitorServer.get(new RegExp('.*'), kang.knRestifyHandler(kangOpts));
+
+    monitorServer.listen(port, '0.0.0.0', function () {
+        LOG.info('monitoring server started on port %d', port);
+    });
+}
+
 function createCueballHttpAgent(cfg) {
     var sharkCfg = cfg.sharkConfig;
 
@@ -276,24 +313,6 @@ function createCueballHttpAgent(cfg) {
         }
     };
     SHARKAGENT = new cueball.HttpAgent(sharkCueball);
-
-    /*
-     * Set up the cueball kang monitoring listener. This serves information
-     * about all the cueball Pools and Sets in the entire process. This includes
-     * those managed by the Agents we create here, but also the Moray client
-     * Sets.
-     */
-    var kangOpts = cueball.poolMonitor.toKangOptions();
-    kangOpts.port = cfg.port + 800;
-    /*
-     * Note that we can't use kang.knStartServer here, as kang's restify
-     * version does not match ours and the two will clobber each other.
-     */
-    var kangServer = restify.createServer({ serverName: 'Kang' });
-    kangServer.get(new RegExp('.*'), kang.knRestifyHandler(kangOpts));
-    kangServer.listen(kangOpts.port, '0.0.0.0', function () {
-        LOG.info('cueball kang monitor started on port %d', kangOpts.port);
-    });
 }
 
 function createPickerClient(cfg) {
@@ -462,6 +481,7 @@ function version() {
     var cfg = configure();
 
     createCueballHttpAgent(cfg);
+    createMonitoringServer(cfg);
     createMarlinClient(cfg.marlin);
     createPickerClient(cfg.storage);
     createAuthCacheClient(cfg.auth);

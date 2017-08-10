@@ -5,18 +5,18 @@
 -->
 
 <!--
-    Copyright (c) 2014, Joyent, Inc.
+    Copyright (c) 2017, Joyent, Inc.
 -->
 
 
 # Deployment Architecture
 
-Muskie is implemented as a [restify](https://github.com/mcavage/node-restify)
+Muskie is implemented as a [restify](https://github.com/restify/node-restify)
 service, and is deployed highly redundantly, both with a zone and in many
 zones.  In a typical production deployment, there are 16 muskie processes
 per zone, with an [HAProxy](http://www.haproxy.org/) instance sitting in
 front of them (in TCP mode).  All logging from muskies in a production
-setting is done through [rsyslog](http://www.rsyslog.com/) to
+setting is done through [bunyan](https://github.com/trentm/node-bunyan) to
 `/var/log/muskie.log`.  The HAProxy listens on both 80 and 81, where 80 is
 meant to mean "secure" requests, which either means non-TLS from the "internal"
 network (e.g., marlin) or TLS requests from the world.  81 is used to serve
@@ -42,6 +42,45 @@ one that marlin uses), to store the storage node `statvfs` information.  Muskie
 periodically refreshes this and *always* selects storage nodes from the local
 cache on writes, as opposed to hitting Moray directly for this purpose.  This is
 purely in-memory so all muskie *processes* have a cached copy.
+
+# Monitoring
+
+There is a second server running in each muskie process to
+facilitate monitoring.  This is accessible at `http_insecure_port + 800`.  For
+example, the first (of 16 in production) muskie process within a zone usually
+runs on port 8081, so the monitoring server would be accesible on port 8881 from
+both the `manta` and `admin` networks.  The monitoring server exposes
+Kang debugging information and Prometheus application metrics.
+
+## Kang
+
+Kang debugging information is accessible from the route `GET /kang/snapshot`.
+For more information on Kang, see the documentation on
+[GitHub](https://github.com/davepacheco/kang/blob/master/README.md).
+
+## Metrics
+
+Application metrics can be retrieved from the route `GET /metrics`.  The metrics
+are returned in [Prometheus](https://prometheus.io/) v0.0.4 text format.
+
+The following metrics are collected:
+
+- Time-to-first-byte latency for all requests
+- End-to-end latency for all requests
+- Count of requests completed
+
+Each of the metrics returned include the following metadata labels:
+
+- Datacenter name (i.e. us-east-1)
+- CN UUID
+- Zone UUID
+- PID
+- Operation (i.e. 'putobject')
+- Method (i.e. 'PUT')
+- HTTP response status code (i.e. 203)
+
+The metric collection facility provided is intended to be consumed by a
+monitoring service like a Prometheus or InfluxDB server.
 
 # Logic
 
