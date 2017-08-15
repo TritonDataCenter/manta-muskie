@@ -59,6 +59,33 @@ test('create upload', function (t) {
     });
 });
 
+// Verifies that time-stamp set in the upload record
+// upon mpu creation exists and has a reasonable value.
+test('create upload: upload record creation time', function (t) {
+    var self = this;
+    var h = {};
+    var beforeUpload = Date.now();
+    self.createUpload(self.path, h, function (err, o) {
+	if (ifErr(t, err, 'created upload')) {
+	    t.end();
+	    return;
+	}
+
+	var afterUpload = Date.now();
+
+	self.getUpload(self.uploadId, function (err2, upload) {
+	    if (ifErr(t, err2, 'got upload')) {
+		t.end();
+		return;
+	    }
+	    t.ok(upload.creationTimeMs);
+	    t.ok(beforeUpload < upload.creationTimeMs, 'before time check');
+	    t.ok(upload.creationTimeMs < afterUpload, 'after time check');
+	    t.end();
+	});
+    });
+});
+
 // content-length
 test('create upload: content-length header', function (t) {
     var self = this;
