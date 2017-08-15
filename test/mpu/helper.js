@@ -509,6 +509,10 @@ function checkGetResponse(u) {
         return (new Error('get-mpu did not return the target object headers'));
     }
 
+    if (!u.creationTimeMs) {
+        return (new Error('get-mpu did not return the mpu creation time'));
+    }
+
     if (u.state === 'created') {
         // A created upload will have 'partsDirectory', but finalized uploads
         // will not.
