@@ -1,5 +1,4 @@
-.coverage_data
-cover_html/
+/make_stamps
 /node_modules
 /tmp
 build
