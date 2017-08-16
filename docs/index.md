@@ -899,13 +899,17 @@ Returns the current "live" set of errors from a job.  Think of this like
 `application/x-json-stream; type=job-error`.
 
 ||**Name**||**Type**||**Description**||
-||id||String||job id||
-||phase||Number||phase number of the failure||
+||taskId||String||unique identifier for the task||
+||phaseNum||Number||phase number of the failure||
 ||what||String||a human readable summary of what failed||
 ||code||String||programmatic error code||
 ||message||String||human readable error message||
+||server||String||logical server name where the task was executed||
+||machine||String||zonename where the task was executed||
+||input||String||*(optional)* object being processed when the map task failed||
+||p0input||String||*(optional)* phase 0 input object, returned if not preceded by reduce phase||
+||core||String||*(optional)* core file name, if any process in the task dumped core||
 ||stderr||String||*(optional)* a key that saved the stderr for the given command||
-||key||String||*(optional)* the input key being processed when the task failed (if the service can determine it)||
 
 ### Sample Request
 
