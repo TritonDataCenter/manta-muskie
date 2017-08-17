@@ -120,6 +120,35 @@ function configure() {
         });
     }
 
+    if (!cfg.hasOwnProperty('storage')) {
+        cfg.storage = {};
+    }
+
+    /*
+     * For streaming PUTs and multi-part uploads, we may not know the full size
+     * of the object until the completion of the request.  For object
+     * placement, we must know in advance the maximum expected size of the
+     * stream.  If the client does not provide a "Max-Content-Length" header,
+     * we assume a default value.  An operator may override this value by using
+     * the "MUSKIE_DEFAULT_MAX_STREAMING_SIZE_MB" SAPI property.
+     */
+    if (cfg.storage.hasOwnProperty('defaultMaxStreamingSizeMB')) {
+        var v = cfg.storage.defaultMaxStreamingSizeMB;
+
+        /*
+         * The structure of the configuration template is such that the value
+         * is a valid Number or not present at all.  Any other case would have
+         * already caused a JSON parse failure at an earlier point in this
+         * function.
+         */
+        if (typeof (v) !== 'number' || v < 1) {
+            LOG.fatal('invalid "defaultMaxStreamingSizeMB" value');
+            process.exit(1);
+        }
+    } else {
+        cfg.storage.defaultMaxStreamingSizeMB = 51200;
+    }
+
     if (LOG.level() <= bunyan.DEBUG)
         LOG = LOG.child({src: true});
 
@@ -274,7 +303,7 @@ function createPickerClient(cfg) {
         moray: cfg.moray,
         log: LOG.child({component: 'picker'}, true),
         multiDC: cfg.multiDC,
-        ignoreSize: cfg.ignoreSize
+        defaultMaxStreamingSizeMB: cfg.defaultMaxStreamingSizeMB
     };
 
     var client = app.picker.createClient(opts);
