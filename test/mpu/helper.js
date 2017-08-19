@@ -337,12 +337,12 @@ function commitUploadHelper(id, etags, subuser, cb) {
         account: self.client.user
     };
 
-    client.commitUpload(id, etags, opts, function (err) {
+    client.commitUpload(id, etags, opts, function (err, res) {
         if (err) {
             cb(err);
         } else {
             self.uploadFinalized = true;
-            cb();
+            cb(null, res);
         }
     });
 }

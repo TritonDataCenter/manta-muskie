@@ -113,6 +113,65 @@ test('commit upload: one part', function (t) {
     });
 });
 
+test('commit upload: commit content md5 match', function (t) {
+    var self = this;
+    vasync.waterfall([
+        function (callback) {
+            self.createUpload(self.path, null, function (err) {
+                if (ifErr(t, err, 'created upload')) {
+                    callback(err);
+                } else {
+                    callback(null);
+                }
+            });
+        },
+        function (callback) {
+            self.writeTestObject(self.uploadId, 0, function (err, res) {
+                if (ifErr(t, err, 'uploaded part')) {
+                    callback(err);
+                } else {
+                    t.ok(res);
+                    t.checkResponse(res, 204);
+                    callback(null, res.headers.etag);
+                }
+            });
+        },
+        function (etag, callback) {
+            self.commitUpload(self.uploadId, [etag], function (err, res) {
+                if (ifErr(t, err, 'commited upload')) {
+                    callback(err);
+                } else {
+                    t.ok(res);
+                    t.ok(res.headers);
+                    t.ok(res.headers['computed-md5']);
+                    if (res === undefined || res.headers == undefined) {
+                        callback(new Error('commit upload missing res'));
+                        return;
+                    }
+                    callback(null, res.headers['computed-md5']);
+                }
+            });
+        },
+        function (computedMd5, callback) {
+            self.client.info(self.path, function (err, info) {
+                if (ifErr(t, err, 'got object info')) {
+                    callback(err);
+                } else {
+                    t.ok(info, 'failed to get object info');
+                    if (info) {
+                        var headers = info.headers || {};
+                        t.equal(computedMd5, helper.TEXT_MD5);
+                        t.equal(computedMd5, headers['content-md5']);
+                    }
+                    callback(null);
+                }
+            });
+        }
+    ], function () {
+        t.end();
+    });
+});
+
 
 test('commit upload: already commited, same set of parts', function (t) {
     var self = this;
