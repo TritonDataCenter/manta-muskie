@@ -44,9 +44,9 @@ prerequisites in your development environment:
    to the same user account, and they should both refer to the ssh key stored in
    $HOME/.ssh/id\_rsa.pub mentioned above.
 4. Before running the tests, you must set the `MUSKIE_SALT`, `MUSKIE_KEY`, and
-   `MUSKIE_IV` environment variables to the same values being used for the muskie
-   instances in your existing Manta installation.  You can find these values in
-   SAPI, using:
+   `MUSKIE_IV` environment variables to the same values being used for the
+   muskie instances in your existing Manta installation.  You can find these
+   values in SAPI, using:
 
         sdc-sapi /services?application_uuid="$(sdc-sapi \
             /applications?name=manta | json -H application_uuid)&name=webapi" |
@@ -100,7 +100,7 @@ On a test system called "emy-10.joyent.us", these may look like this:
     SDC_KEY_ID=43:7b:f1:98:41:9c:37:90:18:b9:07:92:07:ac:a9:eb
     SDC_TESTING=1
 
-To run the tests:
+To run the tests against changes in a repository:
 
 1. Run `make` to build muskie.  This will pull down the correct Node executable
    for your platform and your version of muskie and then `npm install` dependent
@@ -120,6 +120,17 @@ To run the tests:
    [npm issue #4191](https://github.com/npm/npm/issues/4191), this step always
    reinstalls several dependencies.)
 
+If you're changing anything about the way muskie is deployed, configured, or
+started, you should definitely test creating a muskie image and deploying that
+into your Manta.  This is always a good idea anyway.  To run tests against an
+image, your configuration will be a bit different.  Your `MANTA_URL` will be the
+manta network IP of a muskie instance, with a port number of a muskie process
+inside a muskie zone (8081).  Your `SDC_URL` will be the external network IP of
+the cloudapi0 zone.  You can find both of these IPs with the commands:
+
+    $ vmadm get <webapi_zone_uuid> | json -a nics | json -a nic_tag ip
+    $ vmadm lookup -j alias=cloudapi0 | json -a nics | json -a ip
+
 If you run into any problems when following this procedure against the latest
 version of #master, please let us know.  There are are a couple of things to
 check first before reporting problems:
@@ -131,19 +142,30 @@ check first before reporting problems:
    you ran the acsetup script described above for the user that you're using.
    (Note that you may see some other muskie\_test\_role in the message.)
 3. If a test fails with a message like "Error: MUSKIE\_SALT required", then
-   check that you've specified the three `MUSKIE_` environment variables described
-   above.
+   check that you've specified the three `MUSKIE_` environment variables
+   described above.
 4. If a test fails due to authorization errors (perhaps while completing a job),
    you may have an incorrect muskie configuration. Check that the `MUSKIE_ID`,
-   `MUSKIE_KEY` and `MUSKIE_IV` attributes in your config.json match the environment
-   variables set for the user running the tests (`$MANTA_USER`).
-5. If the "rmdir mpuRoot" and "ls top" tests fail, MPU may not be enabled. If
-   you recently upgraded from a pre-MPU muskie version, ensure the line
-   '"enableMPU": true' is present in your config.json.
+   `MUSKIE_KEY` and `MUSKIE_IV` attributes in your config.json match the
+   environment variables set for the user running the tests (`$MANTA_USER`).
+5. If the "rmdir mpuRoot" and "ls top" tests fail, MPU may not be enabled. MPU
+   GC is not supported, so if MPU is left enabled, records may accumulate in
+   metadata shards.  For this reason, *non-developers should not enable MPU*.
+   However, if you are a developer, and you recently upgraded from a pre-MPU
+   muskie version, ensure the line '"enableMPU": true' is present in your
+   config.json file.  If you are running tests against an image whose
+   configuration is managed by SAPI, which includes any zones deployed using
+   `manta-adm`, you will need to set this variable using sapiadm:
 
-If you're changing anything about the way muskie is deployed, configured, or
-started, you should definitely test creating a muskie image and deploying that
-into your Manta.  This is always a good idea anyway.
+        $ sapiadm update (sdc-sapi /services?name=webapi | json -Ha uuid) metadata."MPU_ENABLE"=true
+
+   Note that ANY value (including `false`) set for `MPU_ENABLE` will write a
+   value of `true` to the muskie configuarion file. So, once you have done that,
+   next check that `/opt/smartdc/muskie/etc/config.json` in each of your webapi
+   zones has updated to contain `"enableMPU": true`".  Then restart your muskie
+   instances so that they will pick up the changes to the configuration file:
+
+        $ manta-oneach -s webapi 'svcadm restart "*muskie-*"'
 
 ## Metrics
 
