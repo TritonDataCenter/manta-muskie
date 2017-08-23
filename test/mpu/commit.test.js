@@ -8,6 +8,7 @@
  * Copyright (c) 2017, Joyent, Inc.
  */
 
+var MemoryStream = require('stream').PassThrough;
 var uuid = require('node-uuid');
 var path = require('path');
 var vasync = require('vasync');
@@ -162,6 +163,62 @@ test('commit upload: already commited, same set of parts', function (t) {
         });
     });
 });
+
+
+test('commit upload: ensure etag exists on target object', function (t) {
+    var self = this;
+    self.createUpload(self.path, null, function (err) {
+        if (ifErr(t, err, 'created upload')) {
+            t.end();
+            return;
+        }
+
+        self.commitUpload(self.uploadId, [], function (err2) {
+            if (ifErr(t, err2, 'committed upload')) {
+                t.end();
+                return;
+            }
+
+            self.client.info(self.path, function (err3, info1) {
+                if (ifErr(t, err3, 'HEAD target object')) {
+                    t.end();
+                    return;
+                }
+
+                t.ok(info1);
+                t.ok(info1.etag);
+
+                var s = new MemoryStream();
+                var string = 'foobar';
+                var opts = {
+                    size: string.length
+                };
+                setImmediate(s.end.bind(s, string));
+
+                self.client.put(self.path, s, opts, function (err4, res) {
+                    if (ifErr(t, err4, 'overwriting target object')) {
+                        t.end();
+                        return;
+                    }
+
+                    self.client.info(self.path, function (err5, info2) {
+                        if (ifErr(t, err5, 'HEAD overwritten target object')) {
+                            t.end();
+                            return;
+                        }
+
+                        t.ok(info2);
+                        t.ok(info2.etag);
+                        t.ok(info1.etag !== info2.etag);
+                        t.done();
+                    });
+                });
+            });
+        });
+    });
+});
+
+
 
 
 // Commit: invalid upload (not related to the JSON API inputs)
