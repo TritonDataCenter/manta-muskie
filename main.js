@@ -83,6 +83,7 @@ var OPTIONS = [
 ];
 
 var PICKER;
+var THROTTLE;
 var MORAY;
 var MEDUSA;
 var VERSION = false;
@@ -333,6 +334,10 @@ function createPickerClient(cfg) {
     });
 }
 
+function createThrottle(cfg) {
+    cfg.log = LOG.child({component: 'throttle'}, true);
+    THROTTLE = app.throttle.createThrottle(cfg);
+}
 
 function createAuthCacheClient(options) {
     assert.object(options, 'options');
@@ -487,6 +492,7 @@ function version() {
     createAuthCacheClient(cfg.auth);
     createMorayClient(cfg.moray);
     createMedusaConnector(cfg.medusa);
+    createThrottle(cfg.throttle);
     createKeyAPIClient(cfg);
 
     cfg.jobCache = LRU({
@@ -501,6 +507,7 @@ function version() {
     cfg.moray = function moray() { return (MORAY); };
     cfg.medusa = function medusaClient() { return (MEDUSA); };
     cfg.sharkAgent = function sharkAgent() { return (SHARKAGENT); };
+    cfg.throttle = function throttle() { return (THROTTLE); };
 
     cfg.name = 'ssl';
 
