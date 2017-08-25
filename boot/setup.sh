@@ -7,7 +7,7 @@
 #
 
 #
-# Copyright (c) 2014, Joyent, Inc.
+# Copyright (c) 2017, Joyent, Inc.
 #
 
 set -o xtrace
@@ -209,7 +209,7 @@ manta_setup_muskie_rsyslogd
 
 manta_common_setup_end
 
-#Setup the mlocate alias
-echo "alias=mlocate'/opt/smartdc/muskie/bin/mlocate -f /opt/smartdc/muskie/etc/config.json'" >> $PROFILE
+# Setup the mlocate alias
+echo "alias mlocate='/opt/smartdc/muskie/bin/mlocate -f /opt/smartdc/muskie/etc/config.json'" >> $PROFILE
 
 exit 0
