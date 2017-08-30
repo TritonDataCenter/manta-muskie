@@ -817,3 +817,18 @@ test('commit upload: non-existent id', function (t) {
         t.end();
     });
 });
+
+test('commit upload: error on undefined parts array', function (t) {
+    var self = this;
+    self.createUpload(self.path, null, function (err) {
+        self.commitUpload(self.uploadId, undefined, function (err2) {
+            t.ok(err2);
+            if (!err2) {
+                return (t.end());
+            }
+            t.ok(verror.hasCauseWithName(err2,
+                'MultipartUploadInvalidArgumentError'));
+            t.end();
+        });
+    });
+});
