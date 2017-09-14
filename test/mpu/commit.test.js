@@ -776,7 +776,7 @@ test('commit upload: non-uuid id', function (t) {
             'content-type': 'application/json',
             'expect': 'application/json'
         },
-        path: '/' + this.client.user + '/uploads/0/' + bogus + '/' + action
+        path: '/' + this.client.user + '/uploads/f/' + bogus + '/' + action
     };
 
     self.client.signRequest({
@@ -807,6 +807,7 @@ test('commit upload: non-uuid id', function (t) {
 test('commit upload: non-existent id', function (t) {
     var self = this;
     var bogus = uuid.v4();
+    self.uploadId = bogus;
     self.commitUpload(bogus, [], function (err, upload) {
         t.ok(err);
         if (!err) {

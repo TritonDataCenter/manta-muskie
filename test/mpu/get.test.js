@@ -76,6 +76,7 @@ test('get upload: non-uuid id', function (t) {
 test('get upload: non-existent id', function (t) {
     var self = this;
     var bogus = uuid.v4();
+    self.uploadId = bogus;
 
     self.getUpload(bogus, function (err, upload) {
         t.ok(err);

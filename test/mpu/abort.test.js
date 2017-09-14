@@ -150,7 +150,7 @@ test('abort upload: non-uuid id', function (t) {
             'content-type': 'application/json',
             'expect': 'application/json'
         },
-        path: '/' + this.client.user + '/uploads/0/' + bogus + '/' + action
+        path: '/' + this.client.user + '/uploads/f/' + bogus + '/' + action
     };
 
     self.client.signRequest({
@@ -181,6 +181,7 @@ test('abort upload: non-uuid id', function (t) {
 test('abort upload: non-existent id', function (t) {
     var self = this;
     var bogus = uuid.v4();
+    self.uploadId = bogus;
 
     self.getUpload(bogus, function (err, upload) {
         t.ok(err);

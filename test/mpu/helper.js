@@ -10,6 +10,7 @@
 
 var assert = require('assert-plus');
 var crypto = require('crypto');
+var jsprim = require('jsprim');
 var MemoryStream = require('stream').PassThrough;
 var obj = require('../../lib/obj');
 var path = require('path');
@@ -69,6 +70,8 @@ function initMPUTester(tcb) {
     self.partsDirectory = null;
     self.uploadFinalized = false;
 
+    self.mskPrefixLength = null;
+
     // Thin wrappers around the MPU API.
     self.createUpload = function create(p, headers, cb) {
         createUploadHelper.call(self, p, headers, false, cb);
@@ -126,8 +129,22 @@ function initMPUTester(tcb) {
     * - pn: optional part num to include in the path
     */
     self.uploadPath = function uploadPath(pn) {
-        assert.ok(self.partsDirectory);
-        var p = self.partsDirectory;
+        var p;
+        if (self.partsDirectory) {
+            p = self.partsDirectory;
+        } else {
+            assert.ok(self.uploadId, 'self.uploadId');
+            var c = self.uploadId.charAt(self.uploadId.length - 1);
+            var len = jsprim.parseInteger(c, { base: 16 });
+            if ((typeof (len) !== 'number') || (len < 1) || (len > 4)) {
+                len = 1;
+            }
+
+            var prefix = self.uploadId.substring(0, len);
+            p = '/' + self.client.user + '/uploads/' + prefix + '/' +
+                self.uploadId;
+        }
+
         if (typeof (pn) === 'number') {
             p += '/' + pn;
         }
@@ -162,7 +179,8 @@ function cleanupMPUTester(cb) {
     self.client.rmr(self.dir, function () {
         if (self.uploadId && !self.uploadFinalized) {
             var opts = {
-                account: self.client.user
+                account: self.client.user,
+                partsDirectory: self.uploadPath()
             };
             self.client.abortUpload(self.uploadId, opts,
                 closeClients.bind(self, cb));
@@ -258,7 +276,8 @@ function getUploadHelper(id, subuser, cb) {
     }
 
     var opts = {
-        account: self.client.user
+        account: self.client.user,
+        partsDirectory: self.uploadPath()
     };
 
     client.getUpload(id, opts, function (err, upload) {
@@ -297,7 +316,8 @@ function abortUploadHelper(id, subuser, cb) {
     }
 
     var opts = {
-        account: self.client.user
+        account: self.client.user,
+        partsDirectory: self.uploadPath()
     };
 
     client.abortUpload(id, opts, function (err) {
@@ -334,7 +354,8 @@ function commitUploadHelper(id, etags, subuser, cb) {
     }
 
     var opts = {
-        account: self.client.user
+        account: self.client.user,
+        partsDirectory: self.uploadPath()
     };
 
     client.commitUpload(id, etags, opts, function (err, res) {
@@ -372,7 +393,8 @@ function writeObjectHelper(id, partNum, string, subuser, cb) {
         account: self.client.user,
         md5: crypto.createHash('md5').update(string).digest('base64'),
         size: Buffer.byteLength(string),
-        type: 'text/plain'
+        type: 'text/plain',
+        partsDirectory: self.uploadPath()
     };
 
     var stream = new MemoryStream();

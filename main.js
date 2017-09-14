@@ -18,8 +18,11 @@ var artedi = require('artedi');
 var assert = require('assert-plus');
 var bsyslog = require('bunyan-syslog');
 var bunyan = require('bunyan');
+var cueball = require('cueball');
 var dashdash = require('dashdash');
 var dtrace = require('dtrace-provider');
+var kang = require('kang');
+var keyapi = require('keyapi');
 var libmanta = require('libmanta');
 var LRU = require('lru-cache');
 var mahi = require('mahi');
@@ -28,11 +31,9 @@ var once = require('once');
 var restify = require('restify');
 var vasync = require('vasync');
 var medusa = require('./lib/medusa');
-var keyapi = require('keyapi');
-var cueball = require('cueball');
-var kang = require('kang');
 
 var app = require('./lib');
+var uploadsCommon = require('./lib/uploads/common');
 
 
 
@@ -148,6 +149,26 @@ function configure() {
         }
     } else {
         cfg.storage.defaultMaxStreamingSizeMB = 51200;
+    }
+
+    if (!cfg.hasOwnProperty('multipartUpload')) {
+        cfg.multipartUpload = {};
+    }
+
+    if (cfg.multipartUpload.hasOwnProperty('prefixDirLen')) {
+        var len = cfg.multipartUpload.prefixDirLen;
+        assert.number(len, '"prefixDirLen" value must be a number');
+
+        if (len < uploadsCommon.MIN_PREFIX_LEN ||
+            len > uploadsCommon.MAX_PREFIX_LEN) {
+
+            LOG.fatal('invalid "prefixDirLen" value: must be between ' +
+                uploadsCommon.MIN_PREFIX_LEN + ' and ' +
+                uploadsCommon.MAX_PREFIX_LEN);
+            process.exit(1);
+        }
+    } else {
+        cfg.multipartUpload.prefixDirLen = uploadsCommon.DEF_PREFIX_LEN;
     }
 
     cfg.collector = artedi.createCollector({
