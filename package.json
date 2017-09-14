@@ -42,7 +42,7 @@
     "devDependencies": {
         "smartdc": "7.3.1",
         "strsplit": "1.0.0",
-        "manta": "4.5.0",
+        "manta": "5.1.0",
         "nodeunit": "0.9.1",
         "node-uuid": "1.4.1"
     },

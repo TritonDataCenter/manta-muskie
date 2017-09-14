@@ -266,8 +266,8 @@ test('upload part: non-uuid id', function (t) {
     var self = this;
     var bogus = 'foobar';
     var pn = helper.randomPartNum();
+    self.uploadId = bogus;
 
-    self.partsDirectory = '/' + self.client.user + '/uploads/f/' + bogus;
     self.writeTestObject(bogus, pn, function (err, res) {
         t.ok(err);
         if (!err) {
@@ -284,8 +284,8 @@ test('upload part: non-existent id', function (t) {
     var self = this;
     var bogus = uuid.v4();
     var pn = helper.randomPartNum();
+    self.uploadId = bogus;
 
-    self.partsDirectory = '/' + self.client.user + '/uploads/0/' + bogus;
     self.writeTestObject(bogus, pn, function (err, res) {
         t.ok(err);
         if (!err) {
