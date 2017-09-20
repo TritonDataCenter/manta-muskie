@@ -7,6 +7,26 @@
       "type": "udp"
     }
   },
+  "throttle": {
+    {{#MUSKIE_THROTTLE_ENABLED}}
+    "enabled": {{MUSKIE_THROTTLE_ENABLED}},
+    {{/MUSKIE_THROTTLE_ENABLED}}
+    {{^MUSKIE_THROTTLE_ENABLED}}
+    "enabled": false,
+    {{/MUSKIE_THROTTLE_ENABLED}}
+    {{#MUSKIE_THROTTLE_CONCURRENCY}}
+    "concurrency": {{MUSKIE_THROTTLE_CONCURRENCY}},
+    {{/MUSKIE_THROTTLE_CONCURRENCY}}
+    {{^MUSKIE_THROTTLE_CONCURRENCY}}
+    "concurrency": 50,
+    {{/MUSKIE_THROTTLE_CONCURRENCY}}
+    {{#MUSKIE_THROTTLE_QUEUE_TOLERANCE}}
+    "queueTolerance": {{MUSKIE_THROTTLE_QUEUE_TOLERANCE}}
+    {{/MUSKIE_THROTTLE_QUEUE_TOLERANCE}}
+    {{^MUSKIE_THROTTLE_QUEUE_TOLERANCE}}
+    "queueTolerance": 25
+    {{/MUSKIE_THROTTLE_QUEUE_TOLERANCE}}
+  },
   "maxObjectCopies": 6,
   "maxRequestAge": 600,
   "numWorkers": 4,

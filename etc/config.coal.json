@@ -7,6 +7,11 @@
             "type": "udp"
         }
     },
+    "throttle": {
+        "enabled": false,
+        "concurrency": 50,
+        "queueTolerance": 25
+    },
     "maxObjectCopies": 6,
     "maxRequestAge": 600,
     "enableMPU": true,

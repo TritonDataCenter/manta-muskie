@@ -5,7 +5,7 @@
 -->
 
 <!--
-    Copyright (c) 2017, Joyent, Inc.
+    Copyright (c) 2018, Joyent, Inc.
 -->
 
 # manta-muskie: The Manta WebAPI
@@ -226,3 +226,55 @@ enumerate the Muskie instances using DNS, nor is there a way to add that without
 changing the DNS name for webapi instances, which would be a flag day for
 Muppet.**  (This may explain why [muppet](https://github.com/joyent/muppet) is a
 ZooKeeper consumer rather than just a DNS client.)
+
+## Dtrace Probes
+
+Muskie has two dtrace providers. The first, `muskie`, has the following probes:
+* `client_close`: `json`. Fires if a client uploading an object or part closes
+  before data has been streamed to mako. Also fires if the client closes the
+  connection while the stream is in progress. The argument json object has the
+  following format:
+  ```
+  {
+      id: restify uuid, or x-request-id/request-id http header (string)
+      method: request http method (string)
+      headers: http headers specified by the client (object)
+      url: http request url (string)
+      bytes_sent: number of bytes streamed to mako before client close (int)
+      bytes_expected: number of bytes that should have been streamed (int)
+  }
+  ```
+* `socket_timeout`: `json`. Fires when the timeout limit is reached on a
+  connection to a client. This timeout can be configured either by setting the
+  `SOCKET_TIMEOUT` environment variable. The default is 120 seconds. The object
+  passed has the same fields to the `client_close` dtrace probe, except for the
+  `bytes_sent` and `bytes_expected`. These parameters are only present if muskie
+  is able to determine the last request sent on this socket.
+
+The second provider, `muskie-throttle`, has the following probes, which will not
+fire if the throttle is disabled:
+* `request_throttled`: `int`, `int`, `char *`, `char *` - slots occupied, queued
+  requests, url, method. Fires when a request has been throttled.
+* `request_handled`: `int`, `int`, `char *`, `char *` - slots occupied, queued
+  requests, url, method. Fires after a request has been handled.
+Internally, the muskie throttle is implemented with a vasync-queue. A "slot"
+in the above description refers to one of `concurrency` possible spaces
+allotted for concurrently scheduled request-handling callbacks. If all slots are
+occupied, incoming requests will be "queued", which indicates that they are
+waiting for slots to free up.
+* `queue_enter`: `char *` - restify request uuid. This probe fires as a request
+enters the queue.
+* `queue_leave`: `char *` - restify request uuid. This probe fires as a request
+is dequeued, before it is handled. The purpose of these probes is to make it
+easy to write d scripts that measure the latency impact the throttle has on
+individual requests.
+
+The script `bin/throttlestat.d` is implemented as an analog to `moraystat.d`
+with the `queue_enter` and `queue_leave` probes. It is a good starting point for
+gaining insight into both how actively a muskie process is being throttled and
+how much stress it is under.
+
+The throttle probes are provided in a separate provider to prevent coupling the
+throttle implementation with muskie itself. Future work may involve making the
+throttle a generic module that can be included in any service with minimal code
+modification.
