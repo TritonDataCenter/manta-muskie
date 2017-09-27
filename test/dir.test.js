@@ -37,7 +37,21 @@ function writeObject(client, key, cb) {
     process.nextTick(stream.end.bind(stream, text));
 }
 
+function writeStreamingObject(client, key, cb) {
+    var stream = new MemoryStream();
+    var text = 'The lazy brown fox \nsomething \nsomething foo';
 
+    process.nextTick(stream.end.bind(stream, text));
+    client.put(key, stream, function (err, res) {
+        if (err) {
+            cb(err);
+        } else if (res.statusCode != 204) {
+            cb(new Error('unsuccessful object write'));
+        } else {
+            cb();
+        }
+    });
+}
 
 ///--- Tests
 
@@ -170,6 +184,115 @@ test('mkdir top', function (t) {
         t.equal(err.name, 'OperationNotAllowedOnRootDirectoryError');
         t.checkResponse(res, 400);
         t.end();
+    });
+});
+
+
+test('ls returns content-type for non-streaming objects', function (t) {
+    var self = this;
+
+    writeObject(self.client, self.key, function (put_err) {
+        t.ifError(put_err);
+        self.client.ls(self.dir, function (err, res) {
+            t.ifError(err);
+            t.ok(res);
+
+            var objs = [];
+
+            res.on('object', function (obj) {
+                t.ok(obj, 'fail, no obj!');
+                objs.push(obj);
+            });
+
+            res.once('error', function (err2) {
+                t.ifError(err2);
+                t.end();
+            });
+
+            res.once('end', function (http_res) {
+                t.ok(http_res);
+                t.checkResponse(http_res, 200);
+                t.equal(objs.length, 1);
+                t.ok(objs[0].contentType);
+                t.equal(objs[0].contentType, 'application/octet-stream');
+                t.end();
+            });
+        });
+    });
+});
+
+
+test('ls returns content-type for streaming objects', function (t) {
+    var self = this;
+
+    writeStreamingObject(self.client, self.key, function (put_err) {
+        t.ifError(put_err);
+        self.client.ls(self.dir, function (err, res) {
+            t.ifError(err);
+            t.ok(res);
+
+            var objs = [];
+
+            res.on('object', function (obj) {
+                t.ok(obj, 'fail, no obj!');
+                objs.push(obj);
+            });
+
+            res.once('error', function (err2) {
+                t.ifError(err2);
+                t.end();
+            });
+
+            res.once('end', function (http_res) {
+                t.ok(http_res);
+                t.checkResponse(http_res, 200);
+                t.equal(objs.length, 1);
+                t.ok(objs[0].contentType);
+                t.equal(objs[0].contentType, 'application/octet-stream');
+                t.end();
+            });
+        });
+    });
+});
+
+
+test('ls returns contentMD5 for objects', function (t) {
+    var self = this;
+
+    writeObject(self.client, self.key, function (put_err) {
+        t.ifError(put_err);
+        self.client.ls(self.dir, function (err, res) {
+            t.ifError(err);
+            t.ok(res);
+
+            var objs = [];
+
+            res.on('object', function (obj) {
+                t.ok(obj, 'fail, no obj!');
+                objs.push(obj);
+            });
+
+            res.once('error', function (err2) {
+                t.ifError(err2);
+                t.end();
+            });
+
+            res.once('end', function (http_res) {
+                t.ok(http_res);
+                t.checkResponse(http_res, 200);
+                t.equal(objs.length, 1);
+                t.ok(objs[0].contentMD5);
+                self.client.info(self.key, {}, function (err2, info) {
+                    t.ifError(err2);
+                    t.ok(info);
+                    if (info) {
+                        t.ok(info.md5);
+                        t.equal(objs[0].contentMD5, info.md5);
+                    }
+                    t.end();
+                });
+            });
+        });
     });
 });
 
