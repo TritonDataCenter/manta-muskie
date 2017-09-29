@@ -55,6 +55,12 @@ var OPTIONS = [
         names: ['verbose', 'v'],
         type: 'arrayOfBool',
         help: 'Verbose output. Use multiple times for more verbose.'
+    },
+    {
+        names: ['shard', 's'],
+        type: 'bool',
+        help: 'Return the shard on which metadata for the object would be ' +
+            'stored, even if the object doesn\'t exist.'
     }
 ];
 
@@ -129,6 +135,8 @@ function configure() {
         });
     }
 
+    cfg.shard = (opts.shard) ? true : false;
+
     if (LOG.level() <= bunyan.DEBUG)
         LOG = LOG.child({src: true});
 
@@ -183,18 +191,34 @@ function configure() {
                     key: key,
                     requestId: libuuid.create()
                 };
-                moray.getMetadata(opts, function (err2, md, rawMd) {
-                    if (err2) {
-                        console.error('error loading %s: %s', p, err2);
-                        process.exit(1);
-                    }
 
-                    md._key = opts.path;
-                    md._moray = moray.url;
-                    md._node = rawMd._node;
-                    console.log(JSON.stringify(md));
-                    barrier.done(p);
-                });
+                if (cfg.shard) {
+                    moray.getShard(opts, function (err2, node) {
+                        if (err2) {
+                            console.error('error loading %s: %s', p, err2);
+                            process.exit(1);
+                        }
+                        var md = {
+                            _key: opts.key,
+                            _node: node
+                        };
+                        console.log(JSON.stringify(md));
+                        barrier.done(p);
+                    });
+                } else {
+                    moray.getMetadata(opts, function (err2, md, rawMd) {
+                        if (err2) {
+                            console.error('error loading %s: %s', p, err2);
+                            process.exit(1);
+                        }
+
+                        md._key = opts.path;
+                        md._moray = moray.url;
+                        md._node = rawMd._node;
+                        console.log(JSON.stringify(md));
+                        barrier.done(p);
+                    });
+                }
             });
         }
 
