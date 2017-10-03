@@ -157,7 +157,7 @@ check first before reporting problems:
    configuration is managed by SAPI, which includes any zones deployed using
    `manta-adm`, you will need to set this variable using sapiadm:
 
-        $ sapiadm update (sdc-sapi /services?name=webapi | json -Ha uuid) metadata."MPU_ENABLE"=true
+        $ sapiadm update $(sdc-sapi /services?name=webapi | json -Ha uuid) metadata."MPU_ENABLE"=true
 
    Note that ANY value (including `false`) set for `MPU_ENABLE` will write a
    value of `true` to the muskie configuarion file. So, once you have done that,
