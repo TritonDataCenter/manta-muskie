@@ -518,7 +518,8 @@ function clientsConnected(appName, cfg, clients) {
     var server1, server2;
     var log = cfg.log;
 
-    log.info('all client connections established, starting muskie servers');
+    log.info('requisite client connections established, \
+              starting muskie servers');
 
     server1 = app.createServer(cfg, clients, 'ssl');
     server1.on('error', function (err) {
