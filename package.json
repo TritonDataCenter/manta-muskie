@@ -52,6 +52,7 @@
         "nodeunit": "0.9.1",
         "node-uuid": "1.4.1",
         "forkexec": "^1.0.0"
+        "tape": "4.8.0",
     },
     "scripts": {
         "start": "./build/node/bin/node ./main.js",

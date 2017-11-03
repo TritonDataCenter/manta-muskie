@@ -19,9 +19,9 @@ var util = require('util');
 var sprintf = util.format;
 var vasync = require('vasync');
 
-var after = helper.after;
-var before = helper.before;
-var test = helper.test;
+var afterEach = helper.afterEach;
+var beforeEach = helper.beforeEach;
+var helperTest = helper.test;
 
 ///--- Helpers
 
@@ -92,17 +92,16 @@ function delTag(client, key, tag, cb) {
             tags = [];
         }
         var index = tags.indexOf(tag);
-        if (index >= 0) {
+         if (index >= 0) {
             tags.splice(index, 1);
         }
-        client.chattr(key, {
+         client.chattr(key, {
             headers: {
                 'role-tag': tags.join(',')
             }
         }, cb);
     });
 }
-
 
 function jobWait(client, jobId, cb) {
     client.job(jobId, function (err, res) {
@@ -130,7 +129,17 @@ function jobWait(client, jobId, cb) {
     });
 }
 
+var clients = {};
 
+///--- Setup
+function before(cb) {
+    clients.sdcClient = helper.createSDCClient();
+    clients.client = helper.createClient();
+    clients.jsonClient = helper.createJsonClient();
+    clients.rawClient = helper.createRawClient();
+    clients.userClient = helper.createUserClient('muskie_test_user');
+    clients.paths = [];
+    clients.jobs = [];
 
 ///--- Tests
 
@@ -147,18 +156,17 @@ before(function (cb) {
     self.operPaths = [];
     self.jobs = [];
     cb();
-});
+}
 
-after(function (cb) {
-    var self = this;
-
+///--- Teardown
+function after(cb) {
     vasync.forEachParallel({
-        func: self.client.unlink.bind(self.client),
-        inputs: self.paths
+        func: clients.client.unlink.bind(clients.client),
+        inputs: clients.paths
     }, function (err) {
         vasync.forEachParallel({
-            func: self.client.cancelJob.bind(self.client),
-            inputs: self.jobs
+            func: clients.client.cancelJob.bind(clients.client),
+            inputs: clients.jobs
         }, function (err2) {
             vasync.forEachParallel({
                 func: self.operClient.unlink.bind(self.operClient),
@@ -173,22 +181,35 @@ after(function (cb) {
             });
         });
     });
+}
+
+///--- Tests
+
+// var test = helperTest.bind(clients, before, after);
+var test = beforeEach(helperTest, function _before(t) {
+    before(function() {
+        t.end();
+    });
+});
+test = afterEach(test, function _after(t) {
+    after(function() {
+        t.end();
+    });
 });
 
-
-
 test('default role', function (t) {
-    var self = this;
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
+    var path = sprintf('/%s/stor/muskie_test_obj', clients.client.user);
     var roles = 'muskie_test_role_default';
-    writeObject(self.client, path, roles, function (err) {
+
+    t.plan(1);
+
+    writeObject(clients.client, path, roles, function (err) {
         if (err) {
             t.fail(err);
-            t.end();
             return;
         }
-        self.paths.push(path);
-        self.userClient.get(path, function (err2, res) {
+        clients.paths.push(path);
+        clients.userClient.get(path, function (err2, res) {
             if (err2) {
                 t.fail(err2);
                 t.end();
@@ -196,106 +217,101 @@ test('default role', function (t) {
             }
 
             t.ok(res);
-            t.end();
         });
     });
 });
 
 
 test('inactive role', function (t) {
-    var self = this;
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
+    var path = sprintf('/%s/stor/muskie_test_obj', clients.client.user);
     var roles = 'muskie_test_role_limit';
-    writeObject(self.client, path, roles, function (err) {
+
+    t.plan(1);
+
+    writeObject(clients.client, path, roles, function (err) {
         if (err) {
             t.fail(err);
-            t.end();
             return;
         }
-        self.paths.push(path);
-        self.userClient.get(path, function (err2) {
+        clients.paths.push(path);
+        clients.userClient.get(path, function (err2) {
             if (!err2) {
                 t.fail(err2, 'error expected');
-                t.end();
                 return;
             }
             t.equal(err2.name, 'NoMatchingRoleTagError');
-            t.end();
         });
     });
 });
 
 
 test('assume non-default role', function (t) {
-    var self = this;
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
+    var path = sprintf('/%s/stor/muskie_test_obj', clients.client.user);
     var roles = 'muskie_test_role_limit';
-    writeObject(self.client, path, roles, function (err) {
+
+    t.plan(1);
+
+    writeObject(clients.client, path, roles, function (err) {
         if (err) {
             t.fail(err);
-            t.end();
             return;
         }
-        self.paths.push(path);
-        self.userClient.get(path, {
+        clients.paths.push(path);
+        clients.userClient.get(path, {
             headers: {
                 'role': 'muskie_test_role_limit'
             }
         }, function (err2, res) {
             if (err2) {
                 t.fail(err2);
-                t.end();
                 return;
             }
 
             t.ok(res);
-            t.end();
         });
     });
 });
 
 
 test('assume multiple roles', function (t) {
-    var self = this;
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
+    var path = sprintf('/%s/stor/muskie_test_obj', clients.client.user);
     var roles = 'muskie_test_role_limit';
-    writeObject(self.client, path, roles, function (err) {
+
+    t.plan(1);
+
+    writeObject(clients.client, path, roles, function (err) {
         if (err) {
             t.fail(err);
-            t.end();
             return;
         }
-        self.paths.push(path);
-        self.userClient.get(path, {
+        clients.paths.push(path);
+        clients.userClient.get(path, {
             headers: {
                 'role': 'muskie_test_role_default,muskie_test_role_limit'
             }
         }, function (err2, res) {
             if (err2) {
                 t.fail(err2);
-                t.end();
                 return;
             }
 
             t.ok(res);
-            t.end();
         });
     });
 });
 
 
 test('assume wrong role', function (t) {
-    var self = this;
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
+    var path = sprintf('/%s/stor/muskie_test_obj', clients.client.user);
     var roles = 'muskie_test_role_default';
-    writeObject(self.client, path, roles, function (err) {
+    writeObject(clients.client, path, roles, function (err) {
         if (err) {
             t.fail(err);
             t.end();
             return;
         }
-        self.paths.push(path);
-        self.userClient.get(path, {
+        clients.paths.push(path);
+        clients.userClient.get(path, {
             headers: {
                 'role': 'muskie_test_role_limit'
             }
@@ -313,17 +329,16 @@ test('assume wrong role', function (t) {
 
 
 test('assume limit roles (*)', function (t) {
-    var self = this;
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
+    var path = sprintf('/%s/stor/muskie_test_obj', clients.client.user);
     var roles = 'muskie_test_role_limit';
-    writeObject(self.client, path, roles, function (err) {
+    writeObject(clients.client, path, roles, function (err) {
         if (err) {
             t.fail(err);
             t.end();
             return;
         }
-        self.paths.push(path);
-        self.userClient.get(path, {
+        clients.paths.push(path);
+        clients.userClient.get(path, {
             headers: {
                 'role': '*'
             }
@@ -342,17 +357,16 @@ test('assume limit roles (*)', function (t) {
 
 
 test('assume bad role', function (t) {
-    var self = this;
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
+    var path = sprintf('/%s/stor/muskie_test_obj', clients.client.user);
     var roles = 'muskie_test_role_other';
-    writeObject(self.client, path, roles, function (err) {
+    writeObject(clients.client, path, roles, function (err) {
         if (err) {
             t.fail(err);
             t.end();
             return;
         }
-        self.paths.push(path);
-        self.userClient.get(path, {
+        clients.paths.push(path);
+        clients.userClient.get(path, {
             headers: {
                 'role': 'muskie_test_role_other'
             }
@@ -388,18 +402,20 @@ test('assume bad role - xacct', function (t) {
 });
 
 test('mchmod', function (t) {
-    var self = this;
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
+    var path = sprintf('/%s/stor/muskie_test_obj', clients.client.user);
     var roles = 'muskie_test_role_write';
-    writeObject(self.client, path, roles, function (err) {
+
+    t.plan(1);
+
+    writeObject(clients.client, path, roles, function (err) {
         if (err) {
             t.fail(err);
             t.end();
             return;
         }
 
-        self.paths.push(path);
-        self.userClient.chattr(path, {
+        clients.paths.push(path);
+        clients.userClient.chattr(path, {
             headers: {
                 'role': 'muskie_test_role_write',
                 'role-tag': 'muskie_test_role_other'
@@ -411,7 +427,7 @@ test('mchmod', function (t) {
                 return;
             }
 
-            self.client.info(path, function (err3, info) {
+            clients.client.info(path, function (err3, info) {
                 if (err3) {
                     t.fail(err3);
                     t.end();
@@ -604,18 +620,20 @@ test('cross-account role access', function (t) {
 });
 
 test('mchmod bad role', function (t) {
-    var self = this;
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
+    var path = sprintf('/%s/stor/muskie_test_obj', clients.client.user);
     var roles = 'muskie_test_role_write';
-    writeObject(self.client, path, roles, function (err) {
+
+    t.plan(1);
+
+    writeObject(clients.client, path, roles, function (err) {
         if (err) {
             t.fail(err);
             t.end();
             return;
         }
 
-        self.paths.push(path);
-        self.userClient.chattr(path, {
+        clients.paths.push(path);
+        clients.userClient.chattr(path, {
             headers: {
                 'role': 'muskie_test_role_write',
                 'role-tag': 'asdf'
@@ -634,16 +652,16 @@ test('mchmod bad role', function (t) {
 
 
 test('created object gets roles', function (t) {
-    var self = this;
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
-    var dir = sprintf('/%s/stor', self.client.user);
-    addTag(self.client, dir, 'muskie_test_role_write', function (err) {
+    var path = sprintf('/%s/stor/muskie_test_obj', clients.client.user);
+    var dir = sprintf('/%s/stor', clients.client.user);
+
+    addTag(clients.client, dir, 'muskie_test_role_write', function (err) {
         if (err) {
             t.fail(err);
             t.end();
             return;
         }
-        writeObject(self.userClient, path, {
+        writeObject(clients.userClient, path, {
             'role': 'muskie_test_role_write'
         }, function (err2) {
             if (err2) {
@@ -652,9 +670,9 @@ test('created object gets roles', function (t) {
                 return;
             }
 
-            self.paths.push(path);
+            clients.paths.push(path);
 
-            self.client.info(path, function (err3, info) {
+            clients.client.info(path, function (err3, info) {
                 if (err3) {
                     t.fail(err3);
                     t.end();
@@ -665,7 +683,7 @@ test('created object gets roles', function (t) {
                 var tags = info.headers['role-tag'].split(/\s*,\s*/);
                 t.ok(tags.indexOf('muskie_test_role_write') >= 0);
 
-                delTag(self.client, dir, 'muskie_test_role_write',
+                delTag(clients.client, dir, 'muskie_test_role_write',
                         function (err4) {
 
                     if (err4) {
@@ -682,32 +700,42 @@ test('created object gets roles', function (t) {
 
 
 test('create object parent directory check', function (t) {
-    var self = this;
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
-    writeObject(self.userClient, path, {
-        'role': 'muskie_test_role_write'
-    }, function (err2) {
-        if (!err2) {
-            self.paths.push(path);
-            t.fail('expected error');
+    var path = sprintf('/%s/stor/muskie_test_obj', clients.client.user);
+    // t.plan(2);
+
+    clients.client.info(path, function (err3, info) {
+        if (!err3) {
+            t.fail('test object already exists');
             t.end();
             return;
         }
+        writeObject(clients.userClient, path, {
+            'role': 'muskie_test_role_write'
+        }, function (err2) {
+               if (!err2) {
+                   clients.paths.push(path);
+                   t.fail('expected error');
+                   t.end();
+                   return;
+               }
 
-        t.equal(err2.name, 'NoMatchingRoleTagError');
-        t.end();
+               t.equal(err2.name, 'NoMatchingRoleTagError');
+               t.end();
+           });
     });
 });
 
 
 test('create object parent directory check', function (t) {
-    var self = this;
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
-    writeObject(self.userClient, path, {
+    var path = sprintf('/%s/stor/muskie_test_obj', clients.client.user);
+
+    t.plan(1);
+
+    writeObject(clients.userClient, path, {
         'role': 'muskie_test_role_write'
     }, function (err) {
         if (!err) {
-            self.paths.push(path);
+            clients.paths.push(path);
             t.fail('expected error');
             t.end();
             return;
@@ -720,15 +748,17 @@ test('create object parent directory check', function (t) {
 
 
 test('create directory parent directory check', function (t) {
-    var self = this;
-    var path = sprintf('/%s/stor/muskie_test_dir', self.client.user);
-    self.userClient.mkdir(path, {
+    var path = sprintf('/%s/stor/muskie_test_dir', clients.client.user);
+
+    t.plan(1);
+
+    clients.userClient.mkdir(path, {
         headers: {
             'role': 'muskie_test_role_write'
         }
     }, function (err2) {
         if (!err2) {
-            self.paths.push(path);
+            clients.paths.push(path);
             t.fail('expected error');
             t.end();
             return;
@@ -744,9 +774,8 @@ test('create directory parent directory check', function (t) {
 // directory to see if the user has read permissions on the directory. However,
 // since this requires an additional lookup, we're just returning 404s for now.
 test('get nonexistent object 404', function (t) {
-    var self = this;
-    var path = sprintf('/%s/stor/muskie_test_dir', self.client.user);
-    self.client.get(path, function (err2) {
+    var path = sprintf('/%s/stor/muskie_test_dir', clients.client.user);
+    clients.client.get(path, function (err2) {
         if (!err2) {
             t.fail('error expected');
             t.end();
@@ -759,19 +788,18 @@ test('get nonexistent object 404', function (t) {
 
 
 test('signed URL uses default roles', function (t) {
-    var self = this;
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
+    var path = sprintf('/%s/stor/muskie_test_obj', clients.client.user);
     var roles = 'muskie_test_role_default';
     var signed;
 
     vasync.pipeline({funcs: [
         function write(_, cb) {
-            writeObject(self.client, path, roles, cb);
+            writeObject(clients.client, path, roles, cb);
         },
         function sign(_, cb) {
             helper.signUrl({
                 path: path,
-                client: self.userClient
+                client: clients.userClient
             }, function (err, s) {
                 if (err) {
                     cb(err);
@@ -782,7 +810,7 @@ test('signed URL uses default roles', function (t) {
             });
         },
         function get(_, cb) {
-            self.jsonClient.get({
+            clients.jsonClient.get({
                 path: signed
             }, function (err, req, res, obj) {
                 if (err) {
@@ -807,19 +835,18 @@ test('signed URL uses default roles', function (t) {
 
 
 test('signed URL ignores role headers', function (t) {
-    var self = this;
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
+    var path = sprintf('/%s/stor/muskie_test_obj', clients.client.user);
     var roles = 'muskie_test_role_limit';
     var signed;
 
     vasync.pipeline({funcs: [
         function write(_, cb) {
-            writeObject(self.client, path, roles, cb);
+            writeObject(clients.client, path, roles, cb);
         },
         function sign(_, cb) {
             helper.signUrl({
                 path: path,
-                client: self.userClient
+                client: clients.userClient
             }, function (err, s) {
                 if (err) {
                     cb(err);
@@ -830,7 +857,7 @@ test('signed URL ignores role headers', function (t) {
             });
         },
         function get(_, cb) {
-            self.jsonClient.get({
+            clients.jsonClient.get({
                 path: signed,
                 headers: {
                     role: 'muskie_test_role_limit'
@@ -859,19 +886,18 @@ test('signed URL ignores role headers', function (t) {
 
 
 test('signed URL with included role', function (t) {
-    var self = this;
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
+    var path = sprintf('/%s/stor/muskie_test_obj', clients.client.user);
     var roles = 'muskie_test_role_limit';
     var signed;
 
     vasync.pipeline({funcs: [
         function write(_, cb) {
-            writeObject(self.client, path, roles, cb);
+            writeObject(clients.client, path, roles, cb);
         },
         function sign(_, cb) {
             helper.signUrl({
                 path: path,
-                client: self.userClient,
+                client: clients.userClient,
                 role: [ 'muskie_test_role_limit' ]
             }, function (err, s) {
                 if (err) {
@@ -883,7 +909,7 @@ test('signed URL with included role', function (t) {
             });
         },
         function get(_, cb) {
-            self.jsonClient.get({
+            clients.jsonClient.get({
                 path: signed
             }, function (err, req, res, obj) {
                 if (err) {
@@ -908,19 +934,18 @@ test('signed URL with included role', function (t) {
 
 
 test('signed URL with included wrong role', function (t) {
-    var self = this;
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
+    var path = sprintf('/%s/stor/muskie_test_obj', clients.client.user);
     var roles = 'muskie_test_role_default';
     var signed;
 
     vasync.pipeline({funcs: [
         function write(_, cb) {
-            writeObject(self.client, path, roles, cb);
+            writeObject(clients.client, path, roles, cb);
         },
         function sign(_, cb) {
             helper.signUrl({
                 path: path,
-                client: self.userClient,
+                client: clients.userClient,
                 role: [ 'muskie_test_role_limit' ]
             }, function (err, s) {
                 if (err) {
@@ -932,7 +957,7 @@ test('signed URL with included wrong role', function (t) {
             });
         },
         function get(_, cb) {
-            self.jsonClient.get({
+            clients.jsonClient.get({
                 path: signed
             }, function (err) {
                 if (!err) {
@@ -958,19 +983,18 @@ test('signed URL with included wrong role', function (t) {
 
 
 test('signed URL with included invalid role', function (t) {
-    var self = this;
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
+    var path = sprintf('/%s/stor/muskie_test_obj', clients.client.user);
     var roles = 'muskie_test_role_default';
     var signed;
 
     vasync.pipeline({funcs: [
         function write(_, cb) {
-            writeObject(self.client, path, roles, cb);
+            writeObject(clients.client, path, roles, cb);
         },
         function sign(_, cb) {
             helper.signUrl({
                 path: path,
-                client: self.userClient,
+                client: clients.userClient,
                 role: [ 'muskie_test_role_asdfasdf' ]
             }, function (err, s) {
                 if (err) {
@@ -982,7 +1006,7 @@ test('signed URL with included invalid role', function (t) {
             });
         },
         function get(_, cb) {
-            self.jsonClient.get({
+            clients.jsonClient.get({
                 path: signed
             }, function (err) {
                 if (!err) {
@@ -1008,8 +1032,7 @@ test('signed URL with included invalid role', function (t) {
 
 
 test('create job ACL check failure', function (t) {
-    var self = this;
-    self.userClient.createJob({
+    clients.userClient.createJob({
         name: 'muskie_test_word_count',
         phases: [ {
             type: 'map',
@@ -1017,7 +1040,7 @@ test('create job ACL check failure', function (t) {
         } ]
     }, function (err, jobId) {
         if (jobId) {
-            self.jobs.push(jobId);
+            clients.jobs.push(jobId);
         }
 
         if (!err) {
@@ -1033,8 +1056,7 @@ test('create job ACL check failure', function (t) {
 
 
 test('create job ACL check success', function (t) {
-    var self = this;
-    var path = sprintf('/%s/jobs', self.client.user);
+    var path = sprintf('/%s/jobs', clients.client.user);
     var job = {
         name: 'muskie_test_word_count',
         phases: [ {
@@ -1042,23 +1064,23 @@ test('create job ACL check success', function (t) {
             exec: 'wc'
         } ]
     };
-    addTag(self.client, path, 'muskie_test_role_jobs', function (err) {
+    addTag(clients.client, path, 'muskie_test_role_jobs', function (err) {
         if (err) {
             t.fail(err);
             t.end();
             return;
         }
 
-        self.userClient.createJob(job, {
+        clients.userClient.createJob(job, {
             headers: {
                 role: 'muskie_test_role_jobs'
             }
         }, function (err2, jobId) {
             if (jobId) {
-                self.jobs.push(jobId);
+                clients.jobs.push(jobId);
             }
 
-            delTag(self.client, path, 'muskie_test_role_jobs',
+            delTag(clients.client, path, 'muskie_test_role_jobs',
                     function (err3) {
 
                 if (err2 || err3) {
@@ -1075,9 +1097,8 @@ test('create job ACL check success', function (t) {
 
 
 test('job inputs - no managejob on /jobs', function (t) {
-    var self = this;
-    var jobRoot = sprintf('/%s/jobs', self.client.user);
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
+    var jobRoot = sprintf('/%s/jobs', clients.client.user);
+    var path = sprintf('/%s/stor/muskie_test_obj', clients.client.user);
     var job = {
         name: 'muskie_test_word_count',
         phases: [ {
@@ -1085,15 +1106,15 @@ test('job inputs - no managejob on /jobs', function (t) {
             exec: 'wc'
         } ]
     };
-    writeObject(self.client, path, function (err) {
+    writeObject(clients.client, path, function (err) {
         if (err) {
             t.fail(err);
             t.end();
             return;
         }
-        self.paths.push(path);
+        clients.paths.push(path);
 
-        addTag(self.client, jobRoot, 'muskie_test_role_create_job',
+        addTag(clients.client, jobRoot, 'muskie_test_role_create_job',
                 function (err2) {
 
             if (err2) {
@@ -1102,13 +1123,13 @@ test('job inputs - no managejob on /jobs', function (t) {
                 return;
             }
 
-            self.userClient.createJob(job, {
+            clients.userClient.createJob(job, {
                 headers: {
                     role: 'muskie_test_role_create_job'
                 }
             }, function (err3, jobId) {
                 if (jobId) {
-                    self.jobs.push(jobId);
+                    clients.jobs.push(jobId);
                 }
                 if (err3) {
                     t.fail(err3);
@@ -1116,14 +1137,14 @@ test('job inputs - no managejob on /jobs', function (t) {
                     return;
                 }
 
-                self.userClient.addJobKey(jobId, path, function (err4) {
+                clients.userClient.addJobKey(jobId, path, function (err4) {
                     if (!err4) {
                         t.fail('expected error');
                     } else {
                         t.equal(err4.name, 'NoMatchingRoleTagError');
                     }
 
-                    delTag(self.client, path, 'muskie_test_role_create_job',
+                    delTag(clients.client, path, 'muskie_test_role_create_job',
                             function (err5) {
 
                         if (err5) {
@@ -1142,9 +1163,8 @@ test('job inputs - no managejob on /jobs', function (t) {
 
 
 test('job inputs - no managejob active', function (t) {
-    var self = this;
-    var jobRoot = sprintf('/%s/jobs', self.client.user);
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
+    var jobRoot = sprintf('/%s/jobs', clients.client.user);
+    var path = sprintf('/%s/stor/muskie_test_obj', clients.client.user);
     var job = {
         name: 'muskie_test_word_count',
         phases: [ {
@@ -1152,28 +1172,28 @@ test('job inputs - no managejob active', function (t) {
             exec: 'wc'
         } ]
     };
-    writeObject(self.client, path, function (err) {
+    writeObject(clients.client, path, function (err) {
         if (err) {
             t.fail(err);
             t.end();
             return;
         }
-        self.paths.push(path);
+        clients.paths.push(path);
 
-        addTag(self.client, jobRoot, 'muskie_test_role_jobs', function (err2) {
+        addTag(clients.client, jobRoot, 'muskie_test_role_jobs', function (err2) {
             if (err2) {
                 t.fail(err2);
                 t.end();
                 return;
             }
 
-            self.userClient.createJob(job, {
+            clients.userClient.createJob(job, {
                 headers: {
                     role: 'muskie_test_role_jobs'
                 }
             }, function (err3, jobId) {
                 if (jobId) {
-                    self.jobs.push(jobId);
+                    clients.jobs.push(jobId);
                 }
                 if (err3) {
                     t.fail(err3);
@@ -1181,14 +1201,14 @@ test('job inputs - no managejob active', function (t) {
                     return;
                 }
 
-                self.userClient.addJobKey(jobId, path, function (err4) {
+                clients.userClient.addJobKey(jobId, path, function (err4) {
                     if (!err4) {
                         t.fail('expected error');
                     } else {
                         t.equal(err4.name, 'NoMatchingRoleTagError');
                     }
 
-                    delTag(self.client, path, 'muskie_test_role_jobs',
+                    delTag(clients.client, path, 'muskie_test_role_jobs',
                             function (err5) {
 
                         if (err5) {
@@ -1207,9 +1227,8 @@ test('job inputs - no managejob active', function (t) {
 
 
 test('job inputs - no getobject on input key', function (t) {
-    var self = this;
-    var jobRoot = sprintf('/%s/jobs', self.client.user);
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
+    var jobRoot = sprintf('/%s/jobs', clients.client.user);
+    var path = sprintf('/%s/stor/muskie_test_obj', clients.client.user);
     var job = {
         name: 'muskie_test_word_count',
         phases: [ {
@@ -1218,28 +1237,28 @@ test('job inputs - no getobject on input key', function (t) {
         } ]
     };
 
-    writeObject(self.client, path, function (err) {
+    writeObject(clients.client, path, function (err) {
         if (err) {
             t.fail(err);
             t.end();
             return;
         }
-        self.paths.push(path);
+        clients.paths.push(path);
 
-        addTag(self.client, jobRoot, 'muskie_test_role_jobs', function (err2) {
+        addTag(clients.client, jobRoot, 'muskie_test_role_jobs', function (err2) {
             if (err2) {
                 t.fail(err2);
                 t.end();
                 return;
             }
 
-            self.userClient.createJob(job, {
+            clients.userClient.createJob(job, {
                 headers: {
                     role: 'muskie_test_role_jobs'
                 }
             }, function (err3, jobId) {
                 if (jobId) {
-                    self.jobs.push(jobId);
+                    clients.jobs.push(jobId);
                 }
                 if (err3) {
                     t.fail(err3);
@@ -1247,12 +1266,12 @@ test('job inputs - no getobject on input key', function (t) {
                     return;
                 }
 
-                self.userClient.addJobKey(jobId, path, {
+                clients.userClient.addJobKey(jobId, path, {
                     headers: {
                         role: 'muskie_test_role_jobs'
                     }
                 }, function (err4) {
-                    delTag(self.client, jobRoot, 'muskie_test_role_jobs',
+                    delTag(clients.client, jobRoot, 'muskie_test_role_jobs',
                             function (err5) {
 
                         if (err4 || err5) {
@@ -1262,7 +1281,7 @@ test('job inputs - no getobject on input key', function (t) {
                         }
 
                         function checkJob() {
-                            self.client.job(jobId, function (err7, res) {
+                            clients.client.job(jobId, function (err7, res) {
                                 if (err7) {
                                     t.fail(err7);
                                     t.end();
@@ -1274,7 +1293,7 @@ test('job inputs - no getobject on input key', function (t) {
                                     return;
                                 }
 
-                                self.client.jobErrors(jobId,
+                                clients.client.jobErrors(jobId,
                                         function (err8, errors) {
 
                                     if (err8) {
@@ -1303,13 +1322,13 @@ test('job inputs - no getobject on input key', function (t) {
                             });
                         }
 
-                        self.client.endJob(jobId, function (err6) {
+                        clients.client.endJob(jobId, function (err6) {
                             if (err6) {
                                 t.fail(err6);
                                 t.end();
                                 return;
                             }
-                            self.jobs.pop();
+                            clients.jobs.pop();
                             setTimeout(checkJob, 2000);
                         });
                     });
@@ -1321,9 +1340,8 @@ test('job inputs - no getobject on input key', function (t) {
 
 
 test('job inputs - context change after job creation', function (t) {
-    var self = this;
-    var jobRoot = sprintf('/%s/jobs', self.client.user);
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
+    var jobRoot = sprintf('/%s/jobs', clients.client.user);
+    var path = sprintf('/%s/stor/muskie_test_obj', clients.client.user);
     var job = {
         name: 'muskie_test_word_count',
         phases: [ {
@@ -1335,22 +1353,22 @@ test('job inputs - context change after job creation', function (t) {
 
     vasync.pipeline({funcs: [
         function write(_, cb) {
-            writeObject(self.client, path, 'muskie_test_role_default',
+            writeObject(clients.client, path, 'muskie_test_role_default',
                     function (err) {
 
                 if (err) {
                     cb(err);
                     return;
                 }
-                self.paths.push(path);
+                clients.paths.push(path);
                 cb();
             });
         },
         function tag(_, cb) {
-            addTag(self.client, jobRoot, 'muskie_test_role_jobs_only', cb);
+            addTag(clients.client, jobRoot, 'muskie_test_role_jobs_only', cb);
         },
         function create(_, cb) {
-            self.userClient.createJob(job, {
+            clients.userClient.createJob(job, {
                 headers: {
                     role: 'muskie_test_role_jobs_only, ' +
                           'muskie_test_role_fromjob, ' +
@@ -1367,17 +1385,17 @@ test('job inputs - context change after job creation', function (t) {
             });
         },
         function input(_, cb) {
-            self.userClient.addJobKey(jobId, path, {
+            clients.userClient.addJobKey(jobId, path, {
                 headers: {
                     role: 'muskie_test_role_jobs_only'
                 }
             }, cb);
         },
         function end(_, cb) {
-            self.client.endJob(jobId, cb);
+            clients.client.endJob(jobId, cb);
         },
         function check(_, cb) {
-            jobWait(self.client, jobId, function (err, errors) {
+            jobWait(clients.client, jobId, function (err, errors) {
                 if (err) {
                     cb(err);
                     return;
@@ -1392,7 +1410,7 @@ test('job inputs - context change after job creation', function (t) {
             });
         }
     ]}, function (err, results) {
-        delTag(self.client, jobRoot, 'muskie_test_role_jobs_only',
+        delTag(clients.client, jobRoot, 'muskie_test_role_jobs_only',
                 function (err2) {
 
             if (err) {
@@ -1414,8 +1432,7 @@ test('job inputs - context change after job creation', function (t) {
 
 
 test('no putdirectory on job creation', function (t) {
-    var self = this;
-    var jobRoot = sprintf('/%s/jobs', self.client.user);
+    var jobRoot = sprintf('/%s/jobs', clients.client.user);
     var job = {
         name: 'muskie_test_word_count',
         phases: [ {
@@ -1424,23 +1441,23 @@ test('no putdirectory on job creation', function (t) {
         } ]
     };
 
-    addTag(self.client, jobRoot, 'muskie_test_role_jobs_only', function (err2) {
+    addTag(clients.client, jobRoot, 'muskie_test_role_jobs_only', function (err2) {
         if (err2) {
             t.fail(err2);
             t.end();
             return;
         }
 
-        self.userClient.createJob(job, {
+        clients.userClient.createJob(job, {
             headers: {
                 role: 'muskie_test_role_jobs_only'
             }
         }, function (err3, jobId) {
             if (jobId) {
-                self.jobs.push(jobId);
+                clients.jobs.push(jobId);
             }
 
-            delTag(self.client, jobRoot, 'muskie_test_role_jobs_only',
+            delTag(clients.client, jobRoot, 'muskie_test_role_jobs_only',
                     function (err4) {
 
                 if (!err3) {
@@ -1464,9 +1481,8 @@ test('no putdirectory on job creation', function (t) {
 
 
 test('job OK', function (t) {
-    var self = this;
-    var jobRoot = sprintf('/%s/jobs', self.client.user);
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
+    var jobRoot = sprintf('/%s/jobs', clients.client.user);
+    var path = sprintf('/%s/stor/muskie_test_obj', clients.client.user);
     var job = {
         name: 'muskie_test_word_count',
         phases: [ {
@@ -1475,22 +1491,22 @@ test('job OK', function (t) {
         } ]
     };
 
-    writeObject(self.client, path, 'muskie_test_role_default', function (err) {
+    writeObject(clients.client, path, 'muskie_test_role_default', function (err) {
         if (err) {
             t.fail(err);
             t.end();
             return;
         }
-        self.paths.push(path);
+        clients.paths.push(path);
 
-        addTag(self.client, jobRoot, 'muskie_test_role_jobs', function (err2) {
+        addTag(clients.client, jobRoot, 'muskie_test_role_jobs', function (err2) {
             if (err2) {
                 t.fail(err2);
                 t.end();
                 return;
             }
 
-            self.userClient.createJob(job, {
+            clients.userClient.createJob(job, {
                 headers: {
                     role: 'muskie_test_role_jobs, ' +
                             'muskie_test_role_default, ' +
@@ -1498,7 +1514,7 @@ test('job OK', function (t) {
                 }
             }, function (err3, jobId) {
                 if (jobId) {
-                    self.jobs.push(jobId);
+                    clients.jobs.push(jobId);
                 }
                 if (err3) {
                     t.fail(err3);
@@ -1506,12 +1522,12 @@ test('job OK', function (t) {
                     return;
                 }
 
-                self.userClient.addJobKey(jobId, path, {
+                clients.userClient.addJobKey(jobId, path, {
                     headers: {
                         role: 'muskie_test_role_jobs'
                     }
                 }, function (err4) {
-                    delTag(self.client, jobRoot, 'muskie_test_role_jobs',
+                    delTag(clients.client, jobRoot, 'muskie_test_role_jobs',
                             function (err5) {
 
                         if (err4 || err5) {
@@ -1521,7 +1537,7 @@ test('job OK', function (t) {
                         }
 
                         function checkJob() {
-                            self.client.job(jobId, function (err7, res) {
+                            clients.client.job(jobId, function (err7, res) {
                                 if (err7) {
                                     t.fail(err7);
                                     t.end();
@@ -1533,7 +1549,7 @@ test('job OK', function (t) {
                                     return;
                                 }
 
-                                self.client.jobErrors(jobId,
+                                clients.client.jobErrors(jobId,
                                         function (err8, errors) {
 
                                     if (err8) {
@@ -1561,13 +1577,13 @@ test('job OK', function (t) {
                             });
                         }
 
-                        self.client.endJob(jobId, function (err6) {
+                        clients.client.endJob(jobId, function (err6) {
                             if (err6) {
                                 t.fail(err6);
                                 t.end();
                                 return;
                             }
-                            self.jobs.pop();
+                            clients.jobs.pop();
                             setTimeout(checkJob, 2000);
                         });
                     });
@@ -1579,10 +1595,9 @@ test('job OK', function (t) {
 
 
 test('assets - no getobject on asset', function (t) {
-    var self = this;
-    var jobRoot = sprintf('/%s/jobs', self.client.user);
-    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
-    var asset = sprintf('/%s/stor/muskie_test_aasset', self.client.user);
+    var jobRoot = sprintf('/%s/jobs', clients.client.user);
+    var path = sprintf('/%s/stor/muskie_test_obj', clients.client.user);
+    var asset = sprintf('/%s/stor/muskie_test_aasset', clients.client.user);
     var job = {
         name: 'muskie_test_word_count',
         phases: [ {
@@ -1595,32 +1610,32 @@ test('assets - no getobject on asset', function (t) {
 
     vasync.pipeline({funcs: [
         function writeobj(_, cb) {
-            writeObject(self.client, path, 'muskie_test_role_default',
+            writeObject(clients.client, path, 'muskie_test_role_default',
                     function (err) {
 
                 if (err) {
                     cb(err);
                     return;
                 }
-                self.paths.push(path);
+                clients.paths.push(path);
                 cb();
             });
         },
         function writeasset(_, cb) {
-            writeObject(self.client, asset, function (err) {
+            writeObject(clients.client, asset, function (err) {
                 if (err) {
                     cb(err);
                     return;
                 }
-                self.paths.push(asset);
+                clients.paths.push(asset);
                 cb();
             });
         },
         function tag(_, cb) {
-            addTag(self.client, jobRoot, 'muskie_test_role_jobs', cb);
+            addTag(clients.client, jobRoot, 'muskie_test_role_jobs', cb);
         },
         function create(_, cb) {
-            self.userClient.createJob(job, {
+            clients.userClient.createJob(job, {
                 headers: {
                     role: 'muskie_test_role_jobs'
                 }
@@ -1635,17 +1650,17 @@ test('assets - no getobject on asset', function (t) {
             });
         },
         function input(_, cb) {
-            self.userClient.addJobKey(jobId, path, {
+            clients.userClient.addJobKey(jobId, path, {
                 headers: {
                     role: 'muskie_test_role_jobs'
                 }
             }, cb);
         },
         function end(_, cb) {
-            self.client.endJob(jobId, cb);
+            clients.client.endJob(jobId, cb);
         },
         function check(_, cb) {
-            jobWait(self.client, jobId, function (err, errors) {
+            jobWait(clients.client, jobId, function (err, errors) {
                 if (err) {
                     cb(err);
                     return;
@@ -1660,7 +1675,7 @@ test('assets - no getobject on asset', function (t) {
             });
         }
     ]}, function (err, results) {
-        delTag(self.client, jobRoot, 'muskie_test_role_jobs',
+        delTag(clients.client, jobRoot, 'muskie_test_role_jobs',
                 function (err2) {
 
             if (err) {

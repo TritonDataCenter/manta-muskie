@@ -22,8 +22,7 @@ var restify = require('restify');
 var smartdc = require('smartdc');
 var sshpk = require('sshpk');
 var VError = require('verror').VError;
-
-
+var tape = require('tape');
 
 ///--- Globals
 
@@ -365,83 +364,50 @@ function checkEnvironment() {
     }
 }
 
-
-
 ///--- Exports
 
 module.exports = {
 
-    after: function after(teardown) {
-        module.parent.exports.tearDown = function _teardown(cb) {
-            cb = once(cb);
-            var d = domain.create();
-            var self = this;
+    afterEach: function afterEach(test, handler) {
+        return function tapish(name, listener) {
+            test(name, function (assert) {
+                var _end = assert.end
+                assert.end = function () {
+                    assert.end = _end
+                    handler(assert)
+                }
 
-            d.once('error', function (e) {
-                console.error('after:\n' + e.stack);
-                process.exit(1);
-            });
-            d.run(function () {
-                teardown.call(self, function (err) {
-                    if (err) {
-                        console.error('after:\n' + err.stack);
-                        process.exit(1);
-                    }
-                    cb();
-                });
-            });
-        };
+                listener(assert)
+            })
+        }
     },
 
-    before: function before(setup) {
-        module.parent.exports.setUp = function _setup(cb) {
-            cb = once(cb);
+    beforeEach: function beforeEach(test, handler) {
+        return function tapish(name, listener) {
+            test(name, function (assert) {
+                var _end = assert.end
+                assert.end = function () {
+                    assert.end = _end
+                    listener(assert)
+                }
 
-            var d = domain.create();
-            var self = this;
-
-            d.once('error', function (e) {
-                console.error('before:\n' + e.stack);
-                process.exit(1);
-            });
-
-            d.run(function () {
-
-                setup.call(self, function (err) {
-                    if (err) {
-                        console.error('before:\n' + err.stack);
-                        process.exit(1);
-                    }
-                    cb();
-                });
-            });
-        };
+                handler(assert)
+            })
+        }
     },
 
     test: function test(name, tester) {
-        module.parent.exports[name] = function _(t) {
-            var self = this;
-            var d = domain.create();
-            d.once('error', function (e) {
-                console.error(name + ':\n' + e.stack);
-                process.exit(1);
-            });
-            d.run(function () {
-                var _done = false;
-                t.end = once(function end() {
-                    if (!_done) {
-                        _done = true;
-                        t.done();
-                    }
-                });
-                t.notOk = function notOk(ok, message) {
-                    return (t.ok(!ok, message));
-                };
-                t.checkResponse = checkResponse.bind(self, t);
-                tester.call(self, t);
-            });
-        };
+        var self = this;
+        var d = domain.create();
+        d.once('error', function (e) {
+            console.error(name + ':\n' + e.stack);
+            process.exit(1);
+        });
+        d.run(function () {
+            tape(name, tester);
+        });
     },
+
 
     POSEIDON_ID: POSEIDON_ID,
     createClient: createClient,
