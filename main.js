@@ -547,7 +547,7 @@ function version() {
     });
 
     cfg.name = 'insecure';
-    var server2 = app.createServer(cfg, true);
+    var server2 = app.createServer(cfg);
     server2.on('error', function (err) {
         LOG.fatal(err, 'server (clear) error');
         process.exit(1);
