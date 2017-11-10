@@ -39,7 +39,7 @@ var uploadsCommon = require('./lib/uploads/common');
 
 ///--- Internal Functions
 
-function getOptions() {
+function getMuskieOptions() {
     var options = [
         {
             names: ['file', 'f'],
@@ -70,29 +70,19 @@ function getOptions() {
 }
 
 
-function configure(appName, dtProbes) {
-    var cfg, opts;
-    var parser = new dashdash.Parser({options: getOptions()});
-
-    var log = bunyan.createLogger(
-        {
-            name: appName,
-            streams: [ {
-                level: process.env.LOG_LEVEL || 'info',
-                stream: process.stderr
-            } ],
-            serializers: restify.bunyan.serializers
-        });
-
-    if (log.level() <= bunyan.DEBUG) {
-        log = log.child({src: true});
-    }
+/**
+ * Command line option parsing and checking.
+ *
+ * @returns {Object} A object representing the command line options
+ */
+function parseOptions() {
+    var opts;
+    var parser = new dashdash.Parser({options: getMuskieOptions()});
 
     try {
         opts = parser.parse(process.argv);
         assert.object(opts, 'options');
     } catch (e) {
-        log.fatal(e, 'invalid options');
         usage(parser, e.message);
     }
 
@@ -100,20 +90,43 @@ function configure(appName, dtProbes) {
         usage(parser, '-f option is required');
     }
 
-    cfg = JSON.parse(readFile(opts.file));
+    return (opts);
+}
+
+
+/**
+ * Configure the application based on the configuration file data and the
+ * command line options
+ *
+ * @param {String} appName: Required. The name of the application
+ * @param {Object} opts: Required. An object representing the parsed command
+ * line options
+ * @param {} dtProbes: Required. An object containing the dtrace probes for the
+ * application
+ * @returns {Object} The configuration object
+ */
+function configure(appName, opts, dtProbes) {
+    var cfg = JSON.parse(readFile(opts.file));
+
+    assert.object(cfg, 'cfg');
+    assert.object(cfg.auth, 'cfg.auth');
+    assert.object(cfg.marlin, 'cfg.marlin');
+    assert.object(cfg.moray, 'cfg.moray');
+    assert.object(cfg.medusa, 'cfg.medusa');
+    assert.object(cfg.cueballHttpAgent, 'cfg.cueballHttpAgent');
+    assert.object(cfg.sharkConfig, 'cfg.sharkConfig');
+
     cfg.insecurePort = opts.insecure_port || cfg.insecurePort;
     cfg.port = opts.port || cfg.port;
-
     cfg.name = 'Manta';
     cfg.version = version();
+    cfg.log = configureLogging(appName, cfg.bunyan, opts.verbose);
 
-    log = configureLogging(appName, opts, cfg, log);
-
-    if (opts.verbose) {
-        opts.verbose.forEach(function () {
-            log.level(Math.max(bunyan.TRACE, (log.level() - 10)));
-        });
-    }
+    [ cfg.auth, cfg.marlin, cfg.moray, cfg.medusa,
+      cfg.cueballHttpAgent, cfg.sharkConfig
+    ].forEach(function (x) {
+        x.log = cfg.log;
+    });
 
     if (!cfg.hasOwnProperty('storage')) {
         cfg.storage = {};
@@ -137,7 +150,7 @@ function configure(appName, dtProbes) {
          * function.
          */
         if (typeof (v) !== 'number' || v < 1) {
-            log.fatal('invalid "defaultMaxStreamingSizeMB" value');
+            cfg.log.fatal('invalid "defaultMaxStreamingSizeMB" value');
             process.exit(1);
         }
     } else {
@@ -155,7 +168,7 @@ function configure(appName, dtProbes) {
         if (len < uploadsCommon.MIN_PREFIX_LEN ||
             len > uploadsCommon.MAX_PREFIX_LEN) {
 
-            log.fatal('invalid "prefixDirLen" value: must be between ' +
+            cfg.log.fatal('invalid "prefixDirLen" value: must be between ' +
                 uploadsCommon.MIN_PREFIX_LEN + ' and ' +
                 uploadsCommon.MAX_PREFIX_LEN);
             process.exit(1);
@@ -180,96 +193,108 @@ function configure(appName, dtProbes) {
 
     cfg.dtrace_probes = dtProbes;
 
-    log.debug(cfg, 'muskie: config loaded');
+    cfg.log.debug(cfg, 'muskie: config loaded');
 
     return (cfg);
 }
 
 
-function configureLogging(appName, opts, cfg, log) {
+/**
+ * Configure the logger based on the configuration data
+ *
+ * @param {String} appName: Required. The name of the application
+ * @param {Object} bunyanCfg: Required. The bunyan configuration data
+ * @param {arrayOfBool} verbose: Required. Array of boolean values that
+ * indicates if verbose logging should be enabled and the level of verbosity
+ * requested. Used to determine if syslog logging should be configured or not
+ * and to set the logging level appropriately.
+ * @returns {Object} A bunyan logger object
+ */
+function configureLogging(appName, bunyanCfg, verbose) {
+    var log = bunyan.createLogger({
+        name: appName,
+        streams: [ {
+            level: process.env.LOG_LEVEL || 'info',
+            stream: process.stderr
+        } ],
+        serializers: restify.bunyan.serializers
+    });
+    var level;
+
     // This is ugly, but we set this up so that if muskie is invoked with a
     // -v flag, then we know you're running locally, and you just want the
-    // messages to spew to stdout. Otherwise, it's "production", and muskie
-    // logs to a syslog endpoint
+    // messages to spew to stderr. Otherwise, it's "production", and muskie
+    // likely logs to a syslog endpoint
+    if (verbose || !bunyanCfg) {
+        if (verbose) {
+            level = Math.max(bunyan.TRACE, (log.level() - verbose.length * 10));
+            log.level(level);
+        }
 
-    if (opts.verbose || !cfg.bunyan) {
-        setLogger(cfg, log);
-        return (cfg);
+        return (log);
     }
 
-    var cfg_b = cfg.bunyan;
+    assert.object(bunyanCfg, 'config.bunyan');
+    assert.optionalString(bunyanCfg.level, 'config.bunyan.level');
+    assert.optionalObject(bunyanCfg.syslog, 'config.bunyan.syslog');
 
-    assert.object(cfg_b, 'config.bunyan');
-    assert.optionalString(cfg_b.level, 'config.bunyan.level');
-    assert.optionalObject(cfg_b.syslog, 'config.bunyan.syslog');
+    level = bunyan.resolveLevel(bunyanCfg.level || 'info');
 
-    var level = cfg_b.level || 'info';
-    var streams = [];
-    var sysl;
+    if (bunyanCfg.syslog) {
+        var streams = [];
+        var sysl;
 
-    // We want debug info only IFF the request fails AND the configured
-    // log level is info or higher
-    if (bunyan.resolveLevel(level) >= bunyan.INFO && cfg_b.syslog) {
-        assert.string(cfg_b.syslog.facility,
+        assert.string(bunyanCfg.syslog.facility,
                       'config.bunyan.syslog.facility');
-        assert.string(cfg_b.syslog.type, 'config.bunyan.syslog.type');
-
-        const RequestCaptureStream = restify.bunyan.RequestCaptureStream;
+        assert.string(bunyanCfg.syslog.type, 'config.bunyan.syslog.type');
 
         sysl = bsyslog.createBunyanStream({
-            facility: bsyslog.facility[cfg_b.syslog.facility],
+            facility: bsyslog.facility[bunyanCfg.syslog.facility],
             name: appName,
-            host: cfg_b.syslog.host,
-            port: cfg_b.syslog.port,
-            type: cfg_b.syslog.type
+            host: bunyanCfg.syslog.host,
+            port: bunyanCfg.syslog.port,
+            type: bunyanCfg.syslog.type
         });
+
         streams.push({
             level: level,
             stream: sysl
         });
-        streams.push({
-            level: 'debug',
-            type: 'raw',
-            stream: new RequestCaptureStream({
-                level: bunyan.WARN,
-                maxRecords: 2000,
-                maxRequestIds: 2000,
-                streams: [ {
-                    raw: true,
-                    stream: sysl
-                }]
-            })
-        });
+
+        // We want debug info only IFF the request fails AND the configured
+        // log level is info or higher
+        if (level >= bunyan.INFO) {
+            const RequestCaptureStream = restify.bunyan.RequestCaptureStream;
+            streams.push({
+                level: 'debug',
+                type: 'raw',
+                stream: new RequestCaptureStream({
+                    level: bunyan.WARN,
+                    maxRecords: 2000,
+                    maxRequestIds: 2000,
+                    streams: [ {
+                        raw: true,
+                        stream: sysl
+                    }]
+                })
+            });
+        }
+
         log = bunyan.createLogger({
             name: appName,
             level: level,
             streams: streams,
             serializers: restify.bunyan.serializers
         });
+    } else {
+        log.level(level);
     }
 
-    setLogger(cfg, log);
+    if (log.level() <= bunyan.DEBUG) {
+        log = log.child({src: true});
+    }
 
     return (log);
-}
-
-
-function setLogger(cfg, log) {
-    assert.object(cfg, 'cfg');
-    assert.object(cfg.auth, 'cfg.auth');
-    assert.object(cfg.marlin, 'cfg.marlin');
-    assert.object(cfg.moray, 'cfg.moray');
-    assert.object(cfg.medusa, 'cfg.medusa');
-    assert.object(cfg.cueballHttpAgent, 'cfg.cueballHttpAgent');
-    assert.object(cfg.sharkConfig, 'cfg.sharkConfig');
-
-    cfg.log = log;
-    cfg.auth.log = log;
-    cfg.marlin.log = log;
-    cfg.moray.log = log;
-    cfg.medusa.log = log;
-    cfg.cueballHttpAgent.log = log;
-    cfg.sharkConfig.log = log;
 }
 
 
@@ -280,6 +305,7 @@ function usage(parser, message)
     console.error(parser.help());
     process.exit(2);
 }
+
 
 function createMonitoringServer(cfg) {
     /*
@@ -565,8 +591,8 @@ function clientsConnected(appName, cfg, clients) {
         socket_timeout: socket_timeout
     };
 
-    // Do not mutate config data
-    const cfg = configure(muskie, dtProbes);
+    const opts = parseOptions();
+    const cfg = configure(muskie, opts, dtProbes);
 
     // Create a barrier to ensure client connections that are
     // established asynchronously and are required for muskie to serve
