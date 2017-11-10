@@ -334,11 +334,8 @@ function createMonitoringServer(cfg) {
     });
 }
 
-function createCueballHttpAgent(sharkCfg, cueballHttpAgent, clients) {
-    /* Used for connections to mahi and other services. */
-    clients.agent = new cueball.HttpAgent(cueballHttpAgent);
 
-    /* Used only for connections to sharks. */
+function createCueballSharkAgent(sharkCfg) {
     var sharkCueball = {
         resolvers: sharkCfg.resolvers,
 
@@ -372,12 +369,18 @@ function createCueballHttpAgent(sharkCfg, cueballHttpAgent, clients) {
             }
         }
     };
-    clients.sharkAgent = new cueball.HttpAgent(sharkCueball);
+
+    return (new cueball.HttpAgent(sharkCueball));
 }
 
-function createPickerClient(cfg, log, clients, barrier) {
-    barrier.start('createPickerClient');
 
+function onPickerConnect(clients, barrier, pickerClient) {
+    clients.picker = pickerClient;
+    barrier.done('createPickerClient');
+}
+
+
+function createPickerClient(cfg, log, onConnect) {
     var opts = {
         interval: cfg.interval,
         lag: cfg.lag,
@@ -390,16 +393,14 @@ function createPickerClient(cfg, log, clients, barrier) {
 
     var client = app.picker.createClient(opts);
 
-    client.once('connect', function onConnect() {
+    client.once('connect', function _onConnect() {
         log.info('picker connected %s', client.toString());
-        clients.picker = client;
-
-        barrier.done('createPickerClient');
+        onConnect(client);
     });
 }
 
 
-function createAuthCacheClient(authCfg, clients) {
+function createAuthCacheClient(authCfg, agent) {
     assert.object(authCfg, 'authCfg');
     assert.string(authCfg.url, 'authCfg.url');
     assert.optionalObject(authCfg.typeTable, 'authCfg.typeTable');
@@ -409,9 +410,9 @@ function createAuthCacheClient(authCfg, clients) {
     options.log = log;
 
     options.typeTable = options.typeTable || apertureConfig.typeTable || {};
-    options.agent = clients.agent;
+    options.agent = agent;
 
-    clients.mahi = mahi.createClient(options);
+    return (mahi.createClient(options));
 }
 
 
@@ -421,11 +422,17 @@ function createKeyAPIClient(opts, clients) {
         log: log,
         ufds: opts.ufds
     };
-    clients.keyapi = new keyapi(_opts);
+
+    return (new keyapi(_opts));
 }
 
 
-function createMarlinClient(opts, clients) {
+function onMarlinConnect(clients, marlinClient) {
+    clients.marlin = marlinClient;
+}
+
+
+function createMarlinClient(opts, onConnect) {
     var log = opts.log.child({component: 'marlin'}, true);
     var _opts = {
         moray: opts.moray,
@@ -438,7 +445,7 @@ function createMarlinClient(opts, clients) {
             log.fatal(err, 'marlin: unable to create a client');
             process.nextTick(createMarlinClient.bind(null, opts));
         } else {
-            clients.marlin = marlinClient;
+            onConnect(marlinClient);
             log.info({
                 remote: marlinClient.ma_client.host
             }, 'marlin: ready');
@@ -471,11 +478,15 @@ function createMarlinClient(opts, clients) {
 }
 
 
-function createMorayClient(opts, clients, barrier) {
+function onMorayConnect(clients, barrier, morayClient) {
+    clients.moray = morayClient;
+    barrier.done('createMorayClient');
+}
+
+
+function createMorayClient(opts, onConnect) {
     assert.object(opts, 'options');
     assert.object(opts.log, 'options.log');
-
-    barrier.start('createMorayClient');
 
     var log = opts.log.child({component: 'moray'}, true);
     opts.log = log;
@@ -488,7 +499,7 @@ function createMorayClient(opts, clients, barrier) {
         log.error(err, 'moray: failed to connect');
     });
 
-    client.once('connect', function onConnect() {
+    client.once('connect', function _onConnect() {
         client.removeAllListeners('error');
 
         log.info({
@@ -496,14 +507,17 @@ function createMorayClient(opts, clients, barrier) {
             port: opts.port
         }, 'moray: connected');
 
-        clients.moray = client;
-
-        barrier.done('createMorayClient');
+        onConnect(client);
     });
 }
 
 
-function createMedusaConnector(opts, clients) {
+function onMedusaConnect(clients, medusaClient) {
+    clients.medusa = medusaClient;
+}
+
+
+function createMedusaConnector(opts, onConnect) {
     assert.object(opts, 'options');
     assert.object(opts.log, 'options.log');
 
@@ -512,9 +526,9 @@ function createMedusaConnector(opts, clients) {
 
     var client = medusa.createConnector(opts);
 
-    client.once('connect', function onConnect() {
+    client.once('connect', function _onConnect() {
         log.info('medusa: connected');
-        clients.medusa = client;
+        onConnect(client);
     });
 }
 
@@ -594,23 +608,36 @@ function clientsConnected(appName, cfg, clients) {
     const opts = parseOptions();
     const cfg = configure(muskie, opts, dtProbes);
 
-    // Create a barrier to ensure client connections that are
-    // established asynchronously and are required for muskie to serve
-    // requests are ready prior to starting up the restify servers and
-    // beginning to handle requests.
+    // Create a barrier to ensure client connections that are established
+    // asynchronously and are required for muskie to serve a minimal subset of
+    // requests are ready prior to starting up the restify servers and beginning
+    // to handle requests.
     var barrier = vasync.barrier();
 
     barrier.on('drain', clientsConnected.bind(null, muskie, cfg, clients));
 
-    // Establish client connections
-    createCueballHttpAgent(cfg.sharkConfig, cfg.cueballHttpAgent, clients);
+    // Establish minimal set of client connections required to begin
+    // successfully servicing non-jobs requests
+
+    clients.agent = new cueball.HttpAgent(cfg.cueballHttpAgent);
+    clients.mahi = createAuthCacheClient(cfg.auth, clients.agent);
+
+    barrier.start('createMorayClient');
+    createMorayClient(cfg.moray, onMorayConnect.bind(null, clients, barrier));
+
+    barrier.start('createPickerClient');
+    createPickerClient(cfg.storage, cfg.log,
+        onPickerConnect.bind(null, clients, barrier));
+
+    // Establish other client connections
+
+    createMarlinClient(cfg.marlin, onMarlinConnect.bind(null, clients));
+    createMedusaConnector(cfg.medusa, onMedusaConnect.bind(null, clients));
+    clients.sharkAgent = createCueballSharkAgent(cfg.sharkConfig);
+    clients.keyapi = createKeyAPIClient(cfg);
+
+    // Create monitoring server
     createMonitoringServer(cfg);
-    createMarlinClient(cfg.marlin, clients);
-    createPickerClient(cfg.storage, cfg.log, clients, barrier);
-    createAuthCacheClient(cfg.auth, clients);
-    createMorayClient(cfg.moray, clients, barrier);
-    createMedusaConnector(cfg.medusa, clients);
-    createKeyAPIClient(cfg, clients);
 
     process.on('SIGHUP', process.exit.bind(process, 0));
 
