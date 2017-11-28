@@ -343,7 +343,8 @@ function createPickerClient(cfg) {
         moray: cfg.moray,
         log: LOG.child({component: 'picker'}, true),
         multiDC: cfg.multiDC,
-        defaultMaxStreamingSizeMB: cfg.defaultMaxStreamingSizeMB
+        defaultMaxStreamingSizeMB: cfg.defaultMaxStreamingSizeMB,
+        maxUtilizationPct: cfg.maxUtilizationPct || 90
     };
 
     var client = app.picker.createClient(opts);
