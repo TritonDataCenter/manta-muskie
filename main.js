@@ -73,7 +73,7 @@ function getMuskieOptions() {
 /**
  * Command line option parsing and checking.
  *
- * @returns {Object} A object representing the command line options
+ * @returns {Object} A object representing the command line options.
  */
 function parseOptions() {
     var opts;
@@ -96,14 +96,14 @@ function parseOptions() {
 
 /**
  * Configure the application based on the configuration file data and the
- * command line options
+ * command line options.
  *
- * @param {String} appName: Required. The name of the application
+ * @param {String} appName: Required. The name of the application.
  * @param {Object} opts: Required. An object representing the parsed command
- * line options
+ * line options.
  * @param {} dtProbes: Required. An object containing the dtrace probes for the
- * application
- * @returns {Object} The configuration object
+ * application.
+ * @returns {Object} The configuration object.
  */
 function configure(appName, opts, dtProbes) {
     var cfg = JSON.parse(readFile(opts.file));
@@ -221,10 +221,12 @@ function configureLogging(appName, bunyanCfg, verbose) {
     });
     var level;
 
-    // This is ugly, but we set this up so that if muskie is invoked with a
-    // -v flag, then we know you're running locally, and you just want the
-    // messages to spew to stderr. Otherwise, it's "production", and muskie
-    // likely logs to a syslog endpoint
+    /*
+     * This is ugly, but we set this up so that if muskie is invoked with a
+     * -v flag, then we know you're running locally, and you just want the
+     * messages to spew to stderr. Otherwise, it's "production", and muskie
+     * likely logs to a syslog endpoint.
+     */
     if (verbose || !bunyanCfg) {
         if (verbose) {
             level = Math.max(bunyan.TRACE, (log.level() - verbose.length * 10));
@@ -261,8 +263,10 @@ function configureLogging(appName, bunyanCfg, verbose) {
             stream: sysl
         });
 
-        // We want debug info only IFF the request fails AND the configured
-        // log level is info or higher
+        /*
+         * We want debug info only IFF the request fails AND the configured
+         * log level is info or higher.
+         */
         if (level >= bunyan.INFO) {
             const RequestCaptureStream = restify.bunyan.RequestCaptureStream;
             streams.push({
@@ -359,7 +363,7 @@ function createCueballSharkAgent(sharkCfg) {
             },
             /*
              * Avoid SRV retries, since authcache doesn't currently register
-             * any useable SRV records for HTTP (it only registers redis)
+             * any useable SRV records for HTTP (it only registers redis).
              */
             'dns_srv': {
                 retries: 0,
@@ -588,7 +592,7 @@ function clientsConnected(appName, cfg, clients) {
 (function main() {
     const muskie = 'muskie';
 
-    // Parent object for client connection objects
+    // Parent object for client connection objects.
     var clients = {};
 
     // DTrace probe setup
@@ -608,16 +612,19 @@ function clientsConnected(appName, cfg, clients) {
     const opts = parseOptions();
     const cfg = configure(muskie, opts, dtProbes);
 
-    // Create a barrier to ensure client connections that are established
-    // asynchronously and are required for muskie to serve a minimal subset of
-    // requests are ready prior to starting up the restify servers and beginning
-    // to handle requests.
+    /*
+     * Create a barrier to ensure client connections that are established
+     * asynchronously and are required for muskie to serve a minimal subset of
+     * requests are ready prior to starting up the restify servers.
+     */
     var barrier = vasync.barrier();
 
     barrier.on('drain', clientsConnected.bind(null, muskie, cfg, clients));
 
-    // Establish minimal set of client connections required to begin
-    // successfully servicing non-jobs requests
+    /*
+     * Establish minimal set of client connections required to begin
+     * successfully servicing non-jobs read requests.
+     */
 
     clients.agent = new cueball.HttpAgent(cfg.cueballHttpAgent);
     clients.mahi = createAuthCacheClient(cfg.auth, clients.agent);
@@ -629,7 +636,7 @@ function clientsConnected(appName, cfg, clients) {
     createPickerClient(cfg.storage, cfg.log,
         onPickerConnect.bind(null, clients, barrier));
 
-    // Establish other client connections
+    // Establish other client connections needed for writes and jobs requests.
 
     createMarlinClient(cfg.marlin, onMarlinConnect.bind(null, clients));
     createMedusaConnector(cfg.medusa, onMedusaConnect.bind(null, clients));
