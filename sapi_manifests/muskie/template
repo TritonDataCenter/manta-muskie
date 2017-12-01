@@ -182,7 +182,8 @@
   "storage": {
     "lag": 60000,
     "multiDC": {{MUSKIE_MULTI_DC}}{{#MUSKIE_DEFAULT_MAX_STREAMING_SIZE_MB}},
-    "defaultMaxStreamingSizeMB": {{MUSKIE_DEFAULT_MAX_STREAMING_SIZE_MB}}{{/MUSKIE_DEFAULT_MAX_STREAMING_SIZE_MB}},
+    "defaultMaxStreamingSizeMB": {{MUSKIE_DEFAULT_MAX_STREAMING_SIZE_MB}}{{/MUSKIE_DEFAULT_MAX_STREAMING_SIZE_MB}}{{#MUSKIE_MAX_UTILIZATION_PCT}},
+    "maxUtilizationPct": {{MUSKIE_MAX_UTILIZATION_PCT}}{{/MUSKIE_MAX_UTILIZATION_PCT}},
     "moray": {
         "srvDomain": "{{STORAGE_MORAY_SHARD}}",
         "cueballOptions": {
