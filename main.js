@@ -178,6 +178,46 @@ function configure(appName, opts, dtProbes) {
         cfg.multipartUpload.prefixDirLen = uploadsCommon.DEF_PREFIX_LEN;
     }
 
+    if (cfg.storage.hasOwnProperty('maxUtilizationPct')) {
+        var mu = cfg.storage.maxUtilizationPct;
+
+        /*
+         * The structure of the configuration template is such that the value
+         * is a valid Number or not present at all.  Any other case would have
+         * already caused a JSON parse failure at an earlier point in this
+         * function.
+         */
+        if (typeof (mu) !== 'number' || mu < 1) {
+            cfg.log.fatal('invalid "maxUtilizationPct" value');
+            process.exit(1);
+        }
+    } else {
+        cfg.storage.maxUtilizationPct = 90;
+    }
+
+    if (cfg.storage.hasOwnProperty('maxOperatorUtilizationPct')) {
+        var mou = cfg.storage.maxOperatorUtilizationPct;
+
+        /*
+         * The structure of the configuration template is such that the value
+         * is a valid Number or not present at all.  Any other case would have
+         * already caused a JSON parse failure at an earlier point in this
+         * function.
+         */
+        if (typeof (mou) !== 'number' || mou < 1) {
+            cfg.log.fatal('invalid "maxOperatorUtilizationPct" value');
+            process.exit(1);
+        }
+    } else {
+        cfg.storage.maxOperatorUtilizationPct = 92;
+    }
+
+    if (cfg.storage.maxUtilizationPct > cfg.storage.maxOperatorUtilizationPct) {
+        cfg.log.fatal('invalid configuration "maxUtilizationPct" value must ' +
+                  'not exceed the value for maxOperatorUtilizationPct.');
+        process.exit(1);
+    }
+
     cfg.collector = artedi.createCollector({
         labels: {
             datacenter: cfg.datacenter,
@@ -393,7 +433,8 @@ function createPickerClient(cfg, log, onConnect) {
         log: log.child({component: 'picker'}, true),
         multiDC: cfg.multiDC,
         defaultMaxStreamingSizeMB: cfg.defaultMaxStreamingSizeMB,
-        maxUtilizationPct: cfg.maxUtilizationPct || 90
+        maxUtilizationPct: cfg.maxUtilizationPct,
+        maxOperatorUtilizationPct: cfg.maxOperatorUtilizationPct
     };
 
     var client = app.picker.createClient(opts);
