@@ -21,87 +21,68 @@ var bunyan = require('bunyan');
 var cueball = require('cueball');
 var dashdash = require('dashdash');
 var dtrace = require('dtrace-provider');
+var jsprim = require('jsprim');
 var kang = require('kang');
 var keyapi = require('keyapi');
 var libmanta = require('libmanta');
 var LRU = require('lru-cache');
 var mahi = require('mahi');
 var marlin = require('marlin');
+var medusa = require('./lib/medusa');
 var once = require('once');
 var restify = require('restify');
 var vasync = require('vasync');
-var medusa = require('./lib/medusa');
 
 var app = require('./lib');
 var uploadsCommon = require('./lib/uploads/common');
 
 
-
-///--- Globals
-
-var RequestCaptureStream = restify.bunyan.RequestCaptureStream;
-
-var NAME = 'muskie';
-var DEFAULT_CFG = __dirname + '/etc/' + NAME + '.config.json';
-var LEVEL = process.env.LOG_LEVEL || 'info';
-var LOG = bunyan.createLogger({
-    name: NAME,
-    streams: [ {
-        level: LEVEL,
-        stream: process.stderr
-    } ],
-    serializers: restify.bunyan.serializers
-});
-var AGENT;
-var SHARKAGENT;
-var MAHI;
-var MARLIN;
-var KEYAPI;
-var OPTIONS = [
-    {
-        names: ['file', 'f'],
-        type: 'string',
-        help: 'Configuration file to use.',
-        helpArg: 'FILE'
-    },
-    {
-        names: ['insecure-port', 'i'],
-        type: 'positiveInteger',
-        help: 'Listen for insecure requests on port.',
-        helpArg: 'PORT'
-    },
-    {
-        names: ['port', 'p'],
-        type: 'positiveInteger',
-        help: 'Listen for secure requests on port.',
-        helpArg: 'PORT'
-    },
-    {
-        names: ['verbose', 'v'],
-        type: 'arrayOfBool',
-        help: 'Verbose output. Use multiple times for more verbose.'
-    }
-];
-
-var PICKER;
-var MORAY;
-var MEDUSA;
-var VERSION = false;
-
-
-
 ///--- Internal Functions
 
-function configure() {
-    var cfg;
+function getMuskieOptions() {
+    var options = [
+        {
+            names: ['file', 'f'],
+            type: 'string',
+            help: 'Configuration file to use.',
+            helpArg: 'FILE'
+        },
+        {
+            names: ['insecure-port', 'i'],
+            type: 'positiveInteger',
+            help: 'Listen for insecure requests on port.',
+            helpArg: 'PORT'
+        },
+        {
+            names: ['port', 'p'],
+            type: 'positiveInteger',
+            help: 'Listen for secure requests on port.',
+            helpArg: 'PORT'
+        },
+        {
+            names: ['verbose', 'v'],
+            type: 'arrayOfBool',
+            help: 'Verbose output. Use multiple times for more verbose.'
+        }
+    ];
+
+    return (options);
+}
+
+
+/**
+ * Command line option parsing and checking.
+ *
+ * @returns {Object} A object representing the command line options.
+ */
+function parseOptions() {
     var opts;
-    var parser = new dashdash.Parser({options: OPTIONS});
+    var parser = new dashdash.Parser({options: getMuskieOptions()});
 
     try {
         opts = parser.parse(process.argv);
         assert.object(opts, 'options');
     } catch (e) {
-        LOG.fatal(e, 'invalid options');
         usage(parser, e.message);
     }
 
@@ -109,18 +90,44 @@ function configure() {
         usage(parser, '-f option is required');
     }
 
-    cfg = JSON.parse(readFile(opts.file));
+    return (opts);
+}
+
+
+/**
+ * Configure the application based on the configuration file data and the
+ * command line options.
+ *
+ * @param {String} appName: Required. The name of the application.
+ * @param {Object} opts: Required. An object representing the parsed command
+ * line options.
+ * @param {} dtProbes: Required. An object containing the dtrace probes for the
+ * application.
+ * @returns {Object} The configuration object.
+ */
+function configure(appName, opts, dtProbes) {
+    var cfg = JSON.parse(readFile(opts.file));
+
+    assert.object(cfg, 'cfg');
+    assert.object(cfg.auth, 'cfg.auth');
+    assert.object(cfg.marlin, 'cfg.marlin');
+    assert.object(cfg.moray, 'cfg.moray');
+    assert.object(cfg.medusa, 'cfg.medusa');
+    assert.object(cfg.cueballHttpAgent, 'cfg.cueballHttpAgent');
+    assert.object(cfg.sharkConfig, 'cfg.sharkConfig');
+    assert.optionalObject(cfg.storage, 'cfg.storage');
+
     cfg.insecurePort = opts.insecure_port || cfg.insecurePort;
     cfg.port = opts.port || cfg.port;
-
     cfg.name = 'Manta';
     cfg.version = version();
+    cfg.log = configureLogging(appName, cfg.bunyan, opts.verbose);
 
-    if (opts.verbose) {
-        opts.verbose.forEach(function () {
-            LOG.level(Math.max(bunyan.TRACE, (LOG.level() - 10)));
-        });
-    }
+    [ cfg.auth, cfg.marlin, cfg.moray, cfg.medusa,
+      cfg.cueballHttpAgent, cfg.sharkConfig
+    ].forEach(function (x) {
+        x.log = cfg.log;
+    });
 
     if (!cfg.hasOwnProperty('storage')) {
         cfg.storage = {};
@@ -144,7 +151,7 @@ function configure() {
          * function.
          */
         if (typeof (v) !== 'number' || v < 1) {
-            LOG.fatal('invalid "defaultMaxStreamingSizeMB" value');
+            cfg.log.fatal('invalid "defaultMaxStreamingSizeMB" value');
             process.exit(1);
         }
     } else {
@@ -162,7 +169,7 @@ function configure() {
         if (len < uploadsCommon.MIN_PREFIX_LEN ||
             len > uploadsCommon.MAX_PREFIX_LEN) {
 
-            LOG.fatal('invalid "prefixDirLen" value: must be between ' +
+            cfg.log.fatal('invalid "prefixDirLen" value: must be between ' +
                 uploadsCommon.MIN_PREFIX_LEN + ' and ' +
                 uploadsCommon.MAX_PREFIX_LEN);
             process.exit(1);
@@ -180,83 +187,121 @@ function configure() {
         }
     });
 
-    if (LOG.level() <= bunyan.DEBUG)
-        LOG = LOG.child({src: true});
+    cfg.jobCache = LRU({
+        maxAge: (cfg.marlin.jobCache.expiry * 1000) || 30000,
+        max: cfg.marlin.jobCache.size || 1000
+    });
 
-    LOG.debug(cfg, 'createServer: config loaded');
+    cfg.dtrace_probes = dtProbes;
 
-    // This is ugly, but we set this up so that if muskie is invoked with a
-    // -v flag, then we know you're running locally, and you just want the
-    // messages to spew to stdout. Otherwise, it's "production", and muskie
-    // logs to a syslog endpoint
+    cfg.log.debug(cfg, 'muskie: config loaded');
 
-    function setLogger() {
-        cfg.log = LOG;
-        cfg.auth.log = LOG;
-        cfg.marlin.log = LOG;
-        cfg.moray.log = LOG;
-        cfg.medusa.log = LOG;
-        cfg.cueballHttpAgent.log = LOG;
-        cfg.sharkConfig.log = LOG;
+    return (cfg);
+}
+
+
+/**
+ * Configure the logger based on the configuration data
+ *
+ * @param {String} appName: Required. The name of the application
+ * @param {Object} bunyanCfg: Required. The bunyan configuration data
+ * @param {arrayOfBool} verbose: Required. Array of boolean values that
+ * indicates if verbose logging should be enabled and the level of verbosity
+ * requested. Used to determine if syslog logging should be configured or not
+ * and to set the logging level appropriately.
+ * @returns {Object} A bunyan logger object
+ */
+function configureLogging(appName, bunyanCfg, verbose) {
+    var log = bunyan.createLogger({
+        name: appName,
+        streams: [ {
+            level: process.env.LOG_LEVEL || 'info',
+            stream: process.stderr
+        } ],
+        serializers: restify.bunyan.serializers
+    });
+    var level;
+
+    /*
+     * This is ugly, but we set this up so that if muskie is invoked with a
+     * -v flag, then we know you're running locally, and you just want the
+     * messages to spew to stderr. Otherwise, it's "production", and muskie
+     * likely logs to a syslog endpoint.
+     */
+    if (verbose || !bunyanCfg) {
+        if (verbose) {
+            level = Math.max(bunyan.TRACE, (log.level() - verbose.length * 10));
+            log.level(level);
+        }
+
+        return (log);
     }
 
-    if (opts.verbose || !cfg.bunyan) {
-        setLogger();
-        return (cfg);
-    }
+    assert.object(bunyanCfg, 'config.bunyan');
+    assert.optionalString(bunyanCfg.level, 'config.bunyan.level');
+    assert.optionalObject(bunyanCfg.syslog, 'config.bunyan.syslog');
 
-    var cfg_b = cfg.bunyan;
+    level = bunyan.resolveLevel(bunyanCfg.level || 'info');
 
-    assert.object(cfg_b, 'config.bunyan');
-    assert.optionalString(cfg_b.level, 'config.bunyan.level');
-    assert.optionalObject(cfg_b.syslog, 'config.bunyan.syslog');
+    if (bunyanCfg.syslog) {
+        var streams = [];
+        var sysl;
 
-    var level = cfg_b.level || 'info';
-    var streams = [];
-    var sysl;
-
-    // We want debug info only IFF the request fails AND the configured
-    // log level is info or higher
-    if (bunyan.resolveLevel(level) >= bunyan.INFO && cfg_b.syslog) {
-        assert.string(cfg_b.syslog.facility,
+        assert.string(bunyanCfg.syslog.facility,
                       'config.bunyan.syslog.facility');
-        assert.string(cfg_b.syslog.type, 'config.bunyan.syslog.type');
+        assert.string(bunyanCfg.syslog.type, 'config.bunyan.syslog.type');
 
         sysl = bsyslog.createBunyanStream({
-            facility: bsyslog.facility[cfg_b.syslog.facility],
-            name: NAME,
-            host: cfg_b.syslog.host,
-            port: cfg_b.syslog.port,
-            type: cfg_b.syslog.type
+            facility: bsyslog.facility[bunyanCfg.syslog.facility],
+            name: appName,
+            host: bunyanCfg.syslog.host,
+            port: bunyanCfg.syslog.port,
+            type: bunyanCfg.syslog.type
         });
+
         streams.push({
             level: level,
             stream: sysl
         });
-        streams.push({
-            level: 'debug',
-            type: 'raw',
-            stream: new RequestCaptureStream({
-                level: bunyan.WARN,
-                maxRecords: 2000,
-                maxRequestIds: 2000,
-                streams: [ {
-                    raw: true,
-                    stream: sysl
-                }]
-            })
-        });
-        LOG = bunyan.createLogger({
-            name: NAME,
+
+        /*
+         * We want debug info only IFF the request fails AND the configured
+         * log level is info or higher.
+         */
+        if (level >= bunyan.INFO) {
+            const RequestCaptureStream = restify.bunyan.RequestCaptureStream;
+            streams.push({
+                level: 'debug',
+                type: 'raw',
+                stream: new RequestCaptureStream({
+                    level: bunyan.WARN,
+                    maxRecords: 2000,
+                    maxRequestIds: 2000,
+                    streams: [ {
+                        raw: true,
+                        stream: sysl
+                    }]
+                })
+            });
+        }
+
+        log = bunyan.createLogger({
+            name: appName,
             level: level,
             streams: streams,
             serializers: restify.bunyan.serializers
         });
+    } else {
+        log.level(level);
     }
 
-    setLogger();
-    return (cfg);
+    if (log.level() <= bunyan.DEBUG) {
+        log = log.child({src: true});
+    }
+
+    return (log);
 }
+
 
 function usage(parser, message)
 {
@@ -265,6 +310,7 @@ function usage(parser, message)
     console.error(parser.help());
     process.exit(2);
 }
+
 
 function createMonitoringServer(cfg) {
     /*
@@ -289,17 +335,12 @@ function createMonitoringServer(cfg) {
     monitorServer.get(new RegExp('.*'), kang.knRestifyHandler(kangOpts));
 
     monitorServer.listen(port, '0.0.0.0', function () {
-        LOG.info('monitoring server started on port %d', port);
+        cfg.log.info('monitoring server started on port %d', port);
     });
 }
 
-function createCueballHttpAgent(cfg) {
-    var sharkCfg = cfg.sharkConfig;
 
-    /* Used for connections to mahi and other services. */
-    AGENT = new cueball.HttpAgent(cfg.cueballHttpAgent);
-
-    /* Used only for connections to sharks. */
+function createCueballSharkAgent(sharkCfg) {
     var sharkCueball = {
         resolvers: sharkCfg.resolvers,
 
@@ -323,7 +364,7 @@ function createCueballHttpAgent(cfg) {
             },
             /*
              * Avoid SRV retries, since authcache doesn't currently register
-             * any useable SRV records for HTTP (it only registers redis)
+             * any useable SRV records for HTTP (it only registers redis).
              */
             'dns_srv': {
                 retries: 0,
@@ -333,15 +374,23 @@ function createCueballHttpAgent(cfg) {
             }
         }
     };
-    SHARKAGENT = new cueball.HttpAgent(sharkCueball);
+
+    return (new cueball.HttpAgent(sharkCueball));
 }
 
-function createPickerClient(cfg) {
+
+function onPickerConnect(clients, barrier, pickerClient) {
+    clients.picker = pickerClient;
+    barrier.done('createPickerClient');
+}
+
+
+function createPickerClient(cfg, log, onConnect) {
     var opts = {
         interval: cfg.interval,
         lag: cfg.lag,
         moray: cfg.moray,
-        log: LOG.child({component: 'picker'}, true),
+        log: log.child({component: 'picker'}, true),
         multiDC: cfg.multiDC,
         defaultMaxStreamingSizeMB: cfg.defaultMaxStreamingSizeMB,
         maxUtilizationPct: cfg.maxUtilizationPct || 90
@@ -349,37 +398,46 @@ function createPickerClient(cfg) {
 
     var client = app.picker.createClient(opts);
 
-    client.once('connect', function onConnect() {
-        LOG.info('picker connected %s', client.toString());
-        PICKER = client;
+    client.once('connect', function _onConnect() {
+        log.info('picker connected %s', client.toString());
+        onConnect(client);
     });
 }
 
 
-function createAuthCacheClient(options) {
-    assert.object(options, 'options');
-    assert.string(options.url, 'options.url');
-    assert.optionalObject(options.typeTable, 'options.typeTable');
+function createAuthCacheClient(authCfg, agent) {
+    assert.object(authCfg, 'authCfg');
+    assert.string(authCfg.url, 'authCfg.url');
+    assert.optionalObject(authCfg.typeTable, 'authCfg.typeTable');
 
-    var log = LOG.child({component: 'mahi'}, true);
+    var options = jsprim.deepCopy(authCfg);
+    var log = authCfg.log.child({component: 'mahi'}, true);
     options.log = log;
 
     options.typeTable = options.typeTable || apertureConfig.typeTable || {};
-    options.agent = AGENT;
+    options.agent = agent;
 
-    MAHI = mahi.createClient(options);
+    return (mahi.createClient(options));
 }
 
-function createKeyAPIClient(opts) {
+
+function createKeyAPIClient(opts, clients) {
     var log = opts.log.child({component: 'keyapi'}, true);
     var _opts = {
         log: log,
         ufds: opts.ufds
     };
-    KEYAPI = new keyapi(_opts);
+
+    return (new keyapi(_opts));
 }
 
-function createMarlinClient(opts) {
+
+function onMarlinConnect(clients, marlinClient) {
+    clients.marlin = marlinClient;
+}
+
+
+function createMarlinClient(opts, onConnect) {
     var log = opts.log.child({component: 'marlin'}, true);
     var _opts = {
         moray: opts.moray,
@@ -387,16 +445,13 @@ function createMarlinClient(opts) {
         log: log
     };
 
-    marlin.createClient(_opts, function (err, client) {
+    marlin.createClient(_opts, function (err, marlinClient) {
         if (err) {
-            LOG.fatal(err, 'marlin: unable to create a client');
+            log.fatal(err, 'marlin: unable to create a client');
             process.nextTick(createMarlinClient.bind(null, opts));
         } else {
-            var barrier;
-
-            MARLIN = client;
-            LOG.info({
-                remote: MARLIN.ma_client.host
+            log.info({
+                remote: marlinClient.ma_client.host
             }, 'marlin: ready');
 
             /*
@@ -405,33 +460,41 @@ function createMarlinClient(opts) {
              * start reconnecting while the first client is still connected.  (A
              * persistent error could result in way too many Moray connections.)
              */
-            barrier = vasync.barrier();
+            var barrier = vasync.barrier();
             barrier.start('wait-for-close');
-            MARLIN.on('close', function () {
+            marlinClient.on('close', function () {
                 barrier.done('wait-for-close');
             });
 
             barrier.start('wait-for-error');
-            MARLIN.on('error', function (marlin_err) {
-                LOG.error(marlin_err, 'marlin error');
+            marlinClient.on('error', function (marlin_err) {
+                log.error(marlin_err, 'marlin error');
                 barrier.done('wait-for-error');
-                MARLIN.close();
+                marlinClient.close();
             });
 
             barrier.on('drain', function doReconnect() {
-                LOG.info('marlin: reconnecting');
+                log.info('marlin: reconnecting');
                 createMarlinClient(opts);
             });
+
+            onConnect(marlinClient);
         }
     });
 }
 
 
-function createMorayClient(opts) {
+function onMorayConnect(clients, barrier, morayClient) {
+    clients.moray = morayClient;
+    barrier.done('createMorayClient');
+}
+
+
+function createMorayClient(opts, onConnect) {
     assert.object(opts, 'options');
     assert.object(opts.log, 'options.log');
 
-    var log = LOG.child({component: 'moray'}, true);
+    var log = opts.log.child({component: 'moray'}, true);
     opts.log = log;
 
     var client = new libmanta.createMorayClient(opts);
@@ -442,7 +505,7 @@ function createMorayClient(opts) {
         log.error(err, 'moray: failed to connect');
     });
 
-    client.once('connect', function onConnect() {
+    client.once('connect', function _onConnect() {
         client.removeAllListeners('error');
 
         log.info({
@@ -450,23 +513,28 @@ function createMorayClient(opts) {
             port: opts.port
         }, 'moray: connected');
 
-        MORAY = client;
+        onConnect(client);
     });
 }
 
 
-function createMedusaConnector(opts) {
+function onMedusaConnect(clients, medusaClient) {
+    clients.medusa = medusaClient;
+}
+
+
+function createMedusaConnector(opts, onConnect) {
     assert.object(opts, 'options');
     assert.object(opts.log, 'options.log');
 
-    var log = opts.log = opts.log.child({ component: 'medusa' });
+    var log = opts.log.child({ component: 'medusa' });
     log.debug({ opts: opts }, 'medusa options');
 
     var client = medusa.createConnector(opts);
 
-    client.once('connect', function onConnect() {
+    client.once('connect', function _onConnect() {
         log.info('medusa: connected');
-        MEDUSA = client;
+        onConnect(client);
     });
 }
 
@@ -486,78 +554,99 @@ function readFile(file) {
 
 
 function version() {
-    if (!VERSION) {
-        var fname = __dirname + '/package.json';
-        var pkg = fs.readFileSync(fname, 'utf8');
-        VERSION = JSON.parse(pkg).version;
-    }
-
-    return (VERSION);
+    var fname = __dirname + '/package.json';
+    var pkg = fs.readFileSync(fname, 'utf8');
+    return (JSON.parse(pkg).version);
 }
 
+
+function clientsConnected(appName, cfg, clients) {
+    var server1, server2;
+    var log = cfg.log;
+
+    log.info('requisite client connections established, '
+    + 'starting muskie servers');
+
+    server1 = app.createServer(cfg, clients, 'ssl');
+    server1.on('error', function (err) {
+        log.fatal(err, 'server (secure) error');
+        process.exit(1);
+    });
+    server1.listen(cfg.port, function () {
+        log.info('%s listening at (trusted port) %s', appName, server1.url);
+    });
+
+    server2 = app.createServer(cfg, clients, 'insecure');
+    server2.on('error', function (err) {
+        log.fatal(err, 'server (clear) error');
+        process.exit(1);
+    });
+    server2.listen(cfg.insecurePort, function () {
+        log.info('%s listening at (clear port) %s', appName, server2.url);
+    });
+
+    app.startKangServer();
+}
 
 
 ///--- Mainline
 
 (function main() {
-    var cfg = configure();
+    const muskie = 'muskie';
 
-    createCueballHttpAgent(cfg);
-    createMonitoringServer(cfg);
-    createMarlinClient(cfg.marlin);
-    createPickerClient(cfg.storage);
-    createAuthCacheClient(cfg.auth);
-    createMorayClient(cfg.moray);
-    createMedusaConnector(cfg.medusa);
-    createKeyAPIClient(cfg);
+    // Parent object for client connection objects.
+    var clients = {};
 
-    cfg.jobCache = LRU({
-        maxAge: (cfg.marlin.jobCache.expiry * 1000) || 30000,
-        max: cfg.marlin.jobCache.size || 1000
-    });
-
-    cfg.keyapi = function _keyapi() { return (KEYAPI); };
-    cfg.mahi = function mahiClient() { return (MAHI); };
-    cfg.marlin = function marlinClient() { return (MARLIN); };
-    cfg.picker = function picker() { return (PICKER); };
-    cfg.moray = function moray() { return (MORAY); };
-    cfg.medusa = function medusaClient() { return (MEDUSA); };
-    cfg.sharkAgent = function sharkAgent() { return (SHARKAGENT); };
-
-    cfg.name = 'ssl';
-
-    var dtp = dtrace.createDTraceProvider('muskie');
+    // DTrace probe setup
+    var dtp = dtrace.createDTraceProvider(muskie);
     var client_close = dtp.addProbe('client_close', 'json');
     var socket_timeout = dtp.addProbe('socket_timeout', 'json');
+
     client_close.dtp = dtp;
     socket_timeout.dtp = dtp;
     dtp.enable();
 
-    cfg.dtrace_probes = {
+    const dtProbes = {
         client_close: client_close,
         socket_timeout: socket_timeout
     };
 
-    var server = app.createServer(cfg);
-    server.on('error', function (err) {
-        LOG.fatal(err, 'server (secure) error');
-        process.exit(1);
-    });
-    server.listen(cfg.port, function () {
-        LOG.info('%s listening at (trusted port) %s', NAME, server.url);
-    });
+    const opts = parseOptions();
+    const cfg = configure(muskie, opts, dtProbes);
 
-    cfg.name = 'insecure';
-    var server2 = app.createServer(cfg);
-    server2.on('error', function (err) {
-        LOG.fatal(err, 'server (clear) error');
-        process.exit(1);
-    });
-    server2.listen(cfg.insecurePort, function () {
-        LOG.info('%s listening at (clear port) %s', NAME, server2.url);
-    });
+    /*
+     * Create a barrier to ensure client connections that are established
+     * asynchronously and are required for muskie to serve a minimal subset of
+     * requests are ready prior to starting up the restify servers.
+     */
+    var barrier = vasync.barrier();
 
-    app.startKangServer();
+    barrier.on('drain', clientsConnected.bind(null, muskie, cfg, clients));
+
+    /*
+     * Establish minimal set of client connections required to begin
+     * successfully servicing non-jobs read requests.
+     */
+
+    clients.agent = new cueball.HttpAgent(cfg.cueballHttpAgent);
+    clients.mahi = createAuthCacheClient(cfg.auth, clients.agent);
+
+    barrier.start('createMorayClient');
+    createMorayClient(cfg.moray, onMorayConnect.bind(null, clients, barrier));
+
+    barrier.start('createPickerClient');
+    createPickerClient(cfg.storage, cfg.log,
+        onPickerConnect.bind(null, clients, barrier));
+
+    // Establish other client connections needed for writes and jobs requests.
+
+    createMarlinClient(cfg.marlin, onMarlinConnect.bind(null, clients));
+    createMedusaConnector(cfg.medusa, onMedusaConnect.bind(null, clients));
+    clients.sharkAgent = createCueballSharkAgent(cfg.sharkConfig);
+    clients.keyapi = createKeyAPIClient(cfg);
+
+    // Create monitoring server
+    createMonitoringServer(cfg);
 
     process.on('SIGHUP', process.exit.bind(process, 0));
 
