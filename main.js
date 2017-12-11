@@ -115,6 +115,7 @@ function configure(appName, opts, dtProbes) {
     assert.object(cfg.medusa, 'cfg.medusa');
     assert.object(cfg.cueballHttpAgent, 'cfg.cueballHttpAgent');
     assert.object(cfg.sharkConfig, 'cfg.sharkConfig');
+    assert.optionalObject(cfg.storage, 'cfg.storage');
 
     cfg.insecurePort = opts.insecure_port || cfg.insecurePort;
     cfg.port = opts.port || cfg.port;
@@ -449,7 +450,6 @@ function createMarlinClient(opts, onConnect) {
             log.fatal(err, 'marlin: unable to create a client');
             process.nextTick(createMarlinClient.bind(null, opts));
         } else {
-            onConnect(marlinClient);
             log.info({
                 remote: marlinClient.ma_client.host
             }, 'marlin: ready');
@@ -477,6 +477,8 @@ function createMarlinClient(opts, onConnect) {
                 log.info('marlin: reconnecting');
                 createMarlinClient(opts);
             });
+
+            onConnect(marlinClient);
         }
     });
 }
