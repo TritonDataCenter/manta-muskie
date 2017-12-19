@@ -194,6 +194,17 @@ function configure(appName, opts, dtProbes) {
 
     cfg.dtrace_probes = dtProbes;
 
+    assert.object(cfg.jobCache, 'cfg.jobCache');
+    assert.object(cfg.log, 'cfg.log');
+    assert.object(cfg.collector, 'cfg.collector');
+    assert.object(cfg.sharkConfig, 'cfg.sharkConfig');
+    assert.object(cfg.storage, 'cfg.storage');
+    assert.number(cfg.storage.defaultMaxStreamingSizeMB,
+                  'cfg.storage.defaultMaxStreamingSizeMB');
+    assert.object(cfg.multipartUpload, 'cfg.multipartUpload');
+    assert.number(cfg.multipartUpload.prefixDirLen,
+                  'cfg.multipartUpload.prefixDirLen');
+
     cfg.log.debug(cfg, 'muskie: config loaded');
 
     return (cfg);
@@ -379,9 +390,8 @@ function createCueballSharkAgent(sharkCfg) {
 }
 
 
-function onPickerConnect(clients, barrier, pickerClient) {
+function onPickerConnect(clients, pickerClient) {
     clients.picker = pickerClient;
-    barrier.done('createPickerClient');
 }
 
 
@@ -634,12 +644,9 @@ function clientsConnected(appName, cfg, clients) {
     barrier.start('createMorayClient');
     createMorayClient(cfg.moray, onMorayConnect.bind(null, clients, barrier));
 
-    barrier.start('createPickerClient');
-    createPickerClient(cfg.storage, cfg.log,
-        onPickerConnect.bind(null, clients, barrier));
-
     // Establish other client connections needed for writes and jobs requests.
-
+    createPickerClient(cfg.storage, cfg.log,
+        onPickerConnect.bind(null, clients));
     createMarlinClient(cfg.marlin, onMarlinConnect.bind(null, clients));
     createMedusaConnector(cfg.medusa, onMedusaConnect.bind(null, clients));
     clients.sharkAgent = createCueballSharkAgent(cfg.sharkConfig);
