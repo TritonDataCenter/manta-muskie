@@ -45,7 +45,7 @@
     "cueballHttpAgent": {
         "resolvers": ["nameservice.coal.joyent.us"],
         "initialDomains": [
-          "authservice.coal.joyent.us"
+          "authcache.coal.joyent.us"
         ],
         "ping": "/ping",
         "pingInterval": 60000,
