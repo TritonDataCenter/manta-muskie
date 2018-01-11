@@ -693,6 +693,42 @@ test('commit upload: empty part etag', function (t) {
 });
 
 
+test('commit upload: multiple empty part etags', function (t) {
+    var self = this;
+    self.createUpload(self.path, null, function (err) {
+        if (ifErr(t, err, 'created upload')) {
+            t.end();
+            return;
+        }
+
+        var pn = 0;
+        self.writeTestObject(self.uploadId, pn, function (err2, res) {
+            if (ifErr(t, err2, 'uploaded part')) {
+                t.end();
+                return;
+            }
+
+            t.ok(res);
+            t.checkResponse(res, 204);
+
+            var etag = res.headers.etag;
+
+            self.commitUpload(self.uploadId, ['', etag, ''], function (err3) {
+                if (!err3) {
+                    t.fail('commit parts 0 and 2 have empty etags');
+                    t.end();
+                    return;
+                }
+
+                t.ok(verror.hasCauseWithName(err3,
+                    'MultipartUploadInvalidArgumentError'));
+                t.end();
+            });
+        });
+    });
+});
+
+
 test('commit upload: incorrect part etag', function (t) {
     var self = this;
     self.createUpload(self.path, null, function (err) {
