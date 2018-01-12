@@ -161,9 +161,6 @@
   {{#MUSKIE_MPU_PREFIX_DIR_LEN}}
     "prefixDirLen": {{MUSKIE_MPU_PREFIX_DIR_LEN}}
     {{/MUSKIE_MPU_PREFIX_DIR_LEN}}
-    {{^MUSKIE_MPU_PREFIX_DIR_LEN}}
-    "prefixDirLen": 1
-    {{/MUSKIE_MPU_PREFIX_DIR_LEN}}
   },
   {{/MPU_ENABLE}}
 
