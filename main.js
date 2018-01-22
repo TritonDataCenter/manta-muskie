@@ -214,7 +214,7 @@ function configure(appName, opts, dtProbes) {
 
     if (cfg.storage.maxUtilizationPct > cfg.storage.maxOperatorUtilizationPct) {
         cfg.log.fatal('invalid configuration "maxUtilizationPct" value must ' +
-                  'not exceed the value for maxOperatorUtilizationPct.');
+            'not exceed the value for maxOperatorUtilizationPct.');
         process.exit(1);
     }
 
