@@ -1,0 +1,658 @@
+#!/usr/bin/env node
+/* vim: set ft=javascript: */
+
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
+/*
+ * Copyright (c) 2018, Joyent, Inc.
+ */
+
+var mod_assert = require('assert-plus');
+var mod_bunyan = require('bunyan');
+var mod_cmdln = require('cmdln');
+var mod_fs = require('fs');
+var mod_jsprim = require('jsprim');
+var mod_lstream = require('lstream');
+var mod_path = require('path');
+var mod_tab = require('tab');
+var mod_util = require('util');
+var mod_vasync = require('vasync');
+var mod_verror = require('verror');
+
+var mod_picker = require('../lib/picker');
+
+var MultiError = require('verror').MultiError;
+var sprintf = mod_util.format;
+var VError = mod_verror.VError;
+var muskie_errors = require('../lib/errors');
+
+
+
+///-- Globals
+
+var NAME = 'mpicker';
+var LOG = mod_bunyan.createLogger({
+    name: NAME,
+    level: process.LOG_LEVEL || 'error',
+    stream: process.stderr
+});
+
+// Some default values to use when creating the picker.
+var DEF_MAX_PERCENT_UTIL = 90;
+var DEF_MAX_STREAMING_SIZE_MB = 5120;
+
+/*
+ * Common options for all submcommands.
+ */
+var commonOptions = [
+    {
+        names: ['help', 'h'],
+        type: 'bool',
+        help: 'Show this help'
+    }
+];
+
+
+/*
+ * Creates an instance of the MPicker object.
+ */
+function MPicker() {
+    mod_cmdln.Cmdln.call(this, {
+        name: 'mpicker',
+        desc: 'Models the behavior of the Muskie "picker" component.',
+        options: [
+            {
+                names: ['help', 'h'],
+                type: 'bool',
+                help: 'Show this help message and exit.'
+            },
+            {
+                names: ['version'],
+                type: 'bool',
+                help: 'Print version and exit.'
+            },
+            {
+                names: ['completion'],
+                type: 'bool',
+                help: 'Print bash completion code for this command and exit.',
+                hidden: true
+            }
+        ],
+        helpOpts: {
+            includeEnv: true
+        }
+    });
+
+    this.arg0 = NAME;
+}
+mod_util.inherits(MPicker, mod_cmdln.Cmdln);
+
+/*
+ * Print an error message, then a help message, then exit.
+ */
+MPicker.prototype.usage = function usage(message, subcmd, cb) {
+    mod_assert.string(message, 'message');
+    mod_assert.string(subcmd, 'subcmd');
+
+    var self = this;
+
+    console.error('%s: %s', self.arg0, message);
+    console.error(self.helpFromSubcmd(subcmd));
+    process.exit(2);
+}
+
+
+/*
+ * Checks whether the "help" option was specified.  If so, print the usage
+ * message and exit.
+ */
+MPicker.prototype.checkHelpRequested = function (subcmd, opts, cb) {
+    var self = this;
+
+    if (opts.help) {
+        self.do_help('help', {}, [subcmd], cb);
+        process.exit(0);
+    }
+};
+
+
+/*
+ * "Polls" a Moray for storage information and prints a summary to stdout.
+ * Optionally, you may provide an interval for which the Picker will poll and a
+ * count of polls to complete.
+ *
+ * Polling requires instantiating a Picker with a valid Moray client, which
+ * requires some configuration from the user.  This command expects the Muskie
+ * configuration format.  By default, we assume the configuration is located at
+ * /opt/smartdc/muskie/etc/config.json, which is where the configuration is
+ * located in a deployed webapi zone.
+ */
+MPicker.prototype.do_poll = function do_poll(subcmd, opts, args, cb) {
+    var self = this;
+    var interval, count, cfg, picker, p_opts, iteration;
+
+    self.checkHelpRequested(subcmd, opts, cb);
+
+    if (args[0]) {
+        interval = mod_jsprim.parseInteger(args[0]);
+        if (typeof (interval) !== 'number') {
+            self.usage('invalid interval: "' + args[0] + '"', subcmd, cb);
+        }
+
+        if (args[1]) {
+            count = mod_jsprim.parseInteger(args[1]);
+            if (typeof (count) !== 'number' || count < 1) {
+                self.usage('invalid count: "' + args[1] + '"', subcmd, cb);
+            }
+        }
+    }
+
+    if (args.length > 2) {
+        self.usage('unexpected arguments: ' + args.slice(2), subcmd, cb);
+    }
+
+    var data;
+    try {
+        data = mod_fs.readFileSync(opts.config, 'utf8');
+        cfg = JSON.parse(data);
+    } catch (e) {
+        cb(new VError('Unable to load %s: %s', opts.config, e.message));
+        return;
+    }
+
+    // Basic validation of the Muskie config file.
+    if (!cfg.hasOwnProperty('storage')) {
+        cb(new VError('"storage" configuration not found'));
+        return;
+    }
+    if (!cfg.storage.hasOwnProperty('moray')) {
+        cb(new VError('"storage.moray" configuration not found'));
+        return;
+    }
+
+    p_opts = {
+        log: LOG,
+        defaultMaxStreamingSizeMB: cfg.defaultMaxStreamingSizeMB ||
+            DEF_MAX_STREAMING_SIZE_MB,
+        maxUtilizationPct: cfg.storage.maxUtilizationPct ||
+            DEF_MAX_PERCENT_UTIL,
+        multiDC: cfg.storage.multiDC,
+        moray: cfg.storage.moray,
+        lag: cfg.storage.lag
+    };
+    if (interval) {
+        p_opts.interval = interval * 1000;
+    }
+    var p = mod_picker.createClient(p_opts);
+
+    function printTabularSummary(db) {
+        mod_assert.object(db, 'db');
+
+        var columns, rows;
+
+        var dcs = Object.keys(db);
+
+        var dc_label = 'DATACENTER';
+        var msi_label = 'MANTA_STORAGE_ID';
+        var pu_label = '%USED';
+        var amb_label = 'AVAIL_MB';
+        var time_label = 'TIMESTAMP';
+
+        columns = [
+            {
+                label: dc_label,
+                width: 10
+            }, {
+                label: msi_label,
+                width: 25
+            }, {
+                label: pu_label,
+                width: 13
+            }, {
+                label: amb_label,
+                width: 13
+            }, {
+                label: time_label,
+                width: 30
+            }
+        ];
+
+        rows = [];
+        dcs.forEach(function (dc) {
+            var sharks = db[dc];
+
+            sharks.forEach(function (s) {
+                var obj = {};
+                obj[dc_label] = dc;
+                obj[msi_label] = s.manta_storage_id;
+                obj[pu_label] = s.percentUsed;
+                obj[amb_label] = s.availableMB;
+                obj[time_label] = new Date(s.timestamp).toISOString();
+                rows.push(obj);
+            });
+        });
+
+
+        mod_tab.emitTable({
+            columns: columns,
+            rows: rows,
+            omitHeader: opts.omitHeader
+        });
+    }
+
+    function printJSONSummary(db) {
+            var obj = {};
+            var dcs = Object.keys(db);
+
+            dcs.forEach(function (dc) {
+                obj[dc] = [];
+                var sharks = db[dc];
+                sharks.forEach(function (s) {
+                    obj[dc].push({
+                        manta_storage_id: s.manta_storage_id,
+                        availableMB: s.availableMB,
+                        timestamp: s.timestamp,
+                        percentUsed: s.percentUsed
+                    });
+                });
+            });
+            console.log(JSON.stringify(obj, null, 4));
+    }
+
+    /*
+     * The Picker emits a 'topology' event every time it receives a response
+     * from its polling, so we can listen for this to see the poll response.
+     */
+    iteration = 0;
+    p.on('topology', function onTopology(db) {
+        if (opts.all) {
+            console.log(JSON.stringify(db, null, 4));
+        } else if (opts.json) {
+            printJSONSummary(db);
+        } else {
+            printTabularSummary(db);
+        }
+
+        if (!interval || (count === ++iteration)) {
+            p.close();
+            cb();
+        }
+    });
+};
+
+MPicker.prototype.do_poll.options = commonOptions.concat([
+    {
+        group: 'mpicker poll options'
+    },
+    {
+        names: ['config', 'c'],
+        type: 'string',
+        help: 'Muskie configuration file',
+        default: '/opt/smartdc/muskie/etc/config.json',
+        helpArg: 'FILE',
+        completionType: 'file'
+    },
+    {
+        names: ['all', 'a'],
+        type: 'bool',
+        default: false,
+        help: 'Print all information available in storage records in JSON'
+    },
+    {
+        names: ['json', 'j'],
+        type: 'bool',
+        default: false,
+        help: 'Print storage record summary in JSON'
+    },
+    {
+        names: [ 'omitHeader', 'H' ],
+        type: 'bool',
+        help: 'Omit header row from tabular output',
+        default: false
+    }
+]);
+
+
+MPicker.prototype.do_poll.help = [
+    'Poll Moray for storage records and summarizes the results.',
+    '',
+    'Usage:',
+    '    mpicker poll [OPTIONS] [INTERVAL [COUNT]]',
+    '',
+    '{{options}}',
+    '',
+    'The `poll` subcommand will request storage information from a particular',
+    'Moray and summarize storage information in a tabular format.',
+    '',
+    'Optionally, you may provide a polling interval and a count of polls to',
+    'complete.  For example, this would poll Moray every 10 seconds for 3',
+    'intervals:',
+    '   mpicker poll 10 3',
+    '',
+    'The `poll` subcommand expects a configuration file matching the format',
+    'of Muskie\'s configuration file.  In particular, the following objects',
+    'are required:',
+    '   "storage": an object with the following fields:',
+    '       "moray": a Moray configuration object',
+    '       "lag": allowable grace period on storage records in ms (optional)',
+    '',
+    'You may also print the `poll` output in JSON format, which is suitable',
+    'as input to the `choose` subcommand.  For example, to simulate choosing',
+    '3 replicas for an object of size 150 MB from a given Moray\'s storage',
+    'records, you could run:',
+    '   mpicker poll | mpicker choose -r 3 -s 150',
+    ''
+].join('\n');
+
+
+/*
+ * Given an input set of storage records (real or constructed), a desired number
+ * of replicas, and an object size, see the output of an invocation of
+ * Picker.choose().
+ */
+MPicker.prototype.do_choose = function do_choose(subcmd, opts, args, cb) {
+    var self = this;
+    var size = opts.size;
+    var replicas = opts.replicas;
+    var dcs = [];
+
+    self.checkHelpRequested(subcmd, opts, cb);
+
+    var user_db, user_dcs;
+    var p, p_opts, p_choices, p_err, p_stats, p_sharkCount;
+
+    function printChooseSummary(chooseStats) {
+        mod_assert.object(chooseStats, 'chooseStats');
+
+        var p_db = chooseStats.db;
+        var p_allDcs = Object.keys(p_db);
+        var p_dcsInUse = chooseStats.dcsInUse;
+        var p_offsets = chooseStats.offsets;
+
+        var summary = [];
+
+        summary.push('replicas requested: ' + replicas);
+        summary.push('size requested: ' + size + ' MB');
+
+        var allSharkCount = 0;
+        var inUseSharkCount = 0;
+        var sharksByDc = {};
+        p_allDcs.forEach(function (dc) {
+            var len = p_db[dc].length;
+            allSharkCount += len;
+            sharksByDc[dc] = {
+                count: len,
+                inUse: 0
+            };
+
+            var i = p_dcsInUse.indexOf(dc);
+            if (i !== -1) {
+                var c = p_db[dc].length - p_offsets[i];
+                sharksByDc[dc].inUse = c;
+                inUseSharkCount += c;
+            }
+        });
+
+        summary.push('storage server count by datacenter:');
+        p_allDcs.forEach(function (dc) {
+            summary.push('\t' + dc + ': ' + sharksByDc[dc].count +
+                ' (' + sharksByDc[dc].inUse + ' available)');
+        });
+        summary.push('total storage server count: ' + allSharkCount +
+            ' (' + inUseSharkCount + ' available)');
+
+        summary.push('');
+
+        if (p_err) {
+            summary.push('could not choose storage node set: ' +
+                p_err.cause().message);
+        } else {
+            mod_assert.object(p_choices, 'p_choices');
+            summary.push('choices:');
+
+            p_choices.forEach(function(c, i) {
+                summary.push(sprintf('\t%s:', i));
+                c.forEach(function (s, j) {
+                    summary.push(sprintf('\t\t%s (%s)', s['manta_storage_id'],
+                        s['datacenter']));
+                });
+
+                summary.push('');
+            });
+        }
+
+        console.log(summary.join('\n'));
+    }
+
+    mod_vasync.pipeline({
+        funcs: [
+        function readRecords(_, vcb) {
+            if (opts.file) {
+                mod_fs.readFile(opts.file, function (err, contents) {
+                    if (err) {
+                        err = new VError(err, 'reading %s', opts.file);
+                        vcb(err);
+                        return;
+                    }
+
+                    user_db = JSON.parse(contents);
+                    vcb();
+                });
+            } else {
+                var input = '';
+                process.stdin.on('data', function (data) {
+                    input += data;
+                });
+                process.stdin.on('end', function() {
+                    user_db = JSON.parse(input);
+                    vcb();
+                });
+            }
+        },
+        function validateRecords(_, vcb) {
+            mod_assert.object(user_db, 'user_db');
+
+            var errors = [];
+            user_dcs = Object.keys(user_db);
+            user_dcs.forEach(function validateDcRecords(dc) {
+                records = user_db[dc];
+                records.forEach(function validateRecord(r) {
+                    if (!r.manta_storage_id) {
+                        errors.push(new VError('"%s" record missing ' +
+                            '"manta_storage_id" identifier', dc));
+                        return;
+                    }
+
+                    if (!r.hasOwnProperty('availableMB')) {
+                        errors.push(new VError('%s missing "availableMB"',
+                            r.manta_storage_id));
+                    }
+
+                    if (r.datacenter) {
+                        if (r.datacenter !== dc) {
+                            errors.push(new VError('datacenter mismatch: ' +
+                                '"%s" grouped with datacenter "%s", but ' +
+                                'storage record reports datacenter "%s"',
+                                r.manta_storage_id, dc, r.datacenter));
+                        }
+                    } else {
+                        // Set the DC for the input if it's not set.
+                        r.datacenter = dc;
+                    }
+                });
+            });
+
+            if (errors.length !== 0) {
+                vcb(new MultiError(errors));
+            } else {
+                vcb();
+            }
+        },
+        function runChoose(_, vcb) {
+            p_opts = {
+                log: LOG,
+                defaultMaxStreamingSizeMB: DEF_MAX_STREAMING_SIZE_MB,
+                maxUtilizationPct: DEF_MAX_PERCENT_UTIL,
+                multiDC: user_dcs.length > 1,
+                standalone: true
+            };
+
+            p = mod_picker.createClient(p_opts);
+
+            p.setRecordsDb(user_db, function () {
+                var chooseOpts = {
+                    replicas: replicas,
+                    size: size
+                };
+                p.choose(chooseOpts, function (err, sharks, chooseStats) {
+                    if (err) {
+                        if (err.cause().name === 'PickerError') {
+                            p_err = err;
+                        } else {
+                            vcb(err);
+                            return;
+                        }
+                    }
+
+                    p_stats = chooseStats;
+                    p_choices = sharks;
+                    vcb();
+                });
+            });
+        },
+        function printChoices(_, vcb) {
+            if (opts.json) {
+                JSON.stringify(p_choices);
+            } else {
+                printChooseSummary(p_stats);
+            }
+
+            vcb();
+        }]}, function (err) {
+            cb(err);
+        });
+};
+
+MPicker.prototype.do_choose.options = commonOptions.concat([
+    {
+        group: 'mpicker choose options'
+    },
+    {
+        names: ['replicas', 'r'],
+        type: 'positiveInteger',
+        default: 2,
+        help: 'Number of replicas desired',
+        helpArg: 'REPLICAS'
+    },
+    {
+        names: ['size', 's'],
+        type: 'positiveInteger',
+        help: 'Object size in MB',
+        default: 1,
+        helpArg: 'SIZE'
+    },
+    {
+        names: ['file', 'f'],
+        type: 'string',
+        help: 'File containing records',
+        helpArg: 'FILE',
+        completionType: 'file'
+    },
+    {
+        names: ['json', 'j'],
+        type: 'bool',
+        default: false,
+        help: 'Print output in JSON.'
+    }
+]);
+
+
+MPicker.prototype.do_choose.help = [
+    'Simulate Manta storage node selection for an object.',
+    '',
+    'Usage:',
+    '    mpicker choose [OPTIONS]           # storage records read from stdin',
+    '    mpicker choose [OPTIONS] -f FILE   # storage records in JSON file',
+    '',
+    '{{options}}',
+    '',
+    'Given a representation of storage nodes in a Manta, an object size, and a',
+    'desired number of replicas, this subcommand invokes the picker\'s',
+    'interface for selecting where to store an object in Manta.  This allows',
+    'you to see where an object might be stored in a system without actually',
+    'making any requests to Manta.',
+    '',
+    'This subcommand also summarizes how many storage nodes in each',
+    'datacenter, as represented in the input storage records, have capacity',
+    'for the input size object and replica count.  This can provide some',
+    'context as to why the picker chooses the storage node sets it did.',
+    '',
+    'Sometimes the picker cannot choose a storage node set for an object.  In',
+    'these cases, more informative error messages are provided than are',
+    'typically shown to end users of Manta.',
+    '',
+    'Information about storage nodes must be specified in a JSON object.  The',
+    'keys on this object must be the datacenter names.  The associated value',
+    'with each datacenter must be an array of objects, in which each element',
+    'is an object representing a storage node.  At a minimum, each storage',
+    'node object must have the properties `availableMB`, its available space ',
+    'in MB, and `manta_storage_id`, its storage ID in Manta.',
+    '',
+    'For example, the following JSON object represents a three-datacenter',
+    'deployment, in which each datacenter has two storage nodes:',
+    '',
+    '{',
+    '   "emy-13": [',
+    '       {',
+    '           "manta_storage_id": "2.stor.emy-13.joyent.us",',
+    '           "availableMB": 2087636',
+    '       },',
+    '       {',
+    '           "manta_storage_id": "1.stor.emy-13.joyent.us",',
+    '           "availableMB": 100',
+    '       }',
+    '   ],',
+    '   "emy-14": [',
+    '       {',
+    '           "manta_storage_id": "3.stor.emy-13.joyent.us",',
+    '           "availableMB": 123890',
+    '       },',
+    '       {',
+    '           "manta_storage_id": "4.stor.emy-13.joyent.us",',
+    '           "availableMB": 0',
+    '       }',
+    '   ],',
+    '   "emy-15": [',
+    '       {',
+    '           "manta_storage_id": "6.stor.emy-13.joyent.us",',
+    '           "availableMB": 1235809',
+    '       },',
+    '       {',
+    '           "manta_storage_id": "5.stor.emy-13.joyent.us",',
+    '           "availableMB": 25',
+    '       }',
+    '   ]',
+    '}',
+    '',
+    'You may also simulate storage node selection from real storage records',
+    'easily using `choose` in combination with the `poll` subcommand.',
+    'For example:',
+    '   mpicker poll -j | mpicker choose -s 100 -r 3',
+    '',
+    'The above command would poll the configured Moray for storage node',
+    'records and simulate storage node selection for a 100 MB object with',
+    '3 replicas, without making any requests to store the object.',
+    '',
+].join('\n');
+
+
+
+//--- Mainline
+
+var cli = new MPicker();
+cli.showErrStack = false;
+mod_cmdln.main(cli);
