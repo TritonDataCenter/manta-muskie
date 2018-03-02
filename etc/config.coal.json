@@ -9,8 +9,9 @@
     },
     "throttle": {
         "enabled": false,
-        "concurrency": 50,
-        "queueTolerance": 25
+        "concurrency": 128,
+        "queueTolerance": 32,
+        "reapInterval": 5000
     },
     "maxObjectCopies": 6,
     "maxRequestAge": 600,

@@ -251,28 +251,26 @@ Muskie has two dtrace providers. The first, `muskie`, has the following probes:
   `bytes_sent` and `bytes_expected`. These parameters are only present if muskie
   is able to determine the last request sent on this socket.
 
-The second provider, `muskie-throttle`, has the following probes, which will not
-fire if the throttle is disabled:
-* `request_throttled`: `int`, `int`, `char *`, `char *` - slots occupied, queued
-  requests, url, method. Fires when a request has been throttled.
-* `request_handled`: `int`, `int`, `char *`, `char *` - slots occupied, queued
-  requests, url, method. Fires after a request has been handled.
-Internally, the muskie throttle is implemented with a vasync-queue. A "slot"
-in the above description refers to one of `concurrency` possible spaces
-allotted for concurrently scheduled request-handling callbacks. If all slots are
-occupied, incoming requests will be "queued", which indicates that they are
-waiting for slots to free up.
-* `queue_enter`: `char *` - restify request uuid. This probe fires as a request
-enters the queue.
-* `queue_leave`: `char *` - restify request uuid. This probe fires as a request
-is dequeued, before it is handled. The purpose of these probes is to make it
-easy to write d scripts that measure the latency impact the throttle has on
-individual requests.
+The second provider, `muskie-throttle`, has the following probes:
+* `request_throttled: char *` - fires when a request is throttled
+* `request_handled: char *` - fires when muskie finishes processing the request
+* `request_reaped: char *` - fires if the muskie throttle finds a queue slot
+  occupied by a request that muskie has already sent a response for
+* `queue_enter: char *` - fires when a request work function enters the queue
+* `queue_leave: char *` - fires when a request work function is dispatched by
+  the queue.
+* `throttle_stats: int, int` - fires every time muskie invokes throttle
+  code in a request path which modifies the state of its request queue. This
+  probe reports the number of queued and in-flight requests respectively.
+These probes are not registered and will not fire if the muskie throttle is
+disabled. Each probe fires with the restify id of the request in question as
+its first and only argument.
 
-The script `bin/throttlestat.d` is implemented as an analog to `moraystat.d`
-with the `queue_enter` and `queue_leave` probes. It is a good starting point for
-gaining insight into both how actively a muskie process is being throttled and
-how much stress it is under.
+The script `bin/throttlestat.d` reports statistics related to request
+throttling in a webapi zone. Reports consist of the per-process average queue
+depth, average number of in-flight requests, average millisecond queueing delay,
+in addition to per-process counts of the number of requests throttled, handled,
+and reaped in the last second.
 
 The throttle probes are provided in a separate provider to prevent coupling the
 throttle implementation with muskie itself. Future work may involve making the

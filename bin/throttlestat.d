@@ -9,52 +9,76 @@
  * Copyright (c) 2018, Joyent, Inc.
  */
 
+/*
+ * Reports the following statistics for each muskie process in the zone:
+ *  - Average throttle queue depth
+ *  - Average in-flight request count
+ *  - Average request queueing delays
+ *  - Number of requests throttled in the last second
+ *  - Number of requests handled in the last second
+ *  - Number of requests reaped in the last second
+ */
+
+
 #pragma D option quiet
 
 int latencies[char *];
 
+BEGIN
+{
+    lines = 0;
+}
+
+muskie-throttle*:::throttle_stats
+{
+    @queued[pid] = avg(arg0);
+    @inflight[pid] = avg(arg1);
+}
+
 muskie-throttle*:::queue_enter
 {
-	latencies[copyinstr(arg0)] = timestamp;
+    latencies[copyinstr(arg0)] = timestamp;
 }
 
 muskie-throttle*:::queue_leave
 /latencies[copyinstr(arg0)]/
 {
-	latencies[copyinstr(arg0)] = timestamp - latencies[copyinstr(arg0)];
-	@avg_latency[pid] = avg(latencies[copyinstr(arg0)] / 1000000);
-	latencies[copyinstr(arg0)] = 0;
+    latencies[copyinstr(arg0)] = timestamp - latencies[copyinstr(arg0)];
+    @latency[pid] = avg(latencies[copyinstr(arg0)] / 1000000);
+    latencies[copyinstr(arg0)] = 0;
 }
 
 muskie-throttle*:::request_throttled
 {
-	@throttled[pid] = count();
+    @throttled[pid] = count();
 }
 
 muskie-throttle*:::request_handled
 {
-	@qlen[pid] = max(arg1);
-	@qrunning[pid] = max(arg0);
+    @handled[pid] = count();
+}
+
+muskie-throttle*:::request_reaped
+{
+    @reaped[pid] = count();
 }
 
 profile:::tick-1sec
 /lines < 1/
 {
-	printf("THROTTLED-PER-SEC | AVG-LATENCY-MS | MAX-QLEN | MAX-RUNNING\n");
-	printf("------------------+----------------+----------+------------\n");
-	lines = 5;
+    lines = 5;
+    printf("PID      QDEPTH    INFLIGHT    QDELAY    HANDLED    THROTTLED" +
+            "    REAPED\n");
 }
 
-
 profile:::tick-1sec
-/lines > 0/
 {
-	lines -= 1;
-	printa("%@4u              %@4u            %@4u       %@4u\n", @throttled,
-            @avg_latency, @qlen, @qrunning);
+    lines -= 1;
+    printa("%-8d %@4u      %@4u        %@4u       %@4u      %@4u        %@4u\n",
+            @queued, @inflight, @latency, @handled, @throttled, @reaped);
 
-	clear(@throttled);
-	clear(@avg_latency);
-	clear(@qlen);
-	clear(@qrunning);
+    /* Clear per-time-interval stats */
+    clear(@throttled);
+    clear(@handled);
+    clear(@reaped);
 }
