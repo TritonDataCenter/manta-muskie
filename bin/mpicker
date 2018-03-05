@@ -356,7 +356,8 @@ MPicker.prototype.do_poll.help = [
  */
 MPicker.prototype.do_choose = function do_choose(subcmd, opts, args, cb) {
     var self = this;
-    var size = opts.size;
+    var sizeMB = opts.size;
+    var sizeBytes = sizeMB * 1048576;
     var replicas = opts.replicas;
     var dcs = [];
 
@@ -376,7 +377,7 @@ MPicker.prototype.do_choose = function do_choose(subcmd, opts, args, cb) {
         var summary = [];
 
         summary.push('replicas requested: ' + replicas);
-        summary.push('size requested: ' + size + ' MB');
+        summary.push('size requested: ' + sizeMB + ' MB');
 
         var allSharkCount = 0;
         var inUseSharkCount = 0;
@@ -506,8 +507,9 @@ MPicker.prototype.do_choose = function do_choose(subcmd, opts, args, cb) {
             p.setRecordsDb(user_db, function () {
                 var chooseOpts = {
                     replicas: replicas,
-                    size: size
+                    size: sizeBytes
                 };
+
                 p.choose(chooseOpts, function (err, sharks, chooseStats) {
                     if (err) {
                         if (err.cause().name === 'PickerError') {
