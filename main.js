@@ -32,6 +32,7 @@ var medusa = require('./lib/medusa');
 var once = require('once');
 var restify = require('restify');
 var rethinkdb = require('rethinkdb');
+var pg = require('pg');
 var vasync = require('vasync');
 
 var app = require('./lib');
@@ -541,15 +542,46 @@ function createRethinkdbClient(opts, onConnect) {
     var log = opts.log.child({component: 'rethinkdb'}, true);
     opts.log = log;
 
-    rethinkdb.connect([], _onConnect);
-
-    client.once('connect', function _onConnect(err, client) {
+    rethinkdb.connect([], function _onConnect(err, client) {
         log.info({
             host: opts.host,
             port: opts.port
         }, 'rethinkdb: connected');
 
         onConnect(client);
+    });
+}
+
+function onPostgresConnect(clients, barrier, postgresClient) {
+    clients.postgres = postgresClient;
+    barrier.done('createPostgresClient');
+}
+
+function createPostgresClient(opts, onConnect) {
+    assert.object(opts, 'options');
+    assert.object(opts.log, 'options.log');
+
+    var log = opts.log.child({component: 'postgres'}, true);
+    opts.log = log;
+
+    const pgClient = new pg.Client({
+        user: opts.user,
+        host: opts.host,
+        port: opts.port,
+        database: opts.database
+    });
+
+    pgClient.connect(function _onConnect(err) {
+        if (err) {
+            log.error(err, 'postgres: failed to connect');
+        } else {
+            log.info({
+                host: opts.host,
+                port: opts.port
+            }, 'postgres: connected');
+
+            onConnect(cockroachClient);
+        }
     });
 }
 
@@ -565,18 +597,26 @@ function createCockroachdbClient(opts, onConnect) {
     var log = opts.log.child({component: 'cockroachdb'}, true);
     opts.log = log;
 
-    cockroachdb.connect([], _onConnect);
+    const cockroachClient = new pg.Client({
+        user: opts.user,
+        host: opts.host,
+        port: opts.port,
+        database: opts.database
+    });
 
-    client.once('connect', function _onConnect(err, client) {
-        log.info({
-            host: opts.host,
-            port: opts.port
-        }, 'cockroachdb: connected');
+    cockroachClient.connect(function _onConnect(err) {
+        if (err) {
+            log.error(err, 'cockroachdb: failed to connect');
+        } else {
+            log.info({
+                host: opts.host,
+                port: opts.port
+            }, 'cockroachdb: connected');
 
-        onConnect(client);
+            onConnect(cockroachClient);
+        }
     });
 }
-
 
 function onMedusaConnect(clients, medusaClient) {
     clients.medusa = medusaClient;
@@ -691,20 +731,26 @@ function clientsConnected(appName, cfg, clients) {
     clients.agent = new cueball.HttpAgent(cfg.cueballHttpAgent);
     clients.mahi = createAuthCacheClient(cfg.auth, clients.agent);
 
-    barrier.start('createMorayClient');
-    createMorayClient(cfg.moray, onMorayConnect.bind(null, clients, barrier));
+    // barrier.start('createMorayClient');
+    // createMorayClient(cfg.moray, onMorayConnect.bind(null, clients, barrier));
 
     if (cfg.storage.metadataBackend === 'rethinkdb') {
         barrier.start('createRethinkdbClient');
-        createRethinkdbClient(cfg.moray, onRethinkdbConnect.bind(null, clients, barrier));
+        createRethinkdbClient(cfg.rethinkdb,
+            onRethinkdbConnect.bind(null, clients, barrier));
     } else if (cfg.storage.metadataBackend === 'cockroachdb') {
         barrier.start('createCockroachdbClient');
-        createCockroachdbClient(cfg.moray, onCockroachdbConnect.bind(null, clients, barrier));
+        createCockroachdbClient(cfg.cockroachdb,
+            onCockroachdbConnect.bind(null, clients, barrier));
+    } else {
+        barrier.start('createPostgresClient');
+        createPostgresClient(cfg.postgresql,
+            onPostgresConnect.bind(null, clients, barrier));
     }
 
-    barrier.start('createPickerClient');
-    createPickerClient(cfg.storage, cfg.log,
-        onPickerConnect.bind(null, clients, barrier));
+    // barrier.start('createPickerClient');
+    // createPickerClient(cfg.storage, cfg.log,
+    //     onPickerConnect.bind(null, clients, barrier));
 
     // Establish other client connections needed for writes and jobs requests.
 
