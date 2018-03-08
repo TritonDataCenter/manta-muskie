@@ -580,7 +580,7 @@ function createPostgresClient(opts, onConnect) {
                 port: opts.port
             }, 'postgres: connected');
 
-            onConnect(cockroachClient);
+            onConnect(pgClient);
         }
     });
 }
@@ -730,9 +730,6 @@ function clientsConnected(appName, cfg, clients) {
 
     clients.agent = new cueball.HttpAgent(cfg.cueballHttpAgent);
     clients.mahi = createAuthCacheClient(cfg.auth, clients.agent);
-
-    // barrier.start('createMorayClient');
-    // createMorayClient(cfg.moray, onMorayConnect.bind(null, clients, barrier));
 
     if (cfg.storage.metadataBackend === 'rethinkdb') {
         barrier.start('createRethinkdbClient');
