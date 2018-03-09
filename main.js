@@ -732,14 +732,17 @@ function clientsConnected(appName, cfg, clients) {
     clients.mahi = createAuthCacheClient(cfg.auth, clients.agent);
 
     if (cfg.storage.metadataBackend === 'rethinkdb') {
+        cfg.rethinkdb.log = cfg.log;
         barrier.start('createRethinkdbClient');
         createRethinkdbClient(cfg.rethinkdb,
             onRethinkdbConnect.bind(null, clients, barrier));
     } else if (cfg.storage.metadataBackend === 'cockroachdb') {
+        cfg.cockroachdb.log = cfg.log;
         barrier.start('createCockroachdbClient');
         createCockroachdbClient(cfg.cockroachdb,
             onCockroachdbConnect.bind(null, clients, barrier));
     } else {
+        cfg.postgresql.log = cfg.log;
         barrier.start('createPostgresClient');
         createPostgresClient(cfg.postgresql,
             onPostgresConnect.bind(null, clients, barrier));
