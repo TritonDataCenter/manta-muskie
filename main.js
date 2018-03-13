@@ -542,12 +542,13 @@ function createRethinkdbClient(opts, onConnect) {
     var log = opts.log.child({component: 'rethinkdb'}, true);
     opts.log = log;
 
-    rethinkdb.connect([], function _onConnect(err, client) {
-        log.info({
-            host: opts.host,
-            port: opts.port
-        }, 'rethinkdb: connected');
+    const connectOpts = {
+        host: opts.host,
+        port: opts.port
+    };
 
+    rethinkdb.connect(connectOpts, function _onConnect(err, client) {
+        log.info(connectOpts, 'rethinkdb: connected');
         onConnect(client);
     });
 }
