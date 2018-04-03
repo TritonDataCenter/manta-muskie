@@ -43,9 +43,7 @@
         "vasync": "^1.5.0",
         "verror": "^1.9.0",
         "watershed": "0.3.0",
-        "xtend": "2.1.1",
-        "rethinkdb": "2.3.3",
-        "pg": "6.2.4"
+        "xtend": "2.1.1"
     },
     "devDependencies": {
         "smartdc": "7.3.1",
