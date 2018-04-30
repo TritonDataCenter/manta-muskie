@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2017, Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 var domain = require('domain');
@@ -20,6 +20,7 @@ var manta = require('manta');
 var once = require('once');
 var restify = require('restify');
 var smartdc = require('smartdc');
+var sshpk = require('sshpk');
 var VError = require('verror').VError;
 
 
@@ -46,6 +47,13 @@ var TOKEN_CFG = {
 var POSEIDON_ID = process.env.MUSKIE_POSEIDON_ID ||
         '930896af-bf8c-48d4-885c-6573a94b1853';
 
+/*
+ * We need an operator account for some tests, so we use poseidon, unless an
+ * alternate one is provided.
+ */
+var TEST_OPERATOR = process.env.MUSKIETEST_OPERATOR_USER || 'poseidon';
+var TEST_OPERATOR_KEY = process.env.MUSKIETEST_OPERATOR_KEYFILE ||
+        (process.env.HOME + '/.ssh/id_rsa_poseidon');
 
 
 ///--- Helpers
@@ -152,6 +160,7 @@ function createSDCClient() {
             keyId: process.env.SDC_KEY_ID,
             user: process.env.SDC_ACCOUNT
         }),
+        rejectUnauthorized: false,
         user: process.env.SDC_ACCOUNT || 'admin',
         url: process.env.SDC_URL || 'http://localhost:8080'
     });
@@ -159,6 +168,51 @@ function createSDCClient() {
     return (client);
 }
 
+function createOperatorSDCClient() {
+    var key = fs.readFileSync(TEST_OPERATOR_KEY);
+    var keyId = sshpk.parseKey(key, 'auto').fingerprint('md5').toString();
+
+    var log = createLogger();
+    var client = smartdc.createClient({
+        log: log,
+        sign: manta.privateKeySigner({
+            key: key,
+            keyId: keyId,
+            log: log,
+            user: TEST_OPERATOR
+        }),
+        rejectUnauthorized: false,
+        version: '9.0.0',
+        url: process.env.SDC_URL || 'http://localhost:8080',
+        user: TEST_OPERATOR
+    });
+
+    return (client);
+}
+
+function createOperatorClient() {
+    var key = fs.readFileSync(TEST_OPERATOR_KEY);
+    var keyId = sshpk.parseKey(key, 'auto').fingerprint('md5').toString();
+
+    var log = createLogger();
+    var client = manta.createClient({
+        agent: false,
+        connectTimeout: 2000,
+        log: log,
+        retry: false,
+        sign: manta.privateKeySigner({
+            key: key,
+            keyId: keyId,
+            log: log,
+            user: TEST_OPERATOR
+        }),
+        rejectUnauthorized: false,
+        url: process.env.MANTA_URL || 'http://localhost:8080',
+        user: TEST_OPERATOR
+    });
+
+    return (client);
+}
 
 function checkResponse(t, res, code) {
     t.ok(res, 'null response');
@@ -372,5 +426,7 @@ module.exports = {
     createSDCClient: createSDCClient,
     createLogger: createLogger,
     createAuthToken: createAuthToken,
+    createOperatorSDCClient: createOperatorSDCClient,
+    createOperatorClient: createOperatorClient,
     signUrl: signUrl
 };

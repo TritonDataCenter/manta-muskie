@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2014, Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 var _helper = __dirname + '/helper.js';
@@ -142,7 +142,9 @@ before(function (cb) {
     self.jsonClient = helper.createJsonClient();
     self.rawClient = helper.createRawClient();
     self.userClient = helper.createUserClient('muskie_test_user');
+    self.operClient = helper.createOperatorClient();
     self.paths = [];
+    self.operPaths = [];
     self.jobs = [];
     cb();
 });
@@ -158,11 +160,17 @@ after(function (cb) {
             func: self.client.cancelJob.bind(self.client),
             inputs: self.jobs
         }, function (err2) {
-            self.client.close();
-            self.rawClient.close();
-            self.userClient.close();
-            self.sdcClient.client.close();
-            cb(err || err2);
+            vasync.forEachParallel({
+                func: self.operClient.unlink.bind(self.operClient),
+                inputs: self.operPaths
+            }, function (err3) {
+                self.client.close();
+                self.rawClient.close();
+                self.userClient.close();
+                self.sdcClient.client.close();
+                self.operClient.close();
+                cb(err || err2 || err3);
+            });
         });
     });
 });
@@ -361,6 +369,24 @@ test('assume bad role', function (t) {
 });
 
 
+test('assume bad role - xacct', function (t) {
+    var self = this;
+    var path = sprintf('/%s/stor', self.operClient.user);
+    self.client.get(path, {
+        headers: {
+            'role': 'muskie_test_role_other'
+        }
+    }, function (err2) {
+        if (!err2) {
+            t.fail(err2, 'error expected');
+            t.end();
+            return;
+        }
+        t.equal(err2.name, 'InvalidRoleError');
+        t.end();
+    });
+});
+
 test('mchmod', function (t) {
     var self = this;
     var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
@@ -398,6 +424,71 @@ test('mchmod', function (t) {
     });
 });
 
+test('cross-account role access (denied)', function (t) {
+    var self = this;
+    var path = sprintf('/%s/stor', self.operClient.user);
+    self.client.info(path, {
+        headers: {
+            'role': 'muskie_test_role_xacct'
+        }
+    }, function (err3, info) {
+        if (!err3) {
+            t.fail('error expected');
+            t.end();
+            return;
+        }
+        t.equal(err3.name, 'ForbiddenError');
+
+        self.client.info(path, function (err4, info2) {
+            if (!err4) {
+                t.fail('error expected');
+                t.end();
+                return;
+            }
+            t.equal(err4.name, 'ForbiddenError');
+            t.end();
+        });
+    });
+});
+
+test('cross-account role access', function (t) {
+    var self = this;
+    var path = sprintf('/%s/stor/muskie_test_obj', self.operClient.user);
+    writeObject(self.operClient, path, function (err) {
+        if (err) {
+            t.fail(err);
+            t.end();
+            return;
+        }
+
+        self.operPaths.push(path);
+        self.operClient.chattr(path, {
+            headers: {
+                'role-tag': 'muskie_test_role_xacct'
+            }
+        }, function (err2) {
+            if (err2) {
+                t.fail(err2);
+                t.end();
+                return;
+            }
+
+            self.client.info(path, {
+                headers: {
+                    'role': 'muskie_test_role_xacct'
+                }
+            }, function (err3, info) {
+                if (err3) {
+                    t.fail(err3);
+                    t.end();
+                    return;
+                }
+                t.equal(info.headers['role-tag'], 'muskie_test_role_xacct');
+                t.end();
+            });
+        });
+    });
+});
 
 test('mchmod bad role', function (t) {
     var self = this;

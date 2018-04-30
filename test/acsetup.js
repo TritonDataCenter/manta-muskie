@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2014, Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 var _helper = __dirname + '/helper.js';
@@ -16,6 +16,7 @@ var fs = require('fs');
 var vasync = require('vasync');
 
 var sdcClient;
+var operSdcClient;
 
 var USERS = [
     {
@@ -119,6 +120,27 @@ var ROLES = [
     }
 ];
 
+var REGULAR_USER = process.env.MANTA_USER || 'admin';
+
+var OPER_ROLES = [
+    {
+        name: 'muskie_test_role_xacct',
+        members: [
+            { type: 'account', login: REGULAR_USER }
+        ],
+        policies: [
+            { name: 'muskie_test_read' }
+        ]
+    }
+];
+
+var OPER_POLICIES = [
+    {
+        name: 'muskie_test_read',
+        rules: [ 'can getobject', 'can listdirectory' ]
+    }
+];
+
 function setup(cb) {
     var key = fs.readFileSync(process.env.HOME + '/.ssh/id_rsa.pub', 'utf8');
     vasync.pipeline({funcs: [
@@ -145,10 +167,32 @@ function setup(cb) {
                 inputs: POLICIES
             }, pipelinecb);
         },
+        function createOperPolicies(_, pipelinecb) {
+            vasync.forEachPipeline({
+                func: operSdcClient.createPolicy.bind(operSdcClient),
+                inputs: OPER_POLICIES
+            }, pipelinecb);
+        },
+        /*
+         * Mahi can take up to ~10 sec to pick up the change from UFDS.
+         * If we try to add users to roles before that we will receive
+         * spurious errors.
+         *
+         * Wait 15 sec just to make sure it's been long enough.
+         */
+        function sleepForMahi(_, pipelinecb) {
+            setTimeout(pipelinecb, 15000);
+        },
         function createRoles(_, pipelinecb) {
             vasync.forEachPipeline({
                 func: sdcClient.createRole.bind(sdcClient),
                 inputs: ROLES
+            }, pipelinecb);
+        },
+        function createOperRoles(_, pipelinecb) {
+            vasync.forEachPipeline({
+                func: operSdcClient.createRole.bind(operSdcClient),
+                inputs: OPER_ROLES
             }, pipelinecb);
         }
         /*
@@ -222,6 +266,48 @@ function teardown(cb) {
                 }, pipelinecb);
             });
         },
+        function deleteOperRoles(_, pipelinecb) {
+            operSdcClient.listRoles(function (err, roles) {
+                if (err) {
+                    pipelinecb(err);
+                    return;
+                }
+
+                var names = OPER_ROLES.map(function (r) {
+                    return (r.name);
+                });
+
+                var deletions = roles.filter(function (r) {
+                    return (names.indexOf(r.name) >= 0);
+                });
+
+                vasync.forEachPipeline({
+                    func: operSdcClient.deleteRole.bind(operSdcClient),
+                    inputs: deletions
+                }, pipelinecb);
+            });
+        },
+        function deleteOperPolicies(_, pipelinecb) {
+            operSdcClient.listPolicies(function (err, policies) {
+                if (err) {
+                    pipelinecb(err);
+                    return;
+                }
+
+                var names = OPER_POLICIES.map(function (p) {
+                    return (p.name);
+                });
+
+                var deletions = policies.filter(function (p) {
+                    return (names.indexOf(p.name) >= 0);
+                });
+
+                vasync.forEachPipeline({
+                    func: operSdcClient.deletePolicy.bind(operSdcClient),
+                    inputs: deletions
+                }, pipelinecb);
+            });
+        },
         function deleteUsers(_, pipelinecb) {
             sdcClient.listUsers(function (err, users) {
                 if (err) {
@@ -268,19 +354,23 @@ function teardown(cb) {
 function main() {
     if (process.argv[2] === 'setup') {
         sdcClient = helper.createSDCClient();
+        operSdcClient = helper.createOperatorSDCClient();
         setup(function (err) {
             if (err) {
                 console.log(err);
             }
             sdcClient.client.close();
+            operSdcClient.client.close();
         });
     } else if (process.argv[2] === 'teardown') {
         sdcClient = helper.createSDCClient();
+        operSdcClient = helper.createOperatorSDCClient();
         teardown(function (err) {
             if (err) {
                 console.log(err);
             }
             sdcClient.client.close();
+            operSdcClient.client.close();
         });
     } else {
         console.error('usage: ' + process.argv[1] + ' [setup|teardown]');

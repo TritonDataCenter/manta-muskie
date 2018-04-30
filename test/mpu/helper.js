@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2017, Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 var assert = require('assert-plus');
@@ -44,15 +44,6 @@ var ZERO_BYTE_MD5 = obj.ZERO_BYTE_MD5;
 var TEXT = 'The lazy brown fox \nsomething \nsomething foo';
 var TEXT_MD5 = crypto.createHash('md5').update(TEXT).digest('base64');
 
-/*
- * We need an operator account for some tests, so we use poseidon, unless an
- * alternate one is provided.
- */
-var TEST_OPERATOR = process.env.MUSKIETEST_OPERATOR_USER || 'poseidon';
-var TEST_OPERATOR_KEY = process.env.MUSKIETEST_OPERATOR_KEYFILE ||
-        (process.env.HOME + '/.ssh/id_rsa_poseidon');
-
-
 ///--- Helpers
 
 /*
@@ -71,8 +62,7 @@ function initMPUTester(tcb) {
 
     self.client = testHelper.createClient();
     self.userClient = testHelper.createUserClient('muskie_test_user');
-    self.operatorClient = createOperatorClient(TEST_OPERATOR,
-        TEST_OPERATOR_KEY);
+    self.operatorClient = testHelper.createOperatorClient();
 
     self.uploadsRoot = '/' + self.client.user + '/uploads';
     self.root = '/' + self.client.user + '/stor';
@@ -201,38 +191,6 @@ function cleanupMPUTester(cb) {
             closeClients.call(self, cb);
         }
     });
-}
-
-
-/*
- * Helper to create a Manta client for the operator account.
- *
- * Parameters:
- *  - user: the operator account
- *  - keyFile: local path to the private key for this account
- */
-function createOperatorClient(user, keyFile) {
-    var key = fs.readFileSync(keyFile);
-    var keyId = sshpk.parseKey(key, 'auto').fingerprint('md5').toString();
-
-    var log = testHelper.createLogger();
-    var client = manta.createClient({
-        agent: false,
-        connectTimeout: 2000,
-        log: log,
-        retry: false,
-        sign: manta.privateKeySigner({
-            key: key,
-            keyId: keyId,
-            log: log,
-            user: user
-        }),
-        rejectUnauthorized: false,
-        url: process.env.MANTA_URL || 'http://localhost:8080',
-        user: user
-    });
-
-    return (client);
 }
 
 

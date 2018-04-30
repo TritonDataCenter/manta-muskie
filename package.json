@@ -31,7 +31,7 @@
         "libuuid": "0.1.2",
         "lru-cache": "2.3.1",
         "lstream": "0.0.4",
-        "mahi": "2.0.1",
+        "mahi": "2.1.0",
         "marlin": "git+https://github.com/joyent/manta-marlin.git#master",
         "mime": "1.2.11",
         "moray": "3.4.1",
