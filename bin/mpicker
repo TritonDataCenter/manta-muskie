@@ -30,7 +30,7 @@ var sprintf = mod_util.format;
 var VError = mod_verror.VError;
 var muskie_errors = require('../lib/errors');
 
-
+var consts = require('../lib/constants');
 
 ///-- Globals
 
@@ -41,9 +41,11 @@ var LOG = mod_bunyan.createLogger({
     stream: process.stderr
 });
 
-// Some default values to use when creating the picker.
-var DEF_MAX_PERCENT_UTIL = 90;
-var DEF_MAX_STREAMING_SIZE_MB = 5120;
+///--- Constants
+
+const DEF_MAX_STREAMING_SIZE_MB = 5120;
+const DEF_MAX_PERCENT_UTIL = 90;
+const DEF_MAX_OPERATOR_PERCENT_UTIL = 92;
 
 /*
  * Common options for all submcommands.
@@ -177,9 +179,11 @@ MPicker.prototype.do_poll = function do_poll(subcmd, opts, args, cb) {
     p_opts = {
         log: LOG,
         defaultMaxStreamingSizeMB: cfg.defaultMaxStreamingSizeMB ||
-            DEF_MAX_STREAMING_SIZE_MB,
+            consts.DEF_MAX_STREAMING_SIZE_MB,
         maxUtilizationPct: cfg.storage.maxUtilizationPct ||
-            DEF_MAX_PERCENT_UTIL,
+            consts.DEF_MAX_PERCENT_UTIL,
+        maxOperatorUtilizationPct: cfg.storage.maxOperatorUtilizationPct ||
+            consts.DEF_MAX_PERCENT_UTIL,
         multiDC: cfg.storage.multiDC,
         moray: cfg.storage.moray,
         lag: cfg.storage.lag
@@ -268,7 +272,9 @@ MPicker.prototype.do_poll = function do_poll(subcmd, opts, args, cb) {
      * from its polling, so we can listen for this to see the poll response.
      */
     iteration = 0;
-    p.on('topology', function onTopology(db) {
+    p.on('topology', function onTopology(sharkMaps) {
+        var db = opts.operator ? sharkMaps[1] : sharkMaps[0];
+
         if (opts.all) {
             console.log(JSON.stringify(db, null, 4));
         } else if (opts.json) {
@@ -312,6 +318,12 @@ MPicker.prototype.do_poll.options = commonOptions.concat([
         names: [ 'omitHeader', 'H' ],
         type: 'bool',
         help: 'Omit header row from tabular output',
+        default: false
+    },
+    {
+        names: [ 'operator', 'o' ],
+        type: 'bool',
+        help: 'Display information based on operator utilization threshold',
         default: false
     }
 ]);
@@ -496,15 +508,18 @@ MPicker.prototype.do_choose = function do_choose(subcmd, opts, args, cb) {
         function runChoose(_, vcb) {
             p_opts = {
                 log: LOG,
-                defaultMaxStreamingSizeMB: DEF_MAX_STREAMING_SIZE_MB,
-                maxUtilizationPct: DEF_MAX_PERCENT_UTIL,
+                defaultMaxStreamingSizeMB: consts.DEF_MAX_STREAMING_SIZE_MB,
+                maxUtilizationPct: consts.DEF_MAX_PERCENT_UTIL,
+                maxOperatorUtilizationPct: consts.DEF_MAX_OPERATOR_PERCENT_UTIL,
                 multiDC: user_dcs.length > 1,
                 standalone: true
             };
 
             p = mod_picker.createClient(p_opts);
 
-            p.setRecordsDb(user_db, function () {
+            setImmediate(function () {
+                mod_picker.sortAndStoreDcs.call(p, user_db, user_db);
+
                 var chooseOpts = {
                     replicas: replicas,
                     size: sizeBytes
