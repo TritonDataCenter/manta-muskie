@@ -19,7 +19,7 @@ DOC_FILES =		index.md
 RESTDOWN_FLAGS =	--brand-dir=docs/bluejoy
 RESTDOWN_EXT =		.md
 
-JS_FILES :=		bin/mlocate \
+JS_FILES :=		bin/mlocate bin/mpicker \
 			$(shell ls *.js) \
 			$(shell find lib test -name '*.js')
 JSL_CONF_NODE =		tools/jsl.node.conf

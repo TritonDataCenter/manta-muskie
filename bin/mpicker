@@ -30,8 +30,6 @@ var sprintf = mod_util.format;
 var VError = mod_verror.VError;
 var muskie_errors = require('../lib/errors');
 
-var consts = require('../lib/constants');
-
 ///-- Globals
 
 var NAME = 'mpicker';
@@ -43,9 +41,9 @@ var LOG = mod_bunyan.createLogger({
 
 ///--- Constants
 
-const DEF_MAX_STREAMING_SIZE_MB = 5120;
-const DEF_MAX_PERCENT_UTIL = 90;
-const DEF_MAX_OPERATOR_PERCENT_UTIL = 92;
+var DEF_MAX_STREAMING_SIZE_MB = 5120;
+var DEF_MAX_PERCENT_UTIL = 90;
+var DEF_MAX_OPERATOR_PERCENT_UTIL = 92;
 
 /*
  * Common options for all submcommands.
@@ -105,7 +103,7 @@ MPicker.prototype.usage = function usage(message, subcmd, cb) {
     console.error('%s: %s', self.arg0, message);
     console.error(self.helpFromSubcmd(subcmd));
     process.exit(2);
-}
+};
 
 
 /*
@@ -135,7 +133,7 @@ MPicker.prototype.checkHelpRequested = function (subcmd, opts, cb) {
  */
 MPicker.prototype.do_poll = function do_poll(subcmd, opts, args, cb) {
     var self = this;
-    var interval, count, cfg, picker, p_opts, iteration;
+    var interval, count, cfg, p_opts, iteration;
 
     self.checkHelpRequested(subcmd, opts, cb);
 
@@ -179,11 +177,11 @@ MPicker.prototype.do_poll = function do_poll(subcmd, opts, args, cb) {
     p_opts = {
         log: LOG,
         defaultMaxStreamingSizeMB: cfg.defaultMaxStreamingSizeMB ||
-            consts.DEF_MAX_STREAMING_SIZE_MB,
+            DEF_MAX_STREAMING_SIZE_MB,
         maxUtilizationPct: cfg.storage.maxUtilizationPct ||
-            consts.DEF_MAX_PERCENT_UTIL,
+            DEF_MAX_PERCENT_UTIL,
         maxOperatorUtilizationPct: cfg.storage.maxOperatorUtilizationPct ||
-            consts.DEF_MAX_PERCENT_UTIL,
+            DEF_MAX_PERCENT_UTIL,
         multiDC: cfg.storage.multiDC,
         moray: cfg.storage.moray,
         lag: cfg.storage.lag
@@ -356,7 +354,7 @@ MPicker.prototype.do_poll.help = [
     'as input to the `choose` subcommand.  For example, to simulate choosing',
     '3 replicas for an object of size 150 MB from a given Moray\'s storage',
     'records, you could run:',
-    '   mpicker poll | mpicker choose -r 3 -s 150',
+    '   mpicker poll -j | mpicker choose -r 3 -s 150',
     ''
 ].join('\n');
 
@@ -371,12 +369,11 @@ MPicker.prototype.do_choose = function do_choose(subcmd, opts, args, cb) {
     var sizeMB = opts.size;
     var sizeBytes = sizeMB * 1048576;
     var replicas = opts.replicas;
-    var dcs = [];
 
     self.checkHelpRequested(subcmd, opts, cb);
 
     var user_db, user_dcs;
-    var p, p_opts, p_choices, p_err, p_stats, p_sharkCount;
+    var p, p_opts, p_choices, p_err, p_stats;
 
     function printChooseSummary(chooseStats) {
         mod_assert.object(chooseStats, 'chooseStats');
@@ -427,7 +424,7 @@ MPicker.prototype.do_choose = function do_choose(subcmd, opts, args, cb) {
             mod_assert.object(p_choices, 'p_choices');
             summary.push('choices:');
 
-            p_choices.forEach(function(c, i) {
+            p_choices.forEach(function (c, i) {
                 summary.push(sprintf('\t%s:', i));
                 c.forEach(function (s, j) {
                     summary.push(sprintf('\t\t%s (%s)', s['manta_storage_id'],
@@ -460,7 +457,7 @@ MPicker.prototype.do_choose = function do_choose(subcmd, opts, args, cb) {
                 process.stdin.on('data', function (data) {
                     input += data;
                 });
-                process.stdin.on('end', function() {
+                process.stdin.on('end', function () {
                     user_db = JSON.parse(input);
                     vcb();
                 });
@@ -472,7 +469,7 @@ MPicker.prototype.do_choose = function do_choose(subcmd, opts, args, cb) {
             var errors = [];
             user_dcs = Object.keys(user_db);
             user_dcs.forEach(function validateDcRecords(dc) {
-                records = user_db[dc];
+                var records = user_db[dc];
                 records.forEach(function validateRecord(r) {
                     if (!r.manta_storage_id) {
                         errors.push(new VError('"%s" record missing ' +
@@ -508,9 +505,9 @@ MPicker.prototype.do_choose = function do_choose(subcmd, opts, args, cb) {
         function runChoose(_, vcb) {
             p_opts = {
                 log: LOG,
-                defaultMaxStreamingSizeMB: consts.DEF_MAX_STREAMING_SIZE_MB,
-                maxUtilizationPct: consts.DEF_MAX_PERCENT_UTIL,
-                maxOperatorUtilizationPct: consts.DEF_MAX_OPERATOR_PERCENT_UTIL,
+                defaultMaxStreamingSizeMB: DEF_MAX_STREAMING_SIZE_MB,
+                maxUtilizationPct: DEF_MAX_PERCENT_UTIL,
+                maxOperatorUtilizationPct: DEF_MAX_OPERATOR_PERCENT_UTIL,
                 multiDC: user_dcs.length > 1,
                 standalone: true
             };
@@ -663,7 +660,7 @@ MPicker.prototype.do_choose.help = [
     'The above command would poll the configured Moray for storage node',
     'records and simulate storage node selection for a 100 MB object with',
     '3 replicas, without making any requests to store the object.',
-    '',
+    ''
 ].join('\n');
 
 
