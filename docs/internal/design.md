@@ -69,6 +69,7 @@ The following metrics are collected:
 - End-to-end latency for all requests
 - Count of requests completed
 - Count of bytes streamed to and from storage
+- Count of object bytes deleted
 
 Each of the metrics returned include the following metadata labels:
 
