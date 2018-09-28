@@ -66,6 +66,13 @@ var POLICIES = [
         rules: [
             'Can mlogin'
         ]
+    },
+    {
+        name: 'muskie_test_star',
+        rules: [
+            'Can getobject *',
+            'Can putobject'
+        ]
     }
 ];
 
@@ -109,6 +116,11 @@ var ROLES = [
         name: 'muskie_test_role_fromjob',
         members: [ 'muskie_test_user' ],
         policies: [ 'muskie_test_fromjob' ]
+    },
+    {
+        name: 'muskie_test_role_star',
+        members: [ 'muskie_test_user' ],
+        policies: [ 'muskie_test_star' ]
     },
     {
         name: 'muskie_test_role_all',

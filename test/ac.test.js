@@ -424,6 +424,119 @@ test('mchmod', function (t) {
     });
 });
 
+/*
+ * Tests for scenarios around rules with the "*"" or "all" aperture
+ * resource (support added with MANTA-3962).
+ */
+test('all-resource rules (untagged)', function (t) {
+    var self = this;
+    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
+    var role = 'muskie_test_role_star';
+    /* First, create a test object, with no role tags. */
+    writeObject(self.client, path, function (err) {
+        if (err) {
+            t.fail(err);
+            t.end();
+            return;
+        }
+        self.paths.push(path);
+
+        /*
+         * This should not work: we haven't activated the role and we have
+         * no default roles that are tagged on the object, so we have no
+         * right to read it.
+         */
+        self.userClient.info(path, function (err2) {
+            if (!err2) {
+                t.fail('error expected');
+                t.end();
+                return;
+            }
+
+            /*
+             * This should not work either: the role has a rule "Can putobject"
+             * but without the * this doesn't apply to all objects, only role-
+             * tagged ones, and this object has no role-tag.
+             */
+            writeObject(self.userClient, path, {
+                'role': role
+            }, function (err3) {
+                if (!err3) {
+                    t.fail('error expected');
+                    t.end();
+                    return;
+                }
+
+                /*
+                 * This should work, though: the "Can getobject *" rule kicks
+                 * in, even though this object isn't tagged (thanks to the *).
+                 */
+                self.userClient.info(path, {
+                    headers: {
+                        'role': role
+                    }
+                }, function (err4, info) {
+                    if (err4) {
+                        t.fail(err4);
+                        t.end();
+                        return;
+                    }
+                    t.strictEqual(info.headers['role-tag'], undefined);
+                    t.end();
+                });
+            });
+        });
+    });
+});
+
+test('all-resource rules (tagged)', function (t) {
+    var self = this;
+    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
+    var role = 'muskie_test_role_star';
+    /* First, create a test object, this time tagged to the role. */
+    writeObject(self.client, path, role, function (err) {
+        if (err) {
+            t.fail(err);
+            t.end();
+            return;
+        }
+        self.paths.push(path);
+
+        /*
+         * We should be able to write it, since it's role-tagged so the
+         * "Can putobject" rule applies.
+         */
+        writeObject(self.userClient, path, {
+            'role': role,
+            'role-tag': role
+        }, function (err2) {
+            if (err2) {
+                t.fail(err2);
+                t.end();
+                return;
+            }
+
+            /*
+             * And we should also be able to read it thanks to the
+             * "Can getobject *" rule.
+             */
+            self.userClient.info(path, {
+                headers: {
+                    'role': role
+                }
+            }, function (err3, info) {
+                if (err3) {
+                    t.fail(err3);
+                    t.end();
+                    return;
+                }
+                t.equal(info.headers['role-tag'], role);
+                t.end();
+            });
+        });
+    });
+});
+
 test('cross-account role access (denied)', function (t) {
     var self = this;
     var path = sprintf('/%s/stor', self.operClient.user);
