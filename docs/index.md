@@ -201,6 +201,7 @@ The complete list of codes that will be sent are:
 - LinkNotObjectError
 - LinkRequiredError
 - ParentNotDirectoryError
+- ParentNotBucketRootError
 - PreconditionFailedError
 - PreSignedRequestError
 - RequestEntityTooLargeError
