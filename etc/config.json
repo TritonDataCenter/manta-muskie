@@ -1,7 +1,7 @@
 {
     "clearProxyPort": 9080,
     "bunyan": {
-        "level": "info",
+        "level": "debug",
         "syslog": {
             "facility": "local0",
             "type": "udp"
@@ -9,8 +9,9 @@
     },
     "throttle": {
         "enabled": false,
-        "concurrency": 50,
-        "queueTolerance": 25
+        "concurrency": 32,
+        "queueTolerance": 32,
+        "reapInterval": 5000
     },
     "maxObjectCopies": 6,
     "maxRequestAge": 600,
@@ -21,7 +22,7 @@
     "numWorkers": 4,
     "port": 8080,
     "auth": {
-        "url": "http://authcache.coal.joyent.us",
+        "url": "http://authcache.orbit.example.com",
         "maxAuthCacheSize": 1000,
         "maxAuthCacheAgeMs": 300,
         "maxTranslationCacheSize": 1000,
@@ -29,28 +30,28 @@
     },
     "moray": {
         "morayOptions": {
-            "srvDomain": "electric-moray.coal.joyent.us",
+            "srvDomain": "electric-moray.orbit.example.com",
             "cueballOptions": {
-                "resolvers": [ "nameservice.coal.joyent.us" ]
+                "resolvers": [ "nameservice.orbit.example.com" ]
             }
         }
     },
     "marlin": {
 	"moray": {
-            "srvDomain": "1.moray.coal.joyent.us",
+            "srvDomain": "1.moray.orbit.example.com",
             "cueballOptions": {
-                "resolvers": [ "nameservice.coal.joyent.us" ]
+                "resolvers": [ "nameservice.orbit.example.com" ]
             }
 	},
-        "jobCache": {
+    "jobCache": {
             "size": 500,
             "expiry": 30
         }
     },
     "cueballHttpAgent": {
-        "resolvers": ["nameservice.coal.joyent.us"],
+        "resolvers": ["nameservice.orbit.example.com"],
         "initialDomains": [
-          "authcache.coal.joyent.us"
+          "authcache.orbit.example.com"
         ],
         "ping": "/ping",
         "pingInterval": 60000,
@@ -76,13 +77,13 @@
     },
     "medusa": {
         "moray": {
-          "srvDomain": "electric-moray.coal.joyent.us",
+          "srvDomain": "electric-moray.orbit.example.com",
           "cueballOptions": {
-              "resolvers": ["nameservice.coal.joyent.us"]
+              "resolvers": ["nameservice.orbit.example.com"]
           }
         },
         "reflector": {
-            "host": "medusa.coal.joyent.us",
+            "host": "medusa.orbit.example.com",
             "port": 8381
         }
     },
@@ -90,12 +91,12 @@
         "lag": 86400,
         "multiDC": false,
         "moray": {
-            "srvDomain": "1.moray.coal.joyent.us",
+            "srvDomain": "1.moray.orbit.example.com",
             "cueballOptions": {
-                "resolvers": ["nameservice.coal.joyent.us"]
+                "resolvers": ["nameservice.orbit.example.com"]
             }
         },
-	"defaultMaxStreamingSizeMB": 5120
+	    "defaultMaxStreamingSizeMB": 5120
     },
     "sharkConfig": {
         "connectTimeout": 2000,
@@ -110,16 +111,16 @@
         },
         "spares": 2,
         "maximum": 2000,
-        "resolvers": ["nameservice.coal.joyent.us"]
+        "resolvers": ["nameservice.orbit.example.com"]
     },
     "authToken": {
-        "salt": "C93A670ACC05C166",
-        "key": "5163205CA0C7F2752FD3A574E30F64DD",
-        "iv": "6B11F0F0B786F96812D5A0799D5B217A",
+        "salt": "A31551338D38BD4A",
+        "key": "9DC84553DB4A1BB2142BBCB4E045A506",
+        "iv": "DDF9D45016B283D2B2AA07C5A93C80D2",
         "maxAge": 604800000
     },
     "ufds": {
-        "url": "ldaps://ufds.coal.joyent.us",
+        "url": "ldaps://ufds.orbit.example.com",
         "bindDN": "cn=root",
         "bindPassword": "secret",
         "cache": {
@@ -132,7 +133,7 @@
         },
         "clientTimeout": 120000
     },
-    "datacenter": "coal.joyent.us",
+    "datacenter": "orbit.example.com",
     "server_uuid": "f5c4d446-7639-11e7-8ded-c35deca5b8cc",
     "zone_uuid": "dbb27e00-7639-11e7-bdd5-53e6dcb96c7f"
 }
