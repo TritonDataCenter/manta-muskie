@@ -1,13 +1,14 @@
 {
     "name": "muskie",
     "description": "Manta public-facing WebAPI",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "author": "Joyent (joyent.com)",
     "private": true,
     "repository": {
         "type": "git",
         "url": "git+ssh://git@github.com:joyent/muskie.git"
     },
+    "// lru-cache": "attempting to pin version while satisfying transitive deps, because lru-cache@4.1.4 includes yallist@3 which breaks node --abort-on-uncaught-exception with node <v4",
     "dependencies": {
         "ajv": "5.2.2",
         "ajv-keywords": "2.1.0",
@@ -29,9 +30,9 @@
         "keyapi": "git+https://github.com/joyent/keyapi.git#e14b3d58",
         "libmanta": "git+https://github.com/joyent/node-libmanta.git#v1.1.1",
         "libuuid": "0.1.2",
-        "lru-cache": "2.3.1",
+        "lru-cache": "4.1.3",
         "lstream": "0.0.4",
-        "mahi": "2.2.0",
+        "mahi": "2.2.2",
         "marlin": "git+https://github.com/joyent/manta-marlin.git#master",
         "mime": "1.2.11",
         "moray": "3.4.1",
