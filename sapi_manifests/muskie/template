@@ -179,6 +179,9 @@
     "maximum": 2000
   },
 
+  {{#SINGLE_PATH_ENABLE}}
+  "enableSinglePath": {{SINGLE_PATH_ENABLE}},
+  {{/SINGLE_PATH_ENABLE}}
   {{#MPU_ENABLE}}
   "enableMPU": true,
 
