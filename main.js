@@ -580,7 +580,7 @@ function createMorayClient(opts, onConnect) {
     var log = opts.log.child({component: 'moray'}, true);
     opts.log = log;
 
-    var client = new libmanta.createMorayClient(opts);
+    var client = new libmanta.createMorayBucketClient(opts);
 
     client.once('error', function (err) {
         client.removeAllListeners('connect');
@@ -717,15 +717,15 @@ function clientsConnected(appName, cfg, clients) {
     barrier.start('createMorayClient');
     createMorayClient(cfg.moray, onMorayConnect.bind(null, clients, barrier));
 
-    barrier.start('createPickerClient');
-    createPickerClient(cfg.storage, cfg.log,
-        onPickerConnect.bind(null, clients, barrier));
+    // barrier.start('createPickerClient');
+    // createPickerClient(cfg.storage, cfg.log,
+    //     onPickerConnect.bind(null, clients, barrier));
 
     // Establish other client connections needed for writes and jobs requests.
 
-    createMarlinClient(cfg.marlin, onMarlinConnect.bind(null, clients));
-    createMedusaConnector(cfg.medusa, onMedusaConnect.bind(null, clients));
-    clients.sharkAgent = createCueballSharkAgent(cfg.sharkConfig);
+    // createMarlinClient(cfg.marlin, onMarlinConnect.bind(null, clients));
+    // createMedusaConnector(cfg.medusa, onMedusaConnect.bind(null, clients));
+    // clients.sharkAgent = createCueballSharkAgent(cfg.sharkConfig);
     clients.keyapi = createKeyAPIClient(cfg);
 
     // Create monitoring server
