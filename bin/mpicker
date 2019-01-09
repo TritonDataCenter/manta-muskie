@@ -8,7 +8,7 @@
  */
 
 /*
- * Copyright (c) 2018, Joyent, Inc.
+ * Copyright (c) 2019, Joyent, Inc.
  */
 
 var mod_assert = require('assert-plus');
@@ -174,29 +174,40 @@ MPicker.prototype.do_poll = function do_poll(subcmd, opts, args, cb) {
         return;
     }
 
+    if (opts.percentage && opts.percentage > 100) {
+        cb(new VError('percentage should not be greater than 100 percent'));
+        return;
+    }
+
     p_opts = {
         log: LOG,
         defaultMaxStreamingSizeMB: cfg.defaultMaxStreamingSizeMB ||
             DEF_MAX_STREAMING_SIZE_MB,
-        maxUtilizationPct: cfg.storage.maxUtilizationPct ||
+        maxUtilizationPct: opts.percentage || cfg.storage.maxUtilizationPct ||
             DEF_MAX_PERCENT_UTIL,
         maxOperatorUtilizationPct: cfg.storage.maxOperatorUtilizationPct ||
-            DEF_MAX_PERCENT_UTIL,
+            DEF_MAX_OPERATOR_PERCENT_UTIL,
         multiDC: cfg.storage.multiDC,
         moray: cfg.storage.moray,
         lag: cfg.storage.lag
     };
+
     if (interval) {
-        p_opts.interval = interval * 1000;
+        p_opts.storageInterval = interval * 1000;
     }
     var p = mod_picker.createClient(p_opts);
 
     function printTabularSummary(db) {
         mod_assert.object(db, 'db');
+        var summary, dcs, columns, rows;
 
-        var columns, rows;
+        summary = [];
+        summary.push('polling options:');
+        summary.push(' max percentage utilization: ' +
+            p_opts.maxUtilizationPct);
+        summary.push('');
 
-        var dcs = Object.keys(db);
+        dcs = Object.keys(db);
 
         var dc_label = 'DATACENTER';
         var msi_label = 'MANTA_STORAGE_ID';
@@ -237,6 +248,10 @@ MPicker.prototype.do_poll = function do_poll(subcmd, opts, args, cb) {
                 rows.push(obj);
             });
         });
+
+        if (!opts.header) {
+            console.log(summary.join('\n'));
+        }
 
 
         mod_tab.emitTable({
@@ -301,6 +316,13 @@ MPicker.prototype.do_poll.options = commonOptions.concat([
         completionType: 'file'
     },
     {
+        names: ['percentage', 'p'],
+        type: 'positiveInteger',
+        help: 'Poll with custom utilization percentage maximum (overrides ' +
+            'config/default values)',
+        helpArg: 'PERCENTAGE'
+    },
+    {
         names: ['all', 'a'],
         type: 'bool',
         default: false,
@@ -315,7 +337,7 @@ MPicker.prototype.do_poll.options = commonOptions.concat([
     {
         names: [ 'omitHeader', 'H' ],
         type: 'bool',
-        help: 'Omit header row from tabular output',
+        help: 'Omit summary and header row from tabular output',
         default: false
     },
     {
@@ -349,6 +371,13 @@ MPicker.prototype.do_poll.help = [
     '   "storage": an object with the following fields:',
     '       "moray": a Moray configuration object',
     '       "lag": allowable grace period on storage records in ms (optional)',
+    '',
+    'You may override the maximum percent utilization field in the ',
+    'configuration file using the `-p` flag.  For example, if you wanted to ',
+    'see storage information for all storage nodes, regardless of how close ',
+    'to capacity they are, you could poll with a max percentage utilization ',
+    'of 100:',
+    '   mpicker poll -p 100',
     '',
     'You may also print the `poll` output in JSON format, which is suitable',
     'as input to the `choose` subcommand.  For example, to simulate choosing',
