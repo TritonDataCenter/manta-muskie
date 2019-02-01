@@ -27,7 +27,7 @@
         "kang": "1.1.0",
         "keep-alive-agent": "0.0.1",
         "keyapi": "git+https://github.com/joyent/keyapi.git#e14b3d58",
-        "libmanta": "git+https://github.com/joyent/node-libmanta.git#v1.1.1",
+        "libmanta": "git+https://github.com/joyent/node-libmanta.git#v1.2.0",
         "libuuid": "0.1.2",
         "lru-cache": "4.1.5",
         "lstream": "0.0.4",
