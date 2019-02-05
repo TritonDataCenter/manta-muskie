@@ -118,7 +118,7 @@ To run the tests against changes in a repository:
    modules.
 2. Configure your user account for access control by running:
 
-        $ build/node/bin/node test/acsetup.js setup
+        $ make test-ac-setup
 
    This uses the local copy of Node (pulled down as part of the build) to run
    the access-control setup script.  This creates roles and other server-side
@@ -127,9 +127,7 @@ To run the tests against changes in a repository:
 
         $ build/node/bin/node main.js -f etc/config.json
 
-4. Run `make test`.  (Due to
-   [npm issue #4191](https://github.com/npm/npm/issues/4191), this step always
-   reinstalls several dependencies.)
+4. Run `make test`.
 
 If you're changing anything about the way muskie is deployed, configured, or
 started, you should definitely test creating a muskie image and deploying that
@@ -150,7 +148,8 @@ check first before reporting problems:
    then check to see that your `MANTA_USER` is indeed **not** an operator.
 2. If a test fails with an InvalidRoleTag error, whose message may say something
    like 'Role tag "muskie\_test\_role\_default" is invalid.', then check that
-   you ran the acsetup script described above for the user that you're using.
+   you ran `make test-ac-setup` as described above for the user that you're
+   using.
    (Note that you may see some other muskie\_test\_role in the message.)
 3. If a test fails with a message like "Error: MUSKIE\_SALT required", then
    check that you've specified the three `MUSKIE_` environment variables

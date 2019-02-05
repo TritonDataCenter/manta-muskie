@@ -68,6 +68,18 @@ test: $(STAMP_NODE_MODULES)
 	    $(NODE) ./node_modules/.bin/nodeunit --reporter=tap \
 	    test/*.test.js test/mpu/*.test.js
 
+#
+# This target can be used to invoke "acsetup.js", a program which configures
+# access control in the current Manta account in preparation for running the
+# Muskie test suite.  The most common invocations will include:
+#
+#	make test-ac-setup
+#	make test-ac-teardown
+#
+.PHONY: test-ac-%
+test-ac-%: $(STAMP_NODE_MODULES)
+	PATH=$(ROOT)/$(NODE_INSTALL)/bin:$(PATH) $(NODE) test/acsetup.js $*
+
 .PHONY: release
 release: all docs
 	@echo "Building $(RELEASE_TARBALL)"
