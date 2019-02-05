@@ -64,7 +64,8 @@ manta-scripts: deps/manta-scripts/.git
 
 .PHONY: test
 test: $(STAMP_NODE_MODULES)
-	$(NODE) ./node_modules/.bin/nodeunit --reporter=tap \
+	PATH=$(ROOT)/$(NODE_INSTALL)/bin:$(PATH) \
+	    $(NODE) ./node_modules/.bin/nodeunit --reporter=tap \
 	    test/*.test.js test/mpu/*.test.js
 
 .PHONY: release
