@@ -90,8 +90,7 @@ function getHttpAuthToken(opts, cb) {
     var ssoPassword = opts.ssoPassword || process.env.SSO_PASSWORD;
     var keyid = opts.keyId || process.env.MANTA_KEY_ID;
 
-    var privatekey = opts.privatekey ||
-        fs.readFileSync(process.env.HOME + '/.ssh/id_rsa', 'utf8');
+    var privatekey = opts.privatekey || helper.getRegularPrivkey();
 
     if (!ssoUrl || !ssoLogin || !ssoPassword || !privatekey) {
         cb();
@@ -612,8 +611,7 @@ if (process.env.SSO_URL) {
             ssoLogin: process.env.SSO_LOGIN,
             ssoPassword: process.env.SSO_PASSWORD,
             keyid: process.env.MANTA_KEY_ID,
-            privatekey: fs.readFileSync(process.env.HOME + '/.ssh/id_rsa',
-                                        'utf8')
+            privatekey: helper.getRegularPrivkey()
         };
         var self = this;
 
@@ -645,8 +643,7 @@ if (process.env.SSO_URL) {
             ssoLogin: process.env.SSO_LOGIN,
             ssoPassword: process.env.SSO_PASSWORD,
             keyid: process.env.MANTA_KEY_ID,
-            privatekey: fs.readFileSync(process.env.HOME + '/.ssh/id_rsa',
-                                        'utf8')
+            privatekey: helper.getRegularPrivkey()
         };
         var self = this;
 

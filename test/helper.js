@@ -48,6 +48,15 @@ var POSEIDON_ID = process.env.MUSKIE_POSEIDON_ID ||
         '930896af-bf8c-48d4-885c-6573a94b1853';
 
 /*
+ * We need a regular (non-operator) account for some tests.  The regular
+ * Manta client environment variables (MANTA_USER, MANTA_KEY_ID) are used
+ * for this account.  Allow the private key to be stored at a location
+ * other than the default "$HOME/.ssh/id_rsa" file:
+ */
+var TEST_REGULAR_KEY = process.env.MUSKIETEST_REGULAR_KEYFILE ||
+        (process.env.HOME + '/.ssh/id_rsa');
+
+/*
  * We need an operator account for some tests, so we use poseidon, unless an
  * alternate one is provided.
  */
@@ -57,6 +66,22 @@ var TEST_OPERATOR_KEY = process.env.MUSKIETEST_OPERATOR_KEYFILE ||
 
 
 ///--- Helpers
+
+function getRegularPubkey() {
+    return (fs.readFileSync(TEST_REGULAR_KEY + '.pub', 'utf8'));
+}
+
+function getRegularPrivkey() {
+    return (fs.readFileSync(TEST_REGULAR_KEY, 'utf8'));
+}
+
+function getOperatorPubkey() {
+    return (fs.readFileSync(TEST_OPERATOR_KEY + '.pub', 'utf8'));
+}
+
+function getOperatorPrivkey() {
+    return (fs.readFileSync(TEST_OPERATOR_KEY, 'utf8'));
+}
 
 function createLogger(name, stream) {
     var log = bunyan.createLogger({
@@ -71,7 +96,7 @@ function createLogger(name, stream) {
 
 
 function createClient() {
-    var key = fs.readFileSync(process.env.HOME + '/.ssh/id_rsa', 'utf8');
+    var key = getRegularPrivkey();
     var log = createLogger();
     var client = manta.createClient({
         agent: false,
@@ -94,7 +119,7 @@ function createClient() {
 
 
 function createUserClient(login) {
-    var key = fs.readFileSync(process.env.HOME + '/.ssh/id_rsa', 'utf8');
+    var key = getRegularPrivkey();
     var log = createLogger();
     var client = manta.createClient({
         agent: false,
@@ -151,7 +176,7 @@ function createRawClient() {
 
 
 function createSDCClient() {
-    var key = fs.readFileSync(process.env.HOME + '/.ssh/id_rsa', 'utf8');
+    var key = getRegularPrivkey();
     var log = createLogger();
     var client = smartdc.createClient({
         log: log,
@@ -169,13 +194,13 @@ function createSDCClient() {
 }
 
 function createOperatorSDCClient() {
-    var key = fs.readFileSync(TEST_OPERATOR_KEY);
+    var key = getOperatorPrivkey();
     var keyId = sshpk.parseKey(key, 'auto').fingerprint('md5').toString();
 
     var log = createLogger();
     var client = smartdc.createClient({
         log: log,
-        sign: manta.privateKeySigner({
+        sign: smartdc.privateKeySigner({
             key: key,
             keyId: keyId,
             log: log,
@@ -191,7 +216,7 @@ function createOperatorSDCClient() {
 }
 
 function createOperatorClient() {
-    var key = fs.readFileSync(TEST_OPERATOR_KEY);
+    var key = getOperatorPrivkey();
     var keyId = sshpk.parseKey(key, 'auto').fingerprint('md5').toString();
 
     var log = createLogger();
@@ -274,7 +299,7 @@ function signUrl(opts, expires, cb) {
         cb = expires;
         expires = Date.now() + (1000 * 300);
     }
-    var key = fs.readFileSync(process.env.HOME + '/.ssh/id_rsa', 'utf8');
+    var key = getRegularPrivkey();
     var keyId = process.env.MANTA_KEY_ID;
     var url = process.env.MANTA_URL || 'http://localhost:8080';
     var user = process.env.MANTA_USER;
@@ -428,5 +453,7 @@ module.exports = {
     createAuthToken: createAuthToken,
     createOperatorSDCClient: createOperatorSDCClient,
     createOperatorClient: createOperatorClient,
-    signUrl: signUrl
+    signUrl: signUrl,
+    getRegularPubkey: getRegularPubkey,
+    getRegularPrivkey: getRegularPrivkey
 };

@@ -154,7 +154,7 @@ var OPER_POLICIES = [
 ];
 
 function setup(cb) {
-    var key = fs.readFileSync(process.env.HOME + '/.ssh/id_rsa.pub', 'utf8');
+    var key = helper.getRegularPubkey();
     vasync.pipeline({funcs: [
         function createUsers(_, pipelinecb) {
             vasync.forEachPipeline({
