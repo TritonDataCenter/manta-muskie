@@ -16,6 +16,7 @@
         "artedi": "1.1.1",
         "assert-plus": "0.1.5",
         "backoff": "2.3.0",
+        "moray": "git+https://github.com/joyent/node-boray.git#master",
         "bunyan": "0.22.1",
         "bunyan-syslog": "0.2.2",
         "cmdln": "4.3.0",
