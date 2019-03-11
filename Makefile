@@ -5,7 +5,7 @@
 #
 
 #
-# Copyright (c) 2017, Joyent, Inc.
+# Copyright (c) 2019, Joyent, Inc.
 #
 
 #
@@ -39,17 +39,28 @@ NODE_PREBUILT_VERSION	:= v0.10.48
 # sdc-minimal-multiarch-lts 15.4.1
 NODE_PREBUILT_IMAGE     = 18b094b0-eb01-11e5-80c1-175dac7ddf02
 
-include ./tools/mk/Makefile.defs
-include ./tools/mk/Makefile.node_prebuilt.defs
-include ./tools/mk/Makefile.node_modules.defs
-include ./tools/mk/Makefile.smf.defs
+ENGBLD_USE_BUILDIMAGE	= true
+ENGBLD_REQUIRE		:= $(shell git submodule update --init deps/eng)
+include ./deps/eng/tools/mk/Makefile.defs
+TOP ?= $(error Unable to access eng.git submodule Makefiles.)
+
+include ./deps/eng/tools/mk/Makefile.node_prebuilt.defs
+include ./deps/eng/tools/mk/Makefile.agent_prebuilt.defs
+include ./deps/eng/tools/mk/Makefile.node_modules.defs
+include ./deps/eng/tools/mk/Makefile.smf.defs
 
 #
 # MG Variables
 #
-RELEASE_TARBALL :=	$(NAME)-pkg-$(STAMP).tar.bz2
+RELEASE_TARBALL :=	$(NAME)-pkg-$(STAMP).tar.gz
 ROOT :=			$(shell pwd)
-RELSTAGEDIR :=		/tmp/$(STAMP)
+RELSTAGEDIR :=		/tmp/$(NAME)-$(STAMP)
+
+BASE_IMAGE_UUID = 04a48d7d-6bb5-4e83-8c3b-e60a99e0f48f
+BUILDIMAGE_NAME = manta-webapi
+BUILDIMAGE_DESC	= Manta webapi
+BUILDIMAGE_PKGSRC = haproxy-1.6.2
+AGENTS		= amon config registrar
 
 #
 # Repo-specific targets
@@ -108,20 +119,17 @@ release: all docs
 	ln -s /opt/smartdc/$(NAME)/boot/setup.sh \
 	    $(RELSTAGEDIR)/root/opt/smartdc/boot/setup.sh
 	chmod 755 $(RELSTAGEDIR)/root/opt/smartdc/$(NAME)/boot/setup.sh
-	cd $(RELSTAGEDIR) && $(TAR) -jcf $(ROOT)/$(RELEASE_TARBALL) root site
+	cd $(RELSTAGEDIR) && $(TAR) -I pigz -cf $(ROOT)/$(RELEASE_TARBALL) root site
 	@rm -rf $(RELSTAGEDIR)
 
 .PHONY: publish
 publish: release
-	@if [[ -z "$(BITS_DIR)" ]]; then \
-		@echo "error: 'BITS_DIR' must be set for 'publish' target"; \
-		exit 1; \
-	fi
-	mkdir -p $(BITS_DIR)/$(NAME)
-	cp $(ROOT)/$(RELEASE_TARBALL) $(BITS_DIR)/$(NAME)/$(RELEASE_TARBALL)
+	mkdir -p $(ENGBLD_BITS_DIR)/$(NAME)
+	cp $(ROOT)/$(RELEASE_TARBALL) $(ENGBLD_BITS_DIR)/$(NAME)/$(RELEASE_TARBALL)
 
-include ./tools/mk/Makefile.deps
-include ./tools/mk/Makefile.node_prebuilt.targ
-include ./tools/mk/Makefile.node_modules.targ
-include ./tools/mk/Makefile.smf.targ
-include ./tools/mk/Makefile.targ
+include ./deps/eng/tools/mk/Makefile.deps
+include ./deps/eng/tools/mk/Makefile.node_prebuilt.targ
+include ./deps/eng/tools/mk/Makefile.agent_prebuilt.targ
+include ./deps/eng/tools/mk/Makefile.node_modules.targ
+include ./deps/eng/tools/mk/Makefile.smf.targ
+include ./deps/eng/tools/mk/Makefile.targ
