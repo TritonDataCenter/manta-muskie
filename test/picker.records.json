@@ -1,0 +1,68 @@
+{
+  "us-east-1": [
+    {
+      "manta_storage_id": "10.stor.us-east.joyent.us",
+      "availableMB": 71644665,
+      "datacenter": "us-east-1"
+    },
+    {
+      "manta_storage_id": "12.stor.us-east.joyent.us",
+      "availableMB": 72207835,
+      "datacenter": "us-east-1"
+    },
+    {
+      "manta_storage_id": "9.stor.us-east.joyent.us",
+      "availableMB": 71818391,
+      "datacenter": "us-east-1"
+    },
+    {
+      "manta_storage_id": "11.stor.us-east.joyent.us",
+      "availableMB": 71730379,
+      "datacenter": "us-east-1"
+    }
+  ],
+  "us-east-2": [
+    {
+      "manta_storage_id": "2.stor.us-east.joyent.us",
+      "availableMB": 67212403,
+      "datacenter": "us-east-2"
+    },
+    {
+      "manta_storage_id": "3.stor.us-east.joyent.us",
+      "availableMB": 66582795,
+      "datacenter": "us-east-2"
+    },
+    {
+      "manta_storage_id": "4.stor.us-east.joyent.us",
+      "availableMB": 67322598,
+      "datacenter": "us-east-2"
+    },
+    {
+      "manta_storage_id": "1.stor.us-east.joyent.us",
+      "availableMB": 67114405,
+      "datacenter": "us-east-2"
+    }
+  ],
+  "us-east-3": [
+    {
+      "manta_storage_id": "5.stor.us-east.joyent.us",
+      "availableMB": 67090948,
+      "datacenter": "us-east-3"
+    },
+    {
+      "manta_storage_id": "7.stor.us-east.joyent.us",
+      "availableMB": 67237238,
+      "datacenter": "us-east-3"
+    },
+    {
+      "manta_storage_id": "8.stor.us-east.joyent.us",
+      "availableMB": 66629966,
+      "datacenter": "us-east-3"
+    },
+    {
+      "manta_storage_id": "6.stor.us-east.joyent.us",
+      "availableMB": 66976466,
+      "datacenter": "us-east-3"
+    }
+  ]
+}
