@@ -20,6 +20,7 @@ var manta = require('manta');
 var once = require('once');
 var restify = require('restify');
 var smartdc = require('smartdc');
+var smartdc_auth = require('smartdc-auth');
 var sshpk = require('sshpk');
 var VError = require('verror').VError;
 
@@ -81,6 +82,10 @@ function getOperatorPubkey() {
 
 function getOperatorPrivkey() {
     return (fs.readFileSync(TEST_OPERATOR_KEY, 'utf8'));
+}
+
+function getKeyFingerprint(key) {
+    return (sshpk.parseKey(key, 'auto').fingerprint('md5').toString());
 }
 
 function createLogger(name, stream) {
@@ -195,7 +200,7 @@ function createSDCClient() {
 
 function createOperatorSDCClient() {
     var key = getOperatorPrivkey();
-    var keyId = sshpk.parseKey(key, 'auto').fingerprint('md5').toString();
+    var keyId = getKeyFingerprint(key);
 
     var log = createLogger();
     var client = smartdc.createClient({
@@ -217,7 +222,7 @@ function createOperatorSDCClient() {
 
 function createOperatorClient() {
     var key = getOperatorPrivkey();
-    var keyId = sshpk.parseKey(key, 'auto').fingerprint('md5').toString();
+    var keyId = getKeyFingerprint(key);
 
     var log = createLogger();
     var client = manta.createClient({
@@ -290,6 +295,30 @@ function createAuthToken(opts, cb) {
 }
 
 
+function signRequest(opts, cb) {
+    var key = opts.key || getRegularPrivkey();
+
+    var sign = manta.privateKeySigner({
+        key: key,
+        keyId: opts.keyId || process.env.MANTA_KEY_ID,
+        user: opts.user || process.env.MANTA_USER
+    });
+
+    var rs = smartdc_auth.requestSigner({
+        sign: sign,
+        mantaSubUser: true
+    });
+
+    var date = rs.writeDateHeader();
+
+    rs.sign(function gotSignature(err, authz) {
+        if (err) {
+            cb(err);
+            return;
+        }
+        cb(null, authz, date);
+    });
+}
 
 function signUrl(opts, expires, cb) {
     if (typeof (opts) === 'string') {
@@ -318,6 +347,7 @@ function signUrl(opts, expires, cb) {
         method: opts.method || 'GET',
         path: opts.path,
         role: opts.role,
+        query: opts.query,
         'role-tag': opts['role-tag'],
         sign: manta.privateKeySigner({
             algorithm: 'rsa-sha256',
@@ -444,6 +474,7 @@ module.exports = {
     },
 
     POSEIDON_ID: POSEIDON_ID,
+    TEST_OPERATOR: TEST_OPERATOR,
     createClient: createClient,
     createJsonClient: createJsonClient,
     createRawClient: createRawClient,
@@ -453,7 +484,11 @@ module.exports = {
     createAuthToken: createAuthToken,
     createOperatorSDCClient: createOperatorSDCClient,
     createOperatorClient: createOperatorClient,
+    signRequest: signRequest,
     signUrl: signUrl,
     getRegularPubkey: getRegularPubkey,
-    getRegularPrivkey: getRegularPrivkey
+    getRegularPrivkey: getRegularPrivkey,
+    getOperatorPubkey: getOperatorPubkey,
+    getOperatorPrivkey: getOperatorPrivkey,
+    getKeyFingerprint: getKeyFingerprint
 };

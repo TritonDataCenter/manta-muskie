@@ -53,10 +53,177 @@ function writeStreamingObject(client, key, cb) {
     });
 }
 
+/*
+ * Tests whether (or not) we are allowed to list the contents of a dir, given
+ * these input arguments:
+ *   - t: the test object - to be passed in from a wrapper function
+ *   - isOperator: whether we want to perform the request as an operator or not
+ *   - expectOk: whether we want the request to succeed or fail
+ *   - path: the directory to list
+ *   - params: an object containing the desired query parameters, of the form:
+ *     {
+ *        key1: "value1"
+ *        key2: "value2"
+ *        ...
+ *     }
+ *
+ * This function does not verify that the request returns well-formed results.
+ * See testListWithParams for that.
+ *
+ * Because some query parameters are not exposed through the node-manta client,
+ * we use a lower-level JSON client to perform the request.
+ */
+function testParamsAllowed(t, isOperator, expectOk, path, params) {
+    var queryParams = params || {};
+    var client = helper.createJsonClient();
+
+    var key;
+    var user;
+    if (isOperator) {
+        key = helper.getOperatorPrivkey();
+        user = helper.TEST_OPERATOR;
+    } else {
+        key = helper.getRegularPrivkey();
+        user = process.env.MANTA_USER;
+    }
+    var keyId = helper.getKeyFingerprint(key);
+    var signOpts = {
+        key: key,
+        keyId: keyId,
+        user: user
+    };
+
+    // Perform the ls request, and check the response according to expectOk
+    helper.signRequest(signOpts, function gotSignature(err, authz, date) {
+        var opts = {
+            headers: {
+                authorization: authz,
+                date: date
+            },
+            path: path,
+            query: queryParams
+        };
+        client.get(opts, function (get_err, get_req, get_res) {
+            if (expectOk) {
+                t.ifError(get_err);
+            } else {
+                t.ok(get_err);
+                t.equal(get_err.statusCode, 403);
+                t.equal(get_err.restCode, 'QueryParameterForbidden');
+            }
+            t.end();
+        });
+    });
+}
+
+/*
+ * Verifies that we get well-formed results back when listing the contents of a
+ * dir with the given query parameters. Arguments:
+ *   - t: the test object - to be passed in from a wrapper function
+ *   - params: an object containing the desired query parameters, of the form:
+ *     {
+ *        key1: "value1"
+ *        key2: "value2"
+ *        ...
+ *     }
+ *
+ * This function ensures that the request will be permitted by always performing
+ * the request as an operator, and thus does not test access control. See
+ * testParamsAllowed for that.
+ *
+ * Because some query parameters are not exposed through the node-manta client,
+ * we use a lower-level JSON client to perform the request.
+ */
+function testListWithParams(t, params) {
+    var self = this;
+    var queryParams = params || {};
+    var client = helper.createJsonClient();
+
+    var key = helper.getOperatorPrivkey();
+    var keyId = helper.getKeyFingerprint(key);
+    var user = helper.TEST_OPERATOR;
+    var signOpts = {
+        key: key,
+        keyId: keyId,
+        user: user
+    };
+
+    // Generate some subdirectory names we can read back
+    var subdirs = [];
+    var count = 5;
+    var i;
+    for (i = 0; i < count; i++) {
+        subdirs.push(self.dir + '/' + uuid.v4());
+    }
+    subdirs = subdirs.sort();
+
+
+    // Make the subdirectories
+    vasync.forEachParallel({
+        func: mkdir,
+        inputs: subdirs
+    }, function subdirsCreated(mkdir_err, results) {
+        t.ifError(mkdir_err);
+
+        // Read the subdirectories back with the specified query params
+        helper.signRequest(signOpts, function gotSig(sig_err, authz, date) {
+            t.ifError(sig_err);
+            var opts = {
+                headers: {
+                    authorization: authz,
+                    date: date
+                },
+                path: self.dir,
+                query: queryParams
+            };
+            client.get(opts, function (get_err, get_req, get_res) {
+                t.ifError(get_err);
+
+                // Parse the response body into a list of directory names
+                var jsonStrings = get_res.body.split('\n').filter(isNotEmpty);
+                var names = [];
+                jsonStrings.forEach(function appendName(s) {
+                    t.doesNotThrow(parseAndAppend.bind(null, s, names));
+                });
+                names.sort();
+
+                // Verify that we got back all of the directories we created
+                t.deepEqual(subdirs, names.map(prependDir));
+                t.end();
+            });
+        });
+    });
+
+    // helper functions
+
+    function mkdir(path, cb) {
+        self.operatorClient.mkdir(path, function madeDir(err, res) {
+            t.ifError(err);
+            t.ok(res);
+            t.checkResponse(res, 204);
+            cb(err);
+        });
+    }
+
+    function isNotEmpty(str) {
+        return (str !== '');
+    }
+
+    function parseAndAppend(str, list) {
+        list.push(JSON.parse(str).name);
+    }
+
+    function prependDir(name) {
+        return (self.dir + '/' + name);
+    }
+}
+
+
 ///--- Tests
 
 before(function (cb) {
     this.client = helper.createClient();
+    this.operatorClient = helper.createOperatorClient();
     this.top = '/' + this.client.user;
     this.root = this.top + '/stor';
     this.mpuRoot = this.top + '/uploads';
@@ -609,6 +776,69 @@ test('ls 404', function (t) {
     });
 });
 
+
+test('operator can ls with no sort', function (t) {
+    testParamsAllowed(t, true, true, this.root, {
+        sort: 'none'
+    });
+});
+
+
+test('operator can ls with no owner check', function (t) {
+    testParamsAllowed(t, true, true, this.root, {
+        skip_owner_check: 'true'
+    });
+});
+
+
+test('operator can ls with sort and no owner check', function (t) {
+    testParamsAllowed(t, true, true, this.root, {
+        sort: 'none',
+        skip_owner_check: 'true'
+    });
+});
+
+
+test('regular user cannot ls with no sort', function (t) {
+    testParamsAllowed(t, false, false, this.root, {
+        sort: 'none'
+    });
+});
+
+
+test('regular user cannot ls with no owner check', function (t) {
+    testParamsAllowed(t, false, false, this.root, {
+        skip_owner_check: 'true'
+    });
+});
+
+
+test('regular user cannot ls with no sort and no owner check', function (t) {
+    testParamsAllowed(t, false, false, this.root, {
+        sort: 'none',
+        skip_owner_check: 'true'
+    });
+});
+
+test('ls with no sort returns accurate list of results', function (t) {
+    testListWithParams.bind(this)(t, {
+        sort: 'none'
+    });
+});
+
+test('ls with no owner check returns accurate list of results', function (t) {
+    testListWithParams.bind(this)(t, {
+        skip_owner_check: 'true'
+    });
+});
+
+test('ls with no sort and no owner check returns accurate list of results',
+    function (t) {
+    testListWithParams.bind(this)(t, {
+        sort: 'none',
+        skip_owner_check: 'true'
+    });
+});
 
 test('rmdir', function (t) {
     this.client.unlink(this.dir, function (err, res) {

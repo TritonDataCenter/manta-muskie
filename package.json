@@ -51,7 +51,8 @@
         "manta": "5.1.0",
         "nodeunit": "0.9.1",
         "node-uuid": "1.4.1",
-        "forkexec": "^1.0.0"
+        "forkexec": "^1.0.0",
+        "smartdc-auth": "^2.5.7"
     },
     "scripts": {
         "start": "./build/node/bin/node ./main.js",
