@@ -52,7 +52,8 @@
         "nodeunit": "0.9.1",
         "node-uuid": "1.4.1",
         "forkexec": "^1.0.0",
-        "smartdc-auth": "^2.5.7"
+        "smartdc-auth": "^2.5.7",
+        "jsverify": "^0.8.4"
     },
     "scripts": {
         "start": "./build/node/bin/node ./main.js",
