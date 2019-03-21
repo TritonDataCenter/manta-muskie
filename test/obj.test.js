@@ -14,6 +14,7 @@ var MemoryStream = require('stream').PassThrough;
 var restify = require('restify');
 var uuid = require('node-uuid');
 var vasync = require('vasync');
+var util = require('util');
 
 if (require.cache[__dirname + '/helper.js'])
     delete require.cache[__dirname + '/helper.js'];
@@ -545,6 +546,58 @@ test('put unmodified-since fail', function (t) {
             t.equal(err.name, 'PreconditionFailedError');
             t.checkResponse(res, 412);
             t.end();
+        });
+    });
+});
+
+
+test('put check content-encoding info', function (t) {
+    var self = this;
+    var opts = {
+        headers: {
+            'content-encoding': 'gzip'
+        }
+    };
+
+    self.putObject(t, opts, function (_, headers) {
+        self.client.info(self.key, function (err2, info, res) {
+            t.ifError(err2);
+            if (!err2) {
+                t.ok(res && res.headers);
+                t.ok(res.headers['content-encoding']);
+                t.equal(res.headers['content-encoding'], 'gzip');
+            }
+            t.end();
+        });
+    });
+});
+
+
+test('put check content-encoding get', function (t) {
+    var self = this;
+    var opts = {
+        headers: {
+            'content-encoding': 'gzip'
+        }
+    };
+
+    self.putObject(t, opts, function (_, headers) {
+        self.client.get(self.key, function (err, stream, res) {
+            t.ifError(err);
+            if (!err) {
+                t.ok(res && res.headers, 'get response missing headers');
+                t.ok(res.headers['content-encoding'],
+                    'missing content-encoding');
+                t.equal(res.headers['content-encoding'], 'gzip');
+            }
+            if (stream) {
+                stream.once('end', function () {
+                    t.end();
+                });
+                stream.resume();
+            } else {
+                t.end();
+            }
         });
     });
 });

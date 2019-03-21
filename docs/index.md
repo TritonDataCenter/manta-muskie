@@ -363,6 +363,11 @@ the content uploaded matches the value of the header.  Even if you do not includ
 one, successful responses will include a `computed-md5` header. This is the MD5
 checksum that Manta calculated when ingesting your object.
 
+You can specify a `Content-Encoding` header; if you do, GetObject and metadata
+read operations, like `minfo`, will include this header in their corresponding
+responses. This is allows clients to, for example, compress manta objects and then
+decompress them with the appropriate algorithm without maintaining extra state.
+
 The service is able to provide test/set semantics for you if you use HTTP conditional
 request semantics (e.g., `If-Match` or `If-Modified-Since`).
 
