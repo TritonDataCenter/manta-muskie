@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2017, Joyent, Inc.
+ * Copyright (c) 2019, Joyent, Inc.
  */
 
 var MemoryStream = require('stream').PassThrough;
@@ -226,6 +226,7 @@ before(function (cb) {
     this.operatorClient = helper.createOperatorClient();
     this.top = '/' + this.client.user;
     this.root = this.top + '/stor';
+    this.bucketsRoot = this.top + '/buckets';
     this.mpuRoot = this.top + '/uploads';
     this.jobsRoot = this.top + '/jobs';
     this.dir = this.root + '/' + uuid.v4();
@@ -491,12 +492,12 @@ test('ls top', function (t) {
             t.ok(http_res);
             t.checkResponse(http_res, 200);
             t.equal(0, objs.length);
-            t.equal(5, dirs.length);
+            t.equal(6, dirs.length);
             var names = dirs.map(function (d) {
                 return (d.name);
             }).sort();
-            t.deepEqual(['jobs', 'public', 'reports', 'stor', 'uploads'],
-                        names);
+            var n = ['buckets', 'jobs', 'public', 'reports', 'stor', 'uploads'];
+            t.deepEqual(n, names);
             t.end();
         });
     });
@@ -567,6 +568,15 @@ test('rmdir jobsRoot', function (t) {
         t.ok(res);
         t.equal(err.name, 'OperationNotAllowedOnRootDirectoryError');
         t.checkResponse(res, 400);
+        t.end();
+    });
+});
+
+test('rmdir bucketsRoot', function (t) {
+    this.client.unlink(this.bucketsRoot, function (err, res) {
+        t.ok(err);
+        t.ok(res);
+        t.checkResponse(res, 405);
         t.end();
     });
 });
