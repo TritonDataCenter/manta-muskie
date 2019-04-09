@@ -177,7 +177,6 @@ test('put/get zero bytes', function (t) {
     });
 });
 
-
 test('put streaming object', function (t) {
     var self = this;
     var stream = new MemoryStream();
@@ -343,6 +342,7 @@ test('chattr: content-type', function (t) {
         });
     });
 });
+
 
 
 test('chattr: durability-level (not ok)', function (t) {
@@ -1116,7 +1116,6 @@ test('Put-Get content-disposition cleaned', function (t) {
     });
 });
 
-
 test('streaming object valid content-disposition',
      function (t) {
          var stream = new MemoryStream();
@@ -1135,7 +1134,6 @@ test('streaming object valid content-disposition',
              t.end();
          });
      });
-
 
 test('streaming object invalid content-disposition',
      function (t) {
@@ -1201,3 +1199,182 @@ test('chattr invalid content-disposition',
              });
          });
      });
+
+// content-type tests
+
+/*
+ * Verify that a write with unknown content-type with a valid format succeeds
+ * and server returns valid content-type on read of the same object.
+ */
+test('MANTA-4133 (non-existent content-type)', function (t) {
+    var self = this;
+    var opts = {
+        headers: {
+            'content-type': 'argle/'
+        }
+    };
+
+    writeObject(self.client, self.key, opts, function (err, res) {
+        t.ifError(err);
+        t.checkResponse(res, 204);
+        self.client.info(self.key, function (err2, stream, res2) {
+            t.ifError(err2);
+            t.checkResponse(res2, 200);
+            t.equal(res2.headers['content-type'], 'application/octet-stream');
+            t.end();
+        });
+    });
+});
+
+/*
+ * Verify that a write with a valid content-type with a valid format succeeds
+ * and server returns valid content-type on read of the same object.
+ */
+test('MANTA-4133 (verify valid json content-type)', function (t) {
+    var self = this;
+
+    var opts = {
+        headers: {
+            'content-type': 'application/json'
+        }
+    };
+
+    writeObject(self.client, self.key, opts, function (err, res) {
+        t.ifError(err);
+        t.checkResponse(res, 204);
+        self.client.get(self.key, function (err2, stream, res2) {
+            t.ifError(err2);
+            t.checkResponse(res2, 200);
+            t.equal(res2.headers['content-type'], 'application/json');
+            t.end();
+        });
+    });
+});
+
+/*
+ * Verify that a write with an malformed content-type succeeds
+ * and server returns valid content-type on read of the same object.
+ */
+test('MANTA-4133 (malformed content-type)', function (t) {
+    var self = this;
+    var opts = {
+        headers: {
+            'content-type': '/*'
+        }
+    };
+
+    writeObject(self.client, self.key, opts, function (err, res) {
+        t.ifError(err);
+        t.checkResponse(res, 204);
+        self.client.info(self.key, function (err2, stream, res2) {
+            t.ifError(err2);
+            t.checkResponse(res2, 200);
+            t.equal(res2.headers['content-type'], 'application/octet-stream');
+            t.end();
+        });
+    });
+});
+
+/*
+ * Verify that a write with an empty content-type succeeds and server
+ * returns valid content-type on read of the same object.
+ * Note: the change in 4133 should detect the absent content-type. The lookup
+ * should fail and return 'application/octet-stream', the default.
+ * The server returns 'text/plain' with the response as before.
+ */
+test('MANTA-4133 (empty content-type)', function (t) {
+    var self = this;
+    var opts = {
+        headers: {
+            'content-type': ''
+        }
+    };
+
+    writeObject(self.client, self.key, opts, function (err, res) {
+        t.ifError(err);
+        t.checkResponse(res, 204);
+        self.client.info(self.key, function (err2, stream, res2) {
+            t.ifError(err2);
+            t.checkResponse(res2, 200);
+            t.equal(res2.headers['content-type'], 'text/plain');
+            t.end();
+        });
+    });
+});
+
+/*
+ * Verify that a write with a valid content-type with a valid format succeeds
+ * and server returns valid content-type on read of the same object.
+ */
+test('MANTA-4133 (verify valid plain text content-type)', function (t) {
+    var self = this;
+
+    var opts = {
+        headers: {
+            'content-type': 'text/plain'
+        }
+    };
+
+    writeObject(self.client, self.key, opts, function (err, res) {
+        t.ifError(err);
+        t.checkResponse(res, 204);
+        self.client.info(self.key, function (err2, stream, res2) {
+            t.ifError(err2);
+            t.checkResponse(res2, 200);
+            t.equal(res2.headers['content-type'], 'text/plain');
+            t.end();
+        });
+    });
+});
+
+/*
+ * Verify that a write with unknown content-type with a valid format succeeds
+ * and server returns valid content-type on read of the same object.
+ */
+test('MANTA-4133 (verify non-existent utf-8 content-type)', function (t) {
+    var self = this;
+    var encoded = '%EC%95%88%EB%85%95%ED%95%98%EC%84%B8%EC%9A%94';
+    var ct_utf8 = unescape(encoded);
+
+    var opts = {
+        headers: {
+            'content-type': ct_utf8
+        }
+    };
+
+    writeObject(self.client, self.key, opts, function (err, res) {
+        t.ifError(err);
+        t.checkResponse(res, 204);
+        self.client.info(self.key, function (err2, stream, res2) {
+            t.ifError(err2);
+            t.checkResponse(res2, 200);
+            t.equal(res2.headers['content-type'], 'application/octet-stream');
+            t.end();
+        });
+    });
+});
+
+/*
+ * Verify that a write properly formed content-type with a valid format succeeds
+ * and server returns the content-type on read of the same object.
+ */
+test('MANTA-4133 (verify a conforming content-type)', function (t) {
+    var self = this;
+
+    var opts = {
+        headers: {
+            'content-type': 'audio/mpeg'
+        }
+    };
+
+    writeObject(self.client, self.key, opts, function (err, res) {
+        t.ifError(err);
+        t.checkResponse(res, 204);
+        self.client.info(self.key, function (err2, stream, res2) {
+            t.ifError(err2);
+            t.checkResponse(res2, 200);
+            t.equal(res2.headers['content-type'], 'audio/mpeg');
+            t.end();
+        });
+    });
+});
