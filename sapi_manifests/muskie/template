@@ -235,6 +235,7 @@
       "clientTimeout": 120000
   },
   "datacenter": "{{DATACENTER}}",
+  "region": "{{REGION}}",
   "server_uuid": "{{auto.SERVER_UUID}}",
   "zone_uuid": "{{auto.ZONENAME}}"
 

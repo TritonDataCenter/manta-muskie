@@ -599,6 +599,7 @@ A list of context available to include in rules
 | sourceip | ip | source ip address of the caller |
 | time | time | time of day the request was made |
 | user-agent | string | user agent of the caller |
+| region | string | manta region to which the request was made |
 | ... | ... | ... |
 
 #### CloudAPI

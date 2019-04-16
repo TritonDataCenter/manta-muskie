@@ -134,6 +134,7 @@
         "clientTimeout": 120000
     },
     "datacenter": "coal.joyent.us",
+    "region": "coal",
     "server_uuid": "f5c4d446-7639-11e7-8ded-c35deca5b8cc",
     "zone_uuid": "dbb27e00-7639-11e7-bdd5-53e6dcb96c7f"
 }
