@@ -27,22 +27,40 @@ var test = helper.test;
 
 
 ///--- Helpers
+function writeObject(client, key, opts, cb) {
+    if (typeof (opts) === 'function') {
+        cb = opts;
+        opts = {};
+    }
 
-function writeObject(client, key, cb) {
     var stream = new MemoryStream();
     var text = 'The lazy brown fox \nsomething \nsomething foo';
     var size = Buffer.byteLength(text);
 
-    client.put(key, stream, {size: size}, cb);
+    var _opts = {
+        headers: opts.headers,
+        size: size
+    };
+
+    client.put(key, stream, _opts, cb);
     process.nextTick(stream.end.bind(stream, text));
 }
 
-function writeStreamingObject(client, key, cb) {
+function writeStreamingObject(client, key, opts, cb) {
+    if (typeof (opts) === 'function') {
+        cb = opts;
+        opts = {};
+    }
+
     var stream = new MemoryStream();
     var text = 'The lazy brown fox \nsomething \nsomething foo';
 
+    var _opts = {
+        headers: opts.headers
+    };
+
     process.nextTick(stream.end.bind(stream, text));
-    client.put(key, stream, function (err, res) {
+    client.put(key, stream, _opts, function (err, res) {
         if (err) {
             cb(err);
         } else if (res.statusCode != 204) {
@@ -107,8 +125,8 @@ function testParamsAllowed(t, isOperator, expectOk, path, params) {
             if (expectOk) {
                 t.ifError(get_err);
             } else {
-                t.ok(get_err);
-                t.equal(get_err.statusCode, 403);
+                t.ok(get_err, 'expected error');
+                t.equal(get_err.statusCode, 403, 'expected statuscode of 403');
                 t.equal(get_err.restCode, 'QueryParameterForbidden');
             }
             t.end();
@@ -890,6 +908,227 @@ test('rmdir not empty', function (t) {
             t.equal(err.name, 'DirectoryNotEmptyError');
             t.checkResponse(res, 400);
             t.end();
+        });
+    });
+});
+
+test('mkdir with Content-Disposition ignored', function (t) {
+    var cd = 'attachment; filename="my-file.txt"';
+    var opts = {
+        headers: {
+            'content-disposition': cd
+        }
+    };
+
+    var self = this;
+
+    self.client.mkdir(self.key, opts, function (err, res) {
+        t.ifError(err);
+        t.ok(res);
+        t.checkResponse(res, 204);
+        t.end();
+
+        self.client.info(self.key, function (err2, info) {
+                t.ifError(err2);
+                t.ok(info);
+                if (info) {
+                    t.ok(!('content-disposition' in info.headers),
+                         'content-dispostion should not be in headers');
+                }
+                t.end();
+            });
+    });
+});
+
+test('mkdir with bad Content-Disposition ignored', function (t) {
+    var cd = 'attachment;"';
+    var opts = {
+        headers: {
+            'content-disposition': cd
+        }
+    };
+
+    var self = this;
+
+    self.client.mkdir(self.key, opts, function (err, res) {
+        t.ifError(err);
+        t.ok(res);
+        t.checkResponse(res, 204);
+        t.end();
+
+        self.client.info(self.key, function (err2, info) {
+            t.ifError(err2);
+            t.ok(info);
+            t.ok(!('content-disposition' in info.headers),
+                 'content-dispostion should not be in headers');
+            t.end();
+        });
+    });
+});
+
+test('mkdir, chattr: content-disposition (ignore)', function (t) {
+    var k = this.key;
+    var cd = 'attachment"';
+    var opts = {
+        headers: {
+            'content-disposition': cd
+        }
+    };
+    var self = this;
+
+    this.client.mkdir(k, function (err) {
+        t.ifError(err);
+
+        self.client.chattr(k, opts, function (err2) {
+            t.ifError(err2);
+
+            self.client.info(k, function (err3, info) {
+                t.ifError(err3);
+                 t.ok(info);
+                t.ok(!('content-disposition' in info.headers),
+                     'content-dispostion should not be in headers');
+                t.equal(info.extension, 'directory');
+                t.end();
+            });
+        });
+    });
+});
+
+test('mkdir, chattr: bad content-disposition (ignore)', function (t) {
+    var k = this.key;
+    var cd = 'attachment;"';
+    var opts = {
+        headers: {
+            'content-disposition': cd
+        }
+    };
+    var self = this;
+
+    this.client.mkdir(k, function (err) {
+        t.ifError(err);
+
+        self.client.chattr(k, opts, function (err2) {
+            t.ifError(err2);
+
+            self.client.info(k, function (err3, info) {
+                t.ifError(err3);
+                 t.ok(info);
+                t.ok(!('content-disposition' in info.headers),
+                     'content-dispostion should not be in headers');
+                t.equal(info.extension, 'directory');
+                t.end();
+            });
+        });
+    });
+});
+
+test('ls returns content-disposition for non-streaming objects', function (t) {
+    var self = this;
+    var cd = 'attachment; filename="my-file.txt"';
+    var opts = {
+        headers: {
+            'content-disposition': cd
+        }
+    };
+
+    writeObject(self.client, self.key, opts, function (put_err) {
+        t.ifError(put_err);
+        self.client.ls(self.dir, function (err, res) {
+            t.ifError(err);
+            t.ok(res);
+
+            var objs = [];
+
+            res.on('object', function (obj) {
+                t.ok(obj, 'fail, no obj!');
+                objs.push(obj);
+            });
+
+            res.once('error', function (err2) {
+                t.ifError(err2);
+                t.end();
+            });
+
+            res.once('end', function (http_res) {
+                t.ok(http_res);
+                t.checkResponse(http_res, 200);
+                t.equal(objs.length, 1);
+                t.ok(objs[0].contentDisposition);
+                t.equal(objs[0].contentDisposition, cd);
+                t.end();
+            });
+        });
+    });
+});
+
+test('ls returns content-disposition for streaming objects', function (t) {
+    var self = this;
+    var cd = 'attachment; filename="my-file.txt"';
+    var opts = {
+        headers: {
+            'content-disposition': cd
+        }
+    };
+
+    writeStreamingObject(self.client, self.key, opts, function (put_err) {
+        t.ifError(put_err);
+        self.client.ls(self.dir, function (err, res) {
+            t.ifError(err);
+            t.ok(res);
+
+            var objs = [];
+
+            res.on('object', function (obj) {
+                t.ok(obj, 'fail, no obj!');
+                objs.push(obj);
+            });
+
+            res.once('error', function (err2) {
+                t.ifError(err2);
+                t.end();
+            });
+
+            res.once('end', function (http_res) {
+                t.ok(http_res);
+                t.checkResponse(http_res, 200);
+                t.equal(objs.length, 1);
+                t.ok(objs[0].contentDisposition);
+                t.equal(objs[0].contentDisposition, cd);
+                t.end();
+            });
+        });
+    });
+});
+
+test('ls returns no content-disposition when not set', function (t) {
+    var self = this;
+
+    writeObject(self.client, self.key, function (put_err) {
+        t.ifError(put_err);
+        self.client.ls(self.dir, function (err, res) {
+            t.ifError(err);
+            t.ok(res);
+
+            var objs = [];
+
+            res.on('object', function (obj) {
+                t.ok(obj, 'fail, no obj!');
+                objs.push(obj);
+            });
+
+            res.once('error', function (err2) {
+                t.ifError(err2);
+                t.end();
+            });
+
+            res.once('end', function (http_res) {
+                t.ok(http_res, 'http response exists');
+                t.checkResponse(http_res, 200);
+                t.equal(objs.length, 1, 'one object in list');
+                t.ok(!(objs[0].contentDisposition),
+                     'no content disposition field');
+                t.end();
+            });
         });
     });
 });

@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2017, Joyent, Inc.
+ * Copyright (c) 2019, Joyent, Inc.
  */
 
 var crypto = require('crypto');
@@ -1058,3 +1058,146 @@ test('put timeout', function (t) {
         stream.write(TEXT.substr(0, 1));
     });
 });
+
+// content-disposition tests
+
+test('Put-Get no content-disposition', function (t) {
+    var self = this;
+    var opts = {};
+    this.putObject(t, opts, function (_, headers) {
+        self.client.get(self.key, opts, function (err, stream, res) {
+            t.ifError(err);
+            t.checkResponse(res, 200);
+            t.ok(!('content-disposition' in res.headers),
+                 'No content disposition expected');
+            t.end();
+        });
+    });
+});
+
+test('Put-Get content-disposition', function (t) {
+    var self = this;
+    var cd = 'attachment; filename="my-file.txt"';
+    var opts = {
+        headers: {
+            'content-disposition': cd
+        }
+    };
+
+    this.putObject(t, opts, function (_, headers) {
+        self.client.get(self.key, opts, function (err, stream, res) {
+            t.ifError(err);
+            t.checkResponse(res, 200);
+            t.equal(res.headers['content-disposition'], cd,
+                    'Content-Disposition should match written value');
+            t.end();
+        });
+    });
+});
+
+test('Put-Get content-disposition cleaned', function (t) {
+    var self = this;
+    var cd = 'attachment; filename="/root/my-file.txt"';
+    var opts = {
+        headers: {
+            'content-disposition': cd
+        }
+    };
+
+    this.putObject(t, opts, function (_, headers) {
+        self.client.get(self.key, opts, function (err, stream, res) {
+            t.ifError(err);
+            t.checkResponse(res, 200);
+            t.equal(res.headers['content-disposition'],
+                    'attachment; filename="my-file.txt"',
+                    'Content-Disposition should be clean');
+            t.end();
+        });
+    });
+});
+
+
+test('streaming object valid content-disposition',
+     function (t) {
+         var stream = new MemoryStream();
+         var text = 'The lazy brown fox \nsomething \nsomething foo';
+
+         process.nextTick(stream.end.bind(stream, text));
+         var opts = {
+             headers: {
+                 'content-disposition': 'attachment; filename="my-file.txt"'
+             }
+         };
+
+         this.client.put(this.key, stream, opts, function (err, res) {
+             t.ifError(err);
+             t.checkResponse(res, 204);
+             t.end();
+         });
+     });
+
+
+test('streaming object invalid content-disposition',
+     function (t) {
+         var stream = new MemoryStream();
+         var text = 'The lazy brown fox \nsomething \nsomething foo';
+
+         process.nextTick(stream.end.bind(stream, text));
+         var opts = {
+             headers: {
+                 'content-disposition': 'attachment;'
+             }
+         };
+         this.client.put(this.key, stream, opts, function (err, res) {
+             t.equal(res.statusCode, 400, 'Expected 400');
+             t.equal(err.name, 'BadRequestError', 'Expected a BadRequestError');
+             t.end();
+         });
+     });
+
+test('chattr: valid content-disposition', function (t) {
+    var cd = 'attachment; filename="my-file.txt"';
+    var opts = {
+        headers: {
+            'content-disposition': cd
+        }
+    };
+
+    var self = this;
+
+    this.putObject(t, function () {
+        self.client.chattr(self.key, opts, function (err) {
+            t.ifError(err);
+
+            self.client.info(self.key, function (err2, info) {
+                t.ifError(err2);
+                t.ok(info);
+                if (info) {
+                    var h = info.headers || {};
+                    t.equal(h['content-disposition'], cd,
+                            'Content-Disposition should match written value');
+                }
+                t.end();
+            });
+        });
+    });
+});
+
+test('chattr invalid content-disposition',
+     function (t) {
+         var opts = {
+             headers: {
+                 'content-disposition': 'attachment;'
+             }
+         };
+         var self = this;
+
+         this.putObject(t, function () {
+             self.client.chattr(self.key, opts, function (err, res) {
+                 t.equal(res.statusCode, 400, 'Expected 400');
+                 t.equal(err.name, 'BadRequestError',
+                         'Expected a BadRequestError');
+                 t.end();
+             });
+         });
+     });

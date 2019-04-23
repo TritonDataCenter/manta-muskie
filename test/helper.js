@@ -249,11 +249,11 @@ function checkResponse(t, res, code) {
     if (!res)
         return;
     t.equal(res.statusCode, code, 'HTTP status code mismatch');
-    t.ok(res.headers);
-    t.ok(res.headers.date);
-    t.equal(res.headers.server, 'Manta');
-    t.ok(res.headers['x-request-id']);
-    t.ok(res.headers['x-server-name']);
+    t.ok(res.headers, 'has headers');
+    t.ok(res.headers.date, 'headers have date');
+    t.equal(res.headers.server, 'Manta', 'server header is Manta');
+    t.ok(res.headers['x-request-id'], 'headers have x-req-id');
+    t.ok(res.headers['x-server-name'], 'headers have x-server-name');
 
     if (code === 200 || code === 201 || code === 202) {
         t.ok(res.headers['content-type']);

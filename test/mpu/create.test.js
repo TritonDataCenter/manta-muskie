@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2017, Joyent, Inc.
+ * Copyright (c) 2019, Joyent, Inc.
  */
 
 var path = require('path');
@@ -461,6 +461,51 @@ test('create upload: x-durability-level less than allowed', function (t) {
         }
         t.ok(verror.hasCauseWithName(err,
             'InvalidDurabilityLevelError'), err);
+        t.end();
+    });
+});
+
+// content-disposition
+test('create upload: content-disposition header', function (t) {
+    var self = this;
+    var cd = 'attachment; filename="my-file.txt"';
+    var h = {
+        'content-disposition': cd
+    };
+
+    self.createUpload(self.path, h, function (err, o) {
+        if (ifErr(t, err, 'created upload')) {
+            t.end();
+            return;
+        }
+
+        self.getUpload(self.uploadId, function (err2, upload) {
+            if (ifErr(t, err2, 'got upload')) {
+                t.end();
+                return;
+            }
+
+            t.deepEqual(upload.headers, h, 'created headers match');
+            t.ok(upload.state, 'created');
+            t.end();
+        });
+    });
+});
+
+
+test('create upload: invalid content-disposition', function (t) {
+    var self = this;
+    var h = {
+        'content-disposition': 'attachment;'
+    };
+
+    self.createUpload(self.path, h, function (err, o) {
+        t.ok(err, 'Expect error');
+        if (!err) {
+            return (t.end());
+        }
+        t.ok(verror.hasCauseWithName(err,
+            'BadRequestError'), 'Expected 400');
         t.end();
     });
 });
