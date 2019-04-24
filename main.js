@@ -31,7 +31,8 @@ var restify = require('restify');
 var vasync = require('vasync');
 
 var app = require('./lib');
-
+var boray = require('./lib/buckets/boray');
+var uploadsCommon = require('./lib/uploads/common');
 
 ///--- Internal Functions
 
@@ -308,6 +309,40 @@ function createMorayClient(opts, onConnect) {
 }
 
 
+function onBorayConnect(clients, barrier, borayClient) {
+    clients.boray = borayClient;
+    barrier.done('createBorayClient');
+}
+
+
+function createBorayClient(opts, onConnect) {
+    assert.object(opts, 'options');
+    assert.object(opts.log, 'options.log');
+
+    var log = opts.log.child({component: 'boray'}, true);
+    opts.log = log;
+
+    var client = new boray.createClient(opts);
+
+    client.once('error', function (err) {
+        client.removeAllListeners('connect');
+
+        log.error(err, 'boray: failed to connect');
+    });
+
+    client.once('connect', function _onConnect() {
+        client.removeAllListeners('error');
+
+        log.info({
+            host: opts.host,
+            port: opts.port
+        }, 'boray: connected');
+
+        onConnect(client);
+    });
+}
+
+
 function onMedusaConnect(clients, medusaClient) {
     clients.medusa = medusaClient;
 }
@@ -404,6 +439,12 @@ function clientsConnected(appName, cfg, clients) {
 
     barrier.start('createMorayClient');
     createMorayClient(cfg.moray, onMorayConnect.bind(null, clients, barrier));
+
+    if (cfg.enableBuckets && cfg.boray) {
+        barrier.start('createBorayClient');
+        createBorayClient(cfg.boray,
+            onBorayConnect.bind(null, clients, barrier));
+    }
 
     barrier.start('createPickerClient');
     createPickerClient(cfg.storage, cfg.log,
