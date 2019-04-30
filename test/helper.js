@@ -25,7 +25,6 @@ var sshpk = require('sshpk');
 var VError = require('verror').VError;
 
 
-
 ///--- Globals
 
 http.globalAgent.maxSockets = 50;
@@ -62,8 +61,21 @@ var TEST_REGULAR_KEY = process.env.MUSKIETEST_REGULAR_KEYFILE ||
  * alternate one is provided.
  */
 var TEST_OPERATOR = process.env.MUSKIETEST_OPERATOR_USER || 'poseidon';
-var TEST_OPERATOR_KEY = process.env.MUSKIETEST_OPERATOR_KEYFILE ||
-        (process.env.HOME + '/.ssh/id_rsa_poseidon');
+var TEST_OPERATOR_KEY;
+
+// if MUSKIETEST_OPERATOR_KEYFILE is set, make sure file exists.
+
+if (process.env.MUSKIETEST_OPERATOR_KEYFILE) {
+    if (fs.existsSync(process.env.MUSKIETEST_OPERATOR_KEYFILE)) {
+        TEST_OPERATOR_KEY = process.env.MUSKIETEST_OPERATOR_KEYFILE;
+    } else {
+        console.error('MUSKIETEST_OPERATOR_KEYFILE %s does not exist!',
+                      process.env.MUSKIETEST_OPERATOR_KEYFILE);
+        process.exit(1);
+    }
+} else {
+    TEST_OPERATOR_KEY = (process.env.HOME + '/.ssh/id_rsa_poseidon');
+}
 
 
 ///--- Helpers
