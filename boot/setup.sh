@@ -61,9 +61,11 @@ function manta_setup_muskie {
     #Build the list of ports.  That'll be used for everything else.
     local ports
     local insecure_ports
+    local metric_ports
     for (( i=1; i<=$num_instances; i++ )); do
         ports[$i]=`expr 8080 + $i`
         insecure_ports[$i]=`expr 9080 + $i`
+        metric_ports[$i]=`expr ${ports[i]} + 800`
     done
 
     #To preserve whitespace in echo commands...
@@ -105,6 +107,19 @@ function manta_setup_muskie {
 
     # Setup haproxy after the muskie's are kicked up
     svcadm enable "manta/haproxy" || fatal "unable to start haproxy"
+
+    #
+    # We join the metric ports in a comma-separated list, then add this list as
+    # metricPorts mdata to allow scraping by cmon-agent.
+    #
+    # The metricPorts values are derived from the muskie service's "SIZE" SAPI
+    # metadata. We don't need to worry about keeping the metricPorts updated if
+    # this variable changes, because such a change does not affect
+    # already-provisioned zones. This is because electric-moray zones pull the
+    # "SIZE" variable from /var/tmp/metadata.json, which is only written once,
+    # when the zone is provisioned -- it is not managed by config-agent.
+    #
+    mdata-put metricPorts $(IFS=','; echo "${metric_ports[*]}")
 
     unset IFS
 
