@@ -537,6 +537,99 @@ test('all-resource rules (tagged)', function (t) {
     });
 });
 
+/*
+ * Tests for scenarios around rules with explicit resource strings (support
+ * added with MANTA-4284).
+ */
+test('explicit resource rules', function (t) {
+    var self = this;
+    var path = sprintf('/%s/stor/muskie_test_glob_1', self.client.user);
+    var role = 'muskie_test_role_glob';
+    /* First, create a test object, with no role tags. */
+    writeObject(self.client, path, function (err) {
+        if (err) {
+            t.fail(err);
+            t.end();
+            return;
+        }
+        self.paths.push(path);
+
+        /*
+         * This should not work: we haven't activated the role and we have
+         * no default roles that are tagged on the object, so we have no
+         * right to read it.
+         */
+        self.userClient.info(path, function (err2) {
+            if (!err2) {
+                t.fail('error expected');
+                t.end();
+                return;
+            }
+
+            /*
+             * This should work, though: the "Can getobject /..." rule kicks
+             * in, even though this object isn't tagged.
+             */
+            self.userClient.info(path, {
+                headers: {
+                    'role': role
+                }
+            }, function (err4, info) {
+                if (err4) {
+                    t.fail(err4);
+                    t.end();
+                    return;
+                }
+                t.strictEqual(info.headers['role-tag'], undefined);
+                t.end();
+            });
+        });
+    });
+});
+
+test('explicit resource rules (denied)', function (t) {
+    var self = this;
+    var path = sprintf('/%s/stor/muskie_test_noglob', self.client.user);
+    var role = 'muskie_test_role_glob';
+    /* First, create a test object, with no role tags. */
+    writeObject(self.client, path, function (err) {
+        if (err) {
+            t.fail(err);
+            t.end();
+            return;
+        }
+        self.paths.push(path);
+
+        /*
+         * This should not work: we haven't activated the role and we have
+         * no default roles that are tagged on the object, so we have no
+         * right to read it.
+         */
+        self.userClient.info(path, function (err2) {
+            if (!err2) {
+                t.fail('error expected');
+                t.end();
+                return;
+            }
+
+            /*
+             * This should not work, either: the rule with the explicit
+             * resource on muskie_test_role_glob does not match the path.
+             */
+            self.userClient.info(path, {
+                headers: {
+                    'role': role
+                }
+            }, function (err4, info) {
+                if (!err4) {
+                    t.fail('error expected');
+                }
+                t.end();
+            });
+        });
+    });
+});
+
 test('cross-account role access (denied)', function (t) {
     var self = this;
     var path = sprintf('/%s/stor', self.operClient.user);

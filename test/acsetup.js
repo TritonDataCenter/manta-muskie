@@ -18,6 +18,8 @@ var vasync = require('vasync');
 var sdcClient;
 var operSdcClient;
 
+var REGULAR_USER = process.env.MANTA_USER || 'admin';
+
 var USERS = [
     {
         login: 'muskie_test_user',
@@ -73,6 +75,12 @@ var POLICIES = [
             'Can getobject *',
             'Can putobject'
         ]
+    },
+    {
+        name: 'muskie_test_glob',
+        rules: [
+            'Can getobject /' + REGULAR_USER + '/stor/muskie_test_glob*'
+        ]
     }
 ];
 
@@ -123,6 +131,11 @@ var ROLES = [
         policies: [ 'muskie_test_star' ]
     },
     {
+        name: 'muskie_test_role_glob',
+        members: [ 'muskie_test_user' ],
+        policies: [ 'muskie_test_glob' ]
+    },
+    {
         name: 'muskie_test_role_all',
         members: [ 'muskie_test_user' ],
         policies: [ 'muskie_test_read',
@@ -131,8 +144,6 @@ var ROLES = [
                     'muskie_test_mlogin' ]
     }
 ];
-
-var REGULAR_USER = process.env.MANTA_USER || 'admin';
 
 var OPER_ROLES = [
     {
