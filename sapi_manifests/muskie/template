@@ -237,6 +237,16 @@
   "datacenter": "{{DATACENTER}}",
   "region": "{{REGION}}",
   "server_uuid": "{{auto.SERVER_UUID}}",
-  "zone_uuid": "{{auto.ZONENAME}}"
+  "zone_uuid": "{{auto.ZONENAME}}",
 
+  {{! Buckets configuration options }}
+  "enableBuckets": false,
+  "boray": {
+    "borayOptions": {
+        "srvDomain": "{{ELECTRIC_BORAY}}",
+        "cueballOptions": {
+            "resolvers": ["nameservice.{{DOMAIN_NAME}}"]
+        }
+    }
+  }
 }
