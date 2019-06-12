@@ -240,7 +240,7 @@
   "zone_uuid": "{{auto.ZONENAME}}",
 
   {{! Buckets configuration options }}
-  "enableBuckets": false,
+  "enableBuckets": {{#BUCKETS_ENABLE}}{{{BUCKETS_ENABLE}}}{{/BUCKETS_ENABLE}}{{^BUCKETS_ENABLE}}false{{/BUCKETS_ENABLE}},
   "boray": {
     "borayOptions": {
         "srvDomain": "{{ELECTRIC_BORAY}}",
