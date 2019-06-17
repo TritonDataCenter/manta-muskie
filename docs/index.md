@@ -170,6 +170,9 @@ The complete list of codes that will be sent are:
 - AuthSchemeError
 - AuthorizationError
 - BadRequestError
+- BucketAlreadyExists
+- BucketNotEmpty
+- BucketNotFound
 - ChecksumError
 - ConcurrentRequestError
 - ContentLengthError
