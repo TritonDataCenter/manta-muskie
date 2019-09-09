@@ -10,7 +10,7 @@ apisections: Directories, Objects, Jobs, SnapLinks, Multipart Uploads
 -->
 
 <!--
-    Copyright (c) 2018, Joyent, Inc.
+    Copyright 2019 Joyent, Inc.
 -->
 
 # REST API
@@ -123,17 +123,17 @@ with a bash function.
 Copy all of below:
 
       function manta {
-		    local alg=rsa-sha256
-		    local keyId=/$MANTA_USER/keys/$MANTA_KEY_ID
-		    local now=$(date -u "+%a, %d %h %Y %H:%M:%S GMT")
-		    local sig=$(echo "date:" $now | \
-		                tr -d '\n' | \
-		                openssl dgst -sha256 -sign $HOME/.ssh/id_rsa | \
-		                openssl enc -e -a | tr -d '\n')
+            local alg=rsa-sha256
+            local keyId=/$MANTA_USER/keys/$MANTA_KEY_ID
+            local now=$(date -u "+%a, %d %h %Y %H:%M:%S GMT")
+            local sig=$(echo "date:" $now | \
+                        tr -d '\n' | \
+                        openssl dgst -sha256 -sign $HOME/.ssh/id_rsa | \
+                        openssl enc -e -a | tr -d '\n')
 
-		    curl -sS $MANTA_URL"$@" -H "date: $now"  \
-		        -H "Authorization: Signature keyId=\"$keyId\",algorithm=\"$alg\",signature=\"$sig\""
-		}
+            curl -sS $MANTA_URL"$@" -H "date: $now"  \
+                -H "Authorization: Signature keyId=\"$keyId\",algorithm=\"$alg\",signature=\"$sig\""
+        }
 
 Paste into `~/.bash_profile` or `~/.bashrc` and restart your terminal to pick up the changes.
 
