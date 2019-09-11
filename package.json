@@ -43,7 +43,7 @@
         "tab": "1.0.0",
         "vasync": "^1.5.0",
         "verror": "^1.9.0",
-        "watershed": "git+https://github.com/joyent/node-watershed.git#nr_test",,
+        "watershed": "git+https://github.com/joyent/node-watershed.git#nr_test",
         "xtend": "2.1.1"
     },
     "devDependencies": {
