@@ -22,7 +22,7 @@
         "cueball": "2.2.9",
         "dashdash": "1.3.2",
         "deep-equal": "0.0.0",
-        "dtrace-provider": "0.2.8",
+        "dtrace-provider": "0.8.8",
         "http-signature": "1.1.0",
         "jsprim": "^1.3.1",
         "kang": "1.1.0",
