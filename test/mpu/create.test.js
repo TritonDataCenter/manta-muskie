@@ -5,10 +5,11 @@
  */
 
 /*
- * Copyright (c) 2019, Joyent, Inc.
+ * Copyright 2019 Joyent, Inc.
  */
 
 var path = require('path');
+var uuid = require('node-uuid');
 var verror = require('verror');
 
 if (require.cache[path.join(__dirname, '/../helper.js')])
@@ -283,6 +284,23 @@ test('create upload: no input object path', function (t) {
         }
         t.ok(verror.hasCauseWithName(err,
             'MultipartUploadInvalidArgumentError'), err);
+        t.end();
+    });
+});
+
+test('create upload: object path under a nonexistent account', function (t) {
+    var self = this;
+    var bogus = uuid.v4();
+    var p = '/' + bogus + '/foo.txt';
+
+    self.createUpload(p, null, function (err) {
+        if (!err) {
+            t.fail('upload created under a different account');
+            t.end();
+            return;
+        }
+
+        t.ok(verror.hasCauseWithName(err, 'AccountDoesNotExistError'));
         t.end();
     });
 });
