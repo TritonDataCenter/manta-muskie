@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2017, Joyent, Inc.
+ * Copyright 2019 Joyent, Inc.
  */
 
 var MemoryStream = require('stream').PassThrough;
@@ -627,34 +627,6 @@ test('commit upload: object path under another account', function (t) {
         });
     });
 });
-
-
-test('commit upload: object path under a nonexistent account', function (t) {
-    var self = this;
-    var bogus = uuid.v4();
-    var p = '/' + bogus + '/foo.txt';
-
-    self.createUpload(p, null, function (err) {
-        if (ifErr(t, err, 'created upload')) {
-            t.end();
-            return;
-        }
-
-        self.commitUpload(self.uploadId, [], function (err2) {
-            if (!err2) {
-                t.fail('upload created under a different account');
-                t.end();
-                return;
-            }
-
-            t.ok(verror.hasCauseWithName(err2,
-                'AccountDoesNotExistError'));
-            t.end();
-        });
-    });
-});
-
-
 
 
 // Commit: bad inputs to API
