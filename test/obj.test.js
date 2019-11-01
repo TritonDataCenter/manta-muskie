@@ -625,6 +625,21 @@ test('get ok', function (t) {
 });
 
 
+test('head ok', function (t) {
+    var self = this;
+    this.putObject(t, function () {
+        self.client.head(self.key, function (err, stream, res) {
+            t.ifError(err);
+            t.equal(res.headers['content-type'], 'text/plain');
+            t.ok(res.headers.etag);
+            t.ok(res.headers['last-modified']);
+            t.equal('bytes', res.headers['accept-ranges']);
+            t.end();
+        });
+    });
+});
+
+
 test('get 404', function (t) {
     this.client.get(this.key + 'a', function (err, stream, res) {
         t.ok(err);
