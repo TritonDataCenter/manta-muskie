@@ -27,7 +27,6 @@
         "maxTranslationCacheSize": 1000,
         "maxTranslationCacheAgeMs": 300
     },
-    "accountsSnaplinksDisabled": [],
     "moray": {
         "morayOptions": {
             "srvDomain": "electric-moray.coal.joyent.us",
@@ -37,12 +36,12 @@
         }
     },
     "marlin": {
-	"moray": {
+        "moray": {
             "srvDomain": "1.moray.coal.joyent.us",
             "cueballOptions": {
                 "resolvers": [ "nameservice.coal.joyent.us" ]
             }
-	},
+        },
         "jobCache": {
             "size": 500,
             "expiry": 30
@@ -96,7 +95,7 @@
                 "resolvers": ["nameservice.coal.joyent.us"]
             }
         },
-	"defaultMaxStreamingSizeMB": 5120
+    "defaultMaxStreamingSizeMB": 5120
     },
     "sharkConfig": {
         "connectTimeout": 2000,
