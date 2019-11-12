@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2019, Joyent, Inc.
+ * Copyright 2019 Joyent, Inc.
  */
 
 var net = require('net');
@@ -276,12 +276,16 @@ function onMorayConnect(clients, barrier, morayClient) {
 }
 
 
-function createMorayClient(opts, onConnect) {
-    assert.object(opts, 'options');
-    assert.object(opts.log, 'options.log');
+function createMorayClient(cfg, onConnect) {
+    assert.object(cfg, 'cfg');
+    assert.object(cfg.collector, 'cfg.collector');
+    assert.object(cfg.moray, 'cfg.moray');
+    assert.object(cfg.moray.log, 'cfg.moray.log');
+    assert.object(cfg.moray.morayOptions, 'cfg.moray.morayOptions');
 
-    var log = opts.log.child({component: 'moray'}, true);
-    opts.log = log;
+    var opts = cfg.moray;
+    var log = opts.log = cfg.moray.log.child({component: 'moray'}, true);
+    opts.morayOptions.collector = cfg.collector;
 
     var client = new libmanta.createMorayClient(opts);
 
@@ -399,7 +403,7 @@ function clientsConnected(appName, cfg, clients) {
     clients.mahi = createAuthCacheClient(cfg.auth, clients.agent);
 
     barrier.start('createMorayClient');
-    createMorayClient(cfg.moray, onMorayConnect.bind(null, clients, barrier));
+    createMorayClient(cfg, onMorayConnect.bind(null, clients, barrier));
 
     // Establish other client connections needed for writes and jobs requests.
     createPickerClient(cfg.storage, cfg.log,
