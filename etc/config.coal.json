@@ -95,7 +95,7 @@
                 "resolvers": ["nameservice.coal.joyent.us"]
             }
         },
-    "defaultMaxStreamingSizeMB": 5120
+        "defaultMaxStreamingSizeMB": 5120
     },
     "sharkConfig": {
         "connectTimeout": 2000,
