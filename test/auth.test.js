@@ -168,7 +168,8 @@ before(function (cb) {
 
 after(function (cb) {
     var self = this;
-    this.client.rmr(this.dir, function (err) {
+
+    self.client.rmr(self.dir, function (err) {
         cb(err);
     });
 });
