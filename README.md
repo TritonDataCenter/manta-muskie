@@ -23,6 +23,17 @@ API documentation is in [docs/index.md](./docs/index.md).  Some design
 documentation (possibly quite dated) is in [docs/internal](./docs/internal).
 Developer notes are in this README.
 
+## Active branches
+
+There are currently two active branches of this repository, for the two
+active major versions of Manta.
+
+- [`master`](../../tree/master/) - For development of mantav2.
+- [`mantav1`](../../tree/mantav1/) - For development of mantav1.
+
+See the [mantav2 overview
+document](https://github.com/joyent/manta/blob/master/docs/mantav2.md) for
+details.
 
 ## Testing
 
