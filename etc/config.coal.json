@@ -27,6 +27,7 @@
         "maxTranslationCacheSize": 1000,
         "maxTranslationCacheAgeMs": 300
     },
+    "accountsSnaplinksDisabled": [],
     "moray": {
         "morayOptions": {
             "srvDomain": "electric-moray.coal.joyent.us",
