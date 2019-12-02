@@ -5,7 +5,7 @@
 #
 
 #
-# Copyright (c) 2019, Joyent, Inc.
+# Copyright 2019 Joyent, Inc.
 #
 
 #
@@ -57,7 +57,7 @@ ROOT :=			$(shell pwd)
 RELSTAGEDIR :=		/tmp/$(NAME)-$(STAMP)
 
 BASE_IMAGE_UUID = 04a48d7d-6bb5-4e83-8c3b-e60a99e0f48f
-BUILDIMAGE_NAME = manta-webapi
+BUILDIMAGE_NAME = mantav1-webapi
 BUILDIMAGE_DESC	= Manta webapi
 BUILDIMAGE_PKGSRC = haproxy-1.6.2
 AGENTS		= amon config registrar
