@@ -38,6 +38,9 @@
     "maxTranslationCacheSize": 1000,
     "maxTranslationCacheAgeMs": 300000
   },
+  {{#SNAPLINK_CLEANUP_REQUIRED}}
+  "snaplinkCleanupRequired": true,
+  {{/SNAPLINK_CLEANUP_REQUIRED}}
   "accountsSnaplinksDisabled": [ {{#ACCOUNTS_SNAPLINKS_DISABLED}}
     {
       "uuid": "{{uuid}}"
