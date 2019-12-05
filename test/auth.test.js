@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright 2019 Joyent, Inc.
+ * Copyright (c) 2014, Joyent, Inc.
  */
 
 var util = require('util');
@@ -147,6 +147,7 @@ before(function (cb) {
     this.root = '/' + this.client.user + '/stor';
     this.dir = this.root + '/' + uuid.v4();
     this.key = this.dir + '/' + uuid.v4();
+    this.link = '/' + this.client.user + '/public/' + uuid.v4();
 
     self.client.mkdir(self.dir, function (err2) {
         if (err2) {
@@ -160,7 +161,7 @@ before(function (cb) {
                 return;
             }
 
-            cb();
+            self.client.ln(self.key, self.link, cb);
         });
     });
 });
@@ -168,9 +169,10 @@ before(function (cb) {
 
 after(function (cb) {
     var self = this;
-
-    self.client.rmr(self.dir, function (err) {
-        cb(err);
+    this.client.rmr(this.dir, function (err) {
+        self.client.unlink(self.link, function (err2) {
+            cb(err || err2);
+        });
     });
 });
 
@@ -505,6 +507,31 @@ test('create auth token ok', function (t) {
     });
 });
 
+
+test('anonymous get', function (t) {
+    this.rawClient.get(this.link, function (err, req) {
+        t.ifError(err);
+        if (err) {
+            t.end();
+            return;
+        }
+
+        req.once('result', function (err2, res) {
+            t.ifError(err2);
+
+            var body = '';
+            res.setEncoding('utf8');
+            res.on('data', function (chunk) {
+                body += chunk;
+            });
+
+            res.on('end', function () {
+                t.ok(body);
+                t.end();
+            });
+        });
+    });
+});
 
 
 test('anonymous get 403', function (t) {
