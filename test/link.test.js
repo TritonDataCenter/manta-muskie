@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2014, Joyent, Inc.
+ * Copyright 2019 Joyent, Inc.
  */
 
 var crypto = require('crypto');
@@ -121,80 +121,9 @@ after(function (cb) {
 
 test('put link', function (t) {
     this.client.ln(this.obj, this.key, function (err, res) {
-        t.ifError(err);
-        t.checkResponse(res, 204);
-        t.end();
-    });
-});
-
-
-test('link to public', function (t) {
-    this.client.ln(this.pubKey, this.key, function (err, res) {
-        t.ifError(err);
-        t.checkResponse(res, 204);
-        t.end();
-    });
-});
-
-
-test('put link parent ENOEXIST', function (t) {
-    var k = this.key + '/' + uuid.v4();
-    this.client.ln(this.obj, k, function (err, res) {
-        t.ok(err);
-        t.equal(err.name, 'DirectoryDoesNotExistError');
-        t.checkResponse(res, 404);
-        t.end();
-    });
-});
-
-
-test('put parent not directory', function (t) {
-    var k = this.obj + '/' + uuid.v4();
-    this.client.ln(this.obj, k, function (err, res) {
-        t.ok(err);
-        t.equal(err.name, 'ParentNotDirectoryError');
-        t.checkResponse(res, 400);
-        t.end();
-    });
-});
-
-
-test('put source not found', function (t) {
-    var src = this.dir + '/' + uuid.v4();
-    this.client.ln(src, this.key, function (err, res) {
-        t.ok(err);
-        t.equal(err.name, 'SourceObjectNotFoundError');
-        t.checkResponse(res, 404);
-        t.end();
-    });
-});
-
-
-test('put if-match', function (t) {
-    var self = this;
-    var opts = {
-        headers: {
-            'if-match': self.etag
-        }
-    };
-    this.client.ln(this.obj, this.key, opts, function (err, res) {
-        t.ifError(err);
-        t.checkResponse(res, 204);
-        t.end();
-    });
-});
-
-
-test('put if-match fail', function (t) {
-    var opts = {
-        headers: {
-            'if-match': uuid.v4()
-        }
-    };
-    this.client.ln(this.obj, this.key, opts, function (err, res) {
-        t.ok(err);
-        t.equal(err.name, 'PreconditionFailedError');
-        t.checkResponse(res, 412);
+        t.ok(err && err.code === 'SnaplinksDisabledError',
+            'Expected SnapLinks to be disabled');
+        t.checkResponse(res, 403);
         t.end();
     });
 });

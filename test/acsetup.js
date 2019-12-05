@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2018, Joyent, Inc.
+ * Copyright 2019 Joyent, Inc.
  */
 
 var _helper = __dirname + '/helper.js';
@@ -46,30 +46,6 @@ var POLICIES = [
         ]
     },
     {
-        name: 'muskie_test_job',
-        rules: [
-            'Can createjob and managejob'
-        ]
-    },
-    {
-        name: 'muskie_test_create_only',
-        rules: [
-            'Can createjob'
-        ]
-    },
-    {
-        name: 'muskie_test_fromjob',
-        rules: [
-            'Can putobject and putdirectory when fromjob = false'
-        ]
-    },
-    {
-        name: 'muskie_test_mlogin',
-        rules: [
-            'Can mlogin'
-        ]
-    },
-    {
         name: 'muskie_test_star',
         rules: [
             'Can getobject *',
@@ -106,26 +82,6 @@ var ROLES = [
         policies: [ 'muskie_test_write' ]
     },
     {
-        name: 'muskie_test_role_jobs',
-        members: [ 'muskie_test_user' ],
-        policies: [ 'muskie_test_job', 'muskie_test_write' ]
-    },
-    {
-        name: 'muskie_test_role_create_job',
-        members: [ 'muskie_test_user' ],
-        policies: [ 'muskie_test_create_only', 'muskie_test_write' ]
-    },
-    {
-        name: 'muskie_test_role_jobs_only',
-        members: [ 'muskie_test_user' ],
-        policies: [ 'muskie_test_job' ]
-    },
-    {
-        name: 'muskie_test_role_fromjob',
-        members: [ 'muskie_test_user' ],
-        policies: [ 'muskie_test_fromjob' ]
-    },
-    {
         name: 'muskie_test_role_star',
         members: [ 'muskie_test_user' ],
         policies: [ 'muskie_test_star' ]
@@ -139,9 +95,7 @@ var ROLES = [
         name: 'muskie_test_role_all',
         members: [ 'muskie_test_user' ],
         policies: [ 'muskie_test_read',
-                    'muskie_test_write',
-                    'muskie_test_job',
-                    'muskie_test_mlogin' ]
+                    'muskie_test_write' ]
     }
 ];
 
