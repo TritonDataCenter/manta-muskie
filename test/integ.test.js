@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2014, Joyent, Inc.
+ * Copyright 2019 Joyent, Inc.
  */
 
 var crypto = require('crypto');
@@ -287,26 +287,6 @@ test('MANTA-1593: URL encoded listing', function (t) {
                 t.ok(found);
                 t.end();
             });
-        });
-    });
-    process.nextTick(stream.end.bind(stream, TEXT));
-});
-
-
-test('MANTA-1593: URL encoded link', function (t) {
-    var opts = {
-        size: Buffer.byteLength(TEXT),
-        type: 'text/plain'
-    };
-    var self = this;
-    var stream = new MemoryStream();
-    var k = this.dir + '/my file.txt';
-    var k2 = this.dir + '/my file 2.txt';
-    this.client.put(k, stream, opts, function (err) {
-        t.ifError(err);
-        self.client.ln(k, k2, function (err2) {
-            t.ifError(err2);
-            t.end();
         });
     });
     process.nextTick(stream.end.bind(stream, TEXT));
