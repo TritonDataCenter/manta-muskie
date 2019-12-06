@@ -10,7 +10,7 @@ apisections: Directories, Objects, Jobs, SnapLinks, Multipart Uploads
 -->
 
 <!--
-    Copyright (c) 2018, Joyent, Inc.
+    Copyright 2019 Joyent, Inc.
 -->
 
 # REST API
