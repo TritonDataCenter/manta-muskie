@@ -243,7 +243,7 @@ body.  An HTTP status code of `204` is returned on success.
 
     HTTP/1.1 204 No Content
     Date: Thu, 29 Nov 2012 23:48:00 GMT
-    Server: Manta
+    Server: Manta/2
     x-request-id: 3591a050-3a7f-11e2-b95c-a921ce711752
     x-response-time: 16
     x-server-name: 00aa9214-0855-474d-92b5-8f713495b8d7
@@ -305,7 +305,7 @@ A stream of JSON objects, one record for each child.
     Content-Type: application/x-json-stream; type=directory
     Result-Set-Size: 1
     Date: Fri, 30 Nov 2012 00:24:28 GMT
-    Server: Manta
+    Server: Manta/2
     x-request-id: 4db4ba00-3a84-11e2-b95c-a921ce711752
     x-response-time: 8
     x-server-name: 00aa9214-0855-474d-92b5-8f713495b8d7
@@ -332,7 +332,7 @@ from this request.  On success an HTTP `204` is returned;
     HTTP/1.1 204 No Content
     Last-Modified: Thu, 29 Nov 2012 23:48:00 GMT
     Date: Fri, 30 Nov 2012 00:31:00 GMT
-    Server: Manta
+    Server: Manta/2
     x-request-id: 371e7320-3a85-11e2-8d0c-417db534d10b
     x-response-time: 15
     x-server-name: fb07e9ec-5137-418e-aff2-01d00aff1a49
@@ -406,7 +406,7 @@ created the object.  You are allowed up to 4 KB of header data.
     Etag: f501ffd1-3e28-49a8-aaa5-2c1555c34ce0
     Last-Modified: Fri, 30 Nov 2012 00:55:06 GMT
     Date: Fri, 30 Nov 2012 00:55:06 GMT
-    Server: Manta
+    Server: Manta/2
     x-request-id: 952ddbb0-3a88-11e2-b95c-a921ce711752
     x-response-time: 18
     x-server-name: 00aa9214-0855-474d-92b5-8f713495b8d7
@@ -443,7 +443,7 @@ You cannot change "critical" headers:
     Etag: f501ffd1-3e28-49a8-aaa5-2c1555c34ce0
     Last-Modified: Fri, 30 Nov 2012 00:55:06 GMT
     Date: Fri, 30 Nov 2012 00:55:06 GMT
-    Server: Manta
+    Server: Manta/2
     x-request-id: caf3ccbb-5138-43c1-9c27-2bf8f13f76f3
     x-response-time: 18
     x-server-name: 00aa9214-0855-474d-92b5-8f713495b8d7
@@ -472,7 +472,7 @@ your content and metadata (HTTP headers).
     Content-Type: application/json
     Content-MD5: Sd/dVLAcvNLSq16eXua5uQ==
     Date: Fri, 30 Nov 2012 00:59:18 GMT
-    Server: Manta
+    Server: Manta/2
     x-request-id: 2af906b0-3a89-11e2-8d0c-417db534d10b
     x-response-time: 7
     x-server-name: fb07e9ec-5137-418e-aff2-01d00aff1a49
@@ -500,7 +500,7 @@ Deletes an object from the service. On success an HTTP `204` is returned.
     Etag: f501ffd1-3e28-49a8-aaa5-2c1555c34ce0
     Last-Modified: Fri, 30 Nov 2012 00:55:06 GMT
     Date: Fri, 30 Nov 2012 01:01:33 GMT
-    Server: Manta
+    Server: Manta/2
     x-request-id: 7b872080-3a89-11e2-8d0c-417db534d10b
     x-response-time: 8
     x-server-name: fb07e9ec-5137-418e-aff2-01d00aff1a49
@@ -537,7 +537,7 @@ First make an object, then create a link:
     Etag: 447a76c7-c1ff-4613-b64a-02c059a02d92
     Last-Modified: Fri, 30 Nov 2012 01:13:59 GMT
     Date: Fri, 30 Nov 2012 01:14:18 GMT
-    Server: Manta
+    Server: Manta/2
     x-request-id: 4391f400-3a8b-11e2-928b-1324a0f99d70
     x-response-time: 17
     x-server-name: ef69fb79-d88b-4c9d-be81-de55dd60da5b
@@ -607,7 +607,7 @@ properties:
     Content-Length: 0
     Location: /$MANTA_USER/jobs/a62ba79e-4d5b-4773-bff9-ecae0fe30dfa
     Date: Fri, 30 Nov 2012 01:25:28 GMT
-    Server: Manta
+    Server: Manta/2
     x-request-id: d3534b60-3a8c-11e2-8d0c-417db534d10b
     x-response-time: 10
     x-server-name: fb07e9ec-5137-418e-aff2-01d00aff1a49
@@ -645,7 +645,7 @@ An HTTP `204` is returned on success.
     HTTP/1.1 204 No Content
     Connection: close
     Date: Tue, 04 Dec 2012 16:20:17 GMT
-    Server: Manta
+    Server: Manta/2
     x-request-id: 7dc1d950-3e2e-11e2-9dd2-2bc6e71ae3bc
     x-response-time: 72
     x-server-name: 27721605-e942-4dfb-b01d-9b9ac9847dde
@@ -671,7 +671,7 @@ input to this API.  On success an HTTP `202` is returned.
     HTTP/1.1 202 Accepted
     Connection: close
     Date: Tue, 04 Dec 2012 16:26:24 GMT
-    Server: Manta
+    Server: Manta/2
     x-request-id: 58b3f570-3e2f-11e2-be8f-87b1bf6e7c11
     x-response-time: 27
     x-server-name: 8469d848-aee5-4562-957a-38b326ad454f
@@ -702,7 +702,7 @@ On success an HTTP `202` is returned.
     HTTP/1.1 202 Accepted
     Connection: close
     Date: Tue, 04 Dec 2012 16:34:18 GMT
-    Server: Manta
+    Server: Manta/2
     x-request-id: 72e68b00-3e30-11e2-be8f-87b1bf6e7c11
     x-response-time: 15
     x-server-name: 8469d848-aee5-4562-957a-38b326ad454f
@@ -734,7 +734,7 @@ Additional newlines added for clarity:
     HTTP/1.1 200 OK
     Connection: close
     Date: Tue, 04 Dec 2012 16:35:56 GMT
-    Server: Manta
+    Server: Manta/2
     x-request-id: ada10720-3e30-11e2-9dd2-2bc6e71ae3bc
     x-response-time: 5
     x-server-name: 27721605-e942-4dfb-b01d-9b9ac9847dde
@@ -771,7 +771,7 @@ Additional newlines added for clarity:
     Content-Length: 325
     Content-MD5: 6txxiXII5zL+8Ombjc3CwA==
     Date: Tue, 04 Dec 2012 16:41:30 GMT
-    Server: Manta
+    Server: Manta/2
     x-request-id: 7453ba20-3e31-11e2-acef-af63e7e14029
     x-response-time: 5
     x-server-name: c5df6b59-f27d-4f02-b6db-0e6b044b0d79
@@ -819,7 +819,7 @@ code of `200` on success.
     Content-Type: text/plain
     Result-Set-Size: 1
     Date: Tue, 04 Dec 2012 16:47:17 GMT
-    Server: Manta
+    Server: Manta/2
     x-request-id: 43745300-3e32-11e2-9dd2-2bc6e71ae3bc
     x-response-time: 18
     x-server-name: 27721605-e942-4dfb-b01d-9b9ac9847dde
@@ -855,7 +855,7 @@ returned as a stream, with an HTTP status code of `200` on success.
     Content-Type: text/plain
     Result-Set-Size: 3
     Date: Tue, 04 Dec 2012 16:52:05 GMT
-    Server: Manta
+    Server: Manta/2
     x-request-id: ef3d8710-3e32-11e2-9dd2-2bc6e71ae3bc
     x-response-time: 13
     x-server-name: 27721605-e942-4dfb-b01d-9b9ac9847dde
@@ -886,7 +886,7 @@ code of `200` on success.
     Connection: close
     Content-Type: text/plain
     Date: Tue, 04 Dec 2012 16:56:15 GMT
-    Server: Manta
+    Server: Manta/2
     x-request-id: 83e98670-3e33-11e2-be8f-87b1bf6e7c11
     x-response-time: 6
     x-server-name: 8469d848-aee5-4562-957a-38b326ad454f
@@ -931,7 +931,7 @@ Additional newlines added for clarity:
     Connection: close
     Content-Type: application/x-json-stream; type=job-error
     Date: Tue, 04 Dec 2012 17:14:44 GMT
-    Server: Manta
+    Server: Manta/2
     x-request-id: 190329d0-3e36-11e2-acef-af63e7e14029
     x-response-time: 13
     x-server-name: c5df6b59-f27d-4f02-b6db-0e6b044b0d79
@@ -1027,7 +1027,7 @@ Manta login.
     Content-Length: 125
     Content-MD5: xrJUHTD0ZjzZUZElJdezDA==
     Date: Tue, 09 Jan 2018 22:44:30 GMT
-    Server: Manta
+    Server: Manta/2
     x-request-id: a73fb1e0-f58e-11e7-83c3-f3f97664d32b
     x-response-time: 453
     x-server-name: 9857d980-a49b-c317-b313-d1649b6ed333
@@ -1094,7 +1094,7 @@ requires consecutive parts starting from part 0.  See
     Last-Modified: Wed, 10 Jan 2018 22:02:52 GMT
     Computed-MD5: XzY+DlipXwbL6bvGYsXftg==
     Date: Wed, 10 Jan 2018 22:02:52 GMT
-    Server: Manta
+    Server: Manta/2
     x-request-id: 00a2f440-f652-11e7-958f-0db50252a777
     x-response-time: 633
     x-server-name: 9857d980-a49b-c317-b313-d1649b6ed333
@@ -1124,7 +1124,7 @@ Content-type will be `application/json`.  An HTTP `204` is returned on success.
     Content-Length: 311
     Content-MD5: Gy/GKwCzvvOt2NuQXxfOkg==
     Date: Wed, 10 Jan 2018 22:08:52 GMT
-    Server: Manta
+    Server: Manta/2
     x-request-id: d762ff70-f652-11e7-958f-0db50252a777
     x-response-time: 267
     x-server-name: 9857d980-a49b-c317-b313-d1649b6ed333
@@ -1197,7 +1197,7 @@ multipart upload was created.
     Location: /$MANTA_USER/stor/myObj.txt
     Computed-MD5: e1iePOxoKQYqJS6MLu6lyg==
     Date: Wed, 10 Jan 2018 22:33:29 GMT
-    Server: Manta
+    Server: Manta/2
     x-request-id: 4771cc30-f656-11e7-958f-0db50252a777
     x-response-time: 994
     x-server-name: 9857d980-a49b-c317-b313-d1649b6ed333
@@ -1227,7 +1227,7 @@ is returned.
     HTTP/1.1 204 No Content
     Connection: close
     Date: Wed, 10 Jan 2018 22:14:02 GMT
-    Server: Manta
+    Server: Manta/2
     x-request-id: 90376f40-f653-11e7-958f-0db50252a777
     x-response-time: 308
     x-server-name: 9857d980-a49b-c317-b313-d1649b6ed333
@@ -1256,7 +1256,7 @@ On success, an HTTP `301` is returned, with the parts directory URI in the
     Connection: close
     Location: /$MANTA_USER/uploads/d52/d52da3a7-a55c-4961-b95a-84fbfc5d7903
     Date: Wed, 10 Jan 2018 23:15:50 GMT
-    Server: Manta
+    Server: Manta/2
     x-request-id: 325fc210-f65c-11e7-958f-0db50252a777
     x-response-time: 141
     x-server-name: 9857d980-a49b-c317-b313-d1649b6ed333
@@ -1282,7 +1282,7 @@ HTTP `404`:
     Content-Length: 110
     Content-MD5: OwMLZJnfs9GTFuLlfsVOAg==
     Date: Wed, 10 Jan 2018 23:19:26 GMT
-    Server: Manta
+    Server: Manta/2
     x-request-id: b30da710-f65c-11e7-958f-0db50252a777
     x-response-time: 66
     x-server-name: 9857d980-a49b-c317-b313-d1649b6ed333
