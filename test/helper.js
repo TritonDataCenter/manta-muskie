@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2018, Joyent, Inc.
+ * Copyright 2019 Joyent, Inc.
  */
 
 var domain = require('domain');
@@ -263,7 +263,7 @@ function checkResponse(t, res, code) {
     t.equal(res.statusCode, code, 'HTTP status code mismatch');
     t.ok(res.headers, 'has headers');
     t.ok(res.headers.date, 'headers have date');
-    t.equal(res.headers.server, 'Manta', 'server header is Manta');
+    t.equal(res.headers.server, 'Manta/2', 'server header is Manta/2');
     t.ok(res.headers['x-request-id'], 'headers have x-req-id');
     t.ok(res.headers['x-server-name'], 'headers have x-server-name');
 
