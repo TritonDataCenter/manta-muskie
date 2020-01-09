@@ -14,10 +14,6 @@
     },
     "maxObjectCopies": 6,
     "maxRequestAge": 600,
-    "enableMPU": true,
-    "multipartUpload": {
-        "prefixDirLen": 1
-    },
     "numWorkers": 4,
     "port": 8080,
     "auth": {
