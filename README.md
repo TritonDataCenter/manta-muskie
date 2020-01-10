@@ -5,7 +5,7 @@
 -->
 
 <!--
-    Copyright 2019 Joyent, Inc.
+    Copyright 2020 Joyent, Inc.
 -->
 
 # manta-muskie: The Manta WebAPI
@@ -201,24 +201,6 @@ check first before reporting problems:
    you may have an incorrect muskie configuration. Check that the `MUSKIE_ID`,
    `MUSKIE_KEY` and `MUSKIE_IV` attributes in your config.json match the
    environment variables set for the user running the tests (`$MANTA_USER`).
-5. If the "rmdir mpuRoot" and "ls top" tests fail, MPU may not be enabled. MPU
-   GC is not supported, so if MPU is left enabled, records may accumulate in
-   metadata shards.  For this reason, *non-developers should not enable MPU*.
-   However, if you are a developer, and you recently upgraded from a pre-MPU
-   muskie version, ensure the line '"enableMPU": true' is present in your
-   config.json file.  If you are running tests against an image whose
-   configuration is managed by SAPI, which includes any zones deployed using
-   `manta-adm`, you will need to set this variable using sapiadm:
-
-        $ sapiadm update $(sdc-sapi /services?name=webapi | json -Ha uuid) metadata."MPU_ENABLE"=true
-
-   Note that ANY value (including `false`) set for `MPU_ENABLE` will write a
-   value of `true` to the muskie configuarion file. So, once you have done that,
-   next check that `/opt/smartdc/muskie/etc/config.json` in each of your webapi
-   zones has updated to contain `"enableMPU": true`".  Then restart your muskie
-   instances so that they will pick up the changes to the configuration file:
-
-        $ manta-oneach -s webapi 'svcadm restart "*muskie-*"'
 
 ## Metrics
 
