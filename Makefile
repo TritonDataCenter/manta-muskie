@@ -34,10 +34,9 @@ SMF_MANIFESTS_IN =	smf/manifests/muskie.xml.in \
 # Variables
 #
 NAME 			= muskie
-NODE_PREBUILT_TAG       = zone
-NODE_PREBUILT_VERSION	:= v0.10.48
-# sdc-minimal-multiarch-lts 15.4.1
-NODE_PREBUILT_IMAGE     = 18b094b0-eb01-11e5-80c1-175dac7ddf02
+NODE_PREBUILT_TAG       = zone64
+NODE_PREBUILT_VERSION	:= v6.17.0
+NODE_PREBUILT_IMAGE     = c2c31b00-1d60-11e9-9a77-ff9f06554b0f
 
 ENGBLD_USE_BUILDIMAGE	= true
 ENGBLD_REQUIRE		:= $(shell git submodule update --init deps/eng)
@@ -49,22 +48,26 @@ include ./deps/eng/tools/mk/Makefile.agent_prebuilt.defs
 include ./deps/eng/tools/mk/Makefile.node_modules.defs
 include ./deps/eng/tools/mk/Makefile.smf.defs
 
-#
-# MG Variables
-#
 RELEASE_TARBALL :=	$(NAME)-pkg-$(STAMP).tar.gz
 ROOT :=			$(shell pwd)
 RELSTAGEDIR :=		/tmp/$(NAME)-$(STAMP)
 
-BASE_IMAGE_UUID = 04a48d7d-6bb5-4e83-8c3b-e60a99e0f48f
+# This image is triton-origin-x86_64-19.4.0
+BASE_IMAGE_UUID = 59ba2e5e-976f-4e09-8aac-a4a7ef0395f5
 BUILDIMAGE_NAME = mantav2-webapi
 BUILDIMAGE_DESC	= Manta webapi
-BUILDIMAGE_PKGSRC = haproxy-1.6.2
+BUILDIMAGE_PKGSRC = haproxy-2.0.13
 AGENTS		= amon config registrar
+
+ifeq ($(shell uname -s),SunOS)
+	export PATH:=$(TOP)/build/agent-python:$(PATH)
+endif
 
 #
 # Repo-specific targets
 #
+check:: python2-symlink
+
 .PHONY: all
 all: $(SMF_MANIFESTS) $(STAMP_NODE_MODULES) manta-scripts
 
@@ -126,6 +129,19 @@ release: all docs
 publish: release
 	mkdir -p $(ENGBLD_BITS_DIR)/$(NAME)
 	cp $(ROOT)/$(RELEASE_TARBALL) $(ENGBLD_BITS_DIR)/$(NAME)/$(RELEASE_TARBALL)
+
+#
+# The origin image for muskie has Python 3 as the default version of Python.
+# However, this repo depends on javascriptlint, which doesn't build on Python
+# 3.  So we create a symlink to Python 2 and add that to our PATH.
+#
+.PHONY: python2-symlink
+python2-symlink:
+	mkdir -p $(TOP)/build/agent-python
+	if [ -f /opt/local/bin/python2 ]; then \
+	    rm -f $(TOP)/build/agent-python/python; \
+	    ln -s /opt/local/bin/python2 $(TOP)/build/agent-python/python; \
+	fi
 
 include ./deps/eng/tools/mk/Makefile.deps
 include ./deps/eng/tools/mk/Makefile.node_prebuilt.targ
