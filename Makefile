@@ -29,6 +29,8 @@ JSSTYLE_FLAGS =		-f tools/jsstyle.conf
 
 SMF_MANIFESTS_IN =	smf/manifests/muskie.xml.in \
 			smf/manifests/haproxy.xml.in
+SHELL=/bin/bash
+
 
 #
 # Variables

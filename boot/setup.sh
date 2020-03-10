@@ -7,7 +7,7 @@
 #
 
 #
-# Copyright (c) 2017, Joyent, Inc.
+# Copyright 2020 Joyent, Inc.
 #
 
 set -o xtrace
@@ -138,70 +138,6 @@ function manta_setup_muskie {
         >>/root/.bashrc
 }
 
-
-function manta_setup_muskie_rsyslogd {
-    #rsyslog was already set up by common setup- this will overwrite the
-    # config and restart since we want muskie to log locally.
-    local domain_name=$(json -f ${METADATA} domain_name)
-    [[ $? -eq 0 ]] || fatal "Unable to domain name from metadata"
-
-    mkdir -p /var/tmp/rsyslog/work
-    chmod 777 /var/tmp/rsyslog/work
-
-    cat > /etc/rsyslog.conf <<"HERE"
-$MaxMessageSize 64k
-
-$ModLoad immark
-$ModLoad imsolaris
-$ModLoad imudp
-
-
-$template bunyan,"%msg:R,ERE,1,FIELD:(\{.*\})--end%\n"
-
-*.err;kern.notice;auth.notice			/dev/sysmsg
-*.err;kern.debug;daemon.notice;mail.crit	/var/adm/messages
-
-*.alert;kern.err;daemon.err			operator
-*.alert						root
-
-*.emerg						*
-
-mail.debug					/var/log/syslog
-
-auth.info					/var/log/auth.log
-mail.info					/var/log/postfix.log
-
-$WorkDirectory /var/tmp/rsyslog/work
-$ActionQueueType Direct
-$ActionQueueFileName mantafwd
-$ActionResumeRetryCount -1
-$ActionQueueSaveOnShutdown on
-
-HERE
-
-        cat >> /etc/rsyslog.conf <<HERE
-
-# Support node bunyan logs going to local0 and forwarding
-# only as logs are already captured via SMF
-local0.* /var/log/muskie.log;bunyan
-
-HERE
-
-        cat >> /etc/rsyslog.conf <<"HERE"
-$UDPServerAddress 127.0.0.1
-$UDPServerRun 514
-
-HERE
-
-    svcadm restart system-log
-    [[ $? -eq 0 ]] || fatal "Unable to restart rsyslog"
-
-    #log pulling
-    manta_add_logadm_entry "muskie" "/var/log" "exact"
-}
-
-
-
 # Mainline
 
 echo "Running common setup scripts"
@@ -210,7 +146,7 @@ manta_common_presetup
 echo "Adding local manifest directories"
 manta_add_manifest_dir "/opt/smartdc/muskie"
 
-manta_common_setup "muskie"
+manta_common2_setup "muskie"
 
 manta_ensure_zk
 
@@ -220,7 +156,7 @@ echo "Setting up muskie"
 # Sometimes muskies come up before DNS resolvers are in /etc/resolv.conf
 wait_for_resolv_conf
 manta_setup_muskie
-manta_setup_muskie_rsyslogd
+manta_common2_setup_log_rotation 'muskie'
 
 manta_common_setup_end
 

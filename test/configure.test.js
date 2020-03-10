@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2019, Joyent, Inc.
+ * Copyright 2020 Joyent, Inc.
  */
 
 var bunyan = require('bunyan');
@@ -14,25 +14,9 @@ var configure = require('../lib/configure.js');
 exports.configureLogging = function (t) {
     var appName = 'muskie';
     var bunyanCfg1 = {
-        level: 'info',
-        syslog: {
-            facility: 'local0',
-            type: 'udp'
-        }
-    };
-    var bunyanCfg2 = {
-        level: 'debug',
-        syslog: {
-            facility: 'local0',
-            type: 'udp'
-        }
-    };
-
-    var bunyanCfg3 = {
         level: 'info'
     };
-
-    var bunyanCfg4 = {
+    var bunyanCfg2 = {
         level: 'debug'
     };
 
@@ -91,36 +75,13 @@ exports.configureLogging = function (t) {
     t.equal(logObj7.level(), bunyan.TRACE);
     t.equal(logObj7.src, true);
 
-    process.env.LOG_LEVEL = '';
-    var logObj8 = configure.configureLogging(appName, bunyanCfg3, null);
-
-    t.equal(logObj8.streams.length, 1);
-    t.equal(logObj8.level(), bunyan.INFO);
-    t.equal(logObj8.src, false);
-
-    var logObj9 = configure.configureLogging(appName, bunyanCfg3, [true]);
-
-    t.equal(logObj9.streams.length, 1);
-    t.equal(logObj9.level(), bunyan.DEBUG);
-    t.equal(logObj9.src, true);
-
-    var logObj10 = configure.configureLogging(appName, bunyanCfg4, null);
-
-    t.equal(logObj10.streams.length, 1);
-    t.equal(logObj10.level(), bunyan.DEBUG);
-    t.equal(logObj10.src, true);
-
-    var logObj11 = configure.configureLogging(appName, bunyanCfg4, [true]);
-
-    t.equal(logObj11.streams.length, 1);
-    t.equal(logObj11.level(), bunyan.TRACE);
-    t.equal(logObj11.src, true);
-
     process.env.LOG_LEVEL = 'info';
     var logObj12 = configure.configureLogging(appName, null, null);
 
-    t.equal(logObj12.streams.length, 1);
-    t.equal(logObj12.level(), bunyan.INFO);
+    t.equal(logObj12.streams.length, 2);
+    var logObject12Levels = logObj12.levels().sort();
+    t.equal(logObject12Levels[0], bunyan.DEBUG);
+    t.equal(logObject12Levels[1], bunyan.INFO);
     t.equal(logObj12.src, false);
 
     var logObj13 = configure.configureLogging(appName, null, [true]);
