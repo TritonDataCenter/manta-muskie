@@ -181,7 +181,7 @@ Manta. If you're doing this for the first time, and not sure what to
 do, I had success with `make buildimage` which leaves you with an
 image and manifest in `./bits`. You can then import this image and
 follow this guide to upgrading manta components:
-https://github.com/joyent/manta/blob/master/docs/operator-guide.md#upgrading-manta-components
+https://github.com/joyent/manta/blob/master/docs/operator-guide/maintenance.md#upgrading-manta-components
 
 If you run into any problems when following this procedure against the latest
 version of #master, please let us know.  There are are a couple of things to
