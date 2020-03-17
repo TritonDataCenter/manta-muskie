@@ -158,7 +158,7 @@ wait_for_resolv_conf
 manta_setup_muskie
 manta_common2_setup_log_rotation 'muskie'
 
-manta_common_setup_end
+manta_common2_setup_end
 
 # Setup the mlocate alias
 echo "alias mlocate='/opt/smartdc/muskie/bin/mlocate -f /opt/smartdc/muskie/etc/config.json'" >> $PROFILE
