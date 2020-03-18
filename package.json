@@ -14,7 +14,6 @@
         "assert-plus": "0.1.5",
         "backoff": "2.3.0",
         "bunyan": "0.22.1",
-        "bunyan-syslog": "0.2.2",
         "cmdln": "4.3.0",
         "content-disposition": "0.5.3",
         "cueball": "2.2.9",

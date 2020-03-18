@@ -1,11 +1,7 @@
 {
   "clearProxyPort": 81,
   "bunyan": {
-    "level": "info",
-    "syslog": {
-      "facility": "local0",
-      "type": "udp"
-    }
+    "level": "info"
   },
   "throttle": {
     {{#MUSKIE_THROTTLE_ENABLED}}
