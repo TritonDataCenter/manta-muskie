@@ -17,11 +17,12 @@ zones.  In a typical production deployment, there are 16 muskie processes
 per zone, with an [HAProxy](http://www.haproxy.org/) instance sitting in
 front of them (in TCP mode).  All logging from muskies in a production
 setting is done through [bunyan](https://github.com/trentm/node-bunyan) to
-the service's respective SMF log (`svcs -L muskie`).  The HAProxy listens on
-both 80 and 81, where 80 is meant to mean "secure" requests, which either means
-non-TLS from the "internal" network (e.g., marlin) or TLS requests from the
-world.  81 is used to serve up anonymous traffic, which is only allowed in
-muskie to support anonymous GETs (signed URLs and `GET /:user/public`).
+the service instance's respective SMF log (`svcs -L muskie`).  The HAProxy
+listens on both 80 and 81, where 80 is meant to mean "secure" requests, which
+either means non-TLS from the "internal" network (e.g., marlin) or TLS requests
+from the world.  81 is used to serve up anonymous traffic, which is only
+allowed in muskie to support anonymous GETs (signed URLs and `GET
+/:user/public`).
 
 # Dependencies
 
