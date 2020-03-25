@@ -134,7 +134,7 @@ function manta_setup_muskie {
     [[ $? -eq 0 ]] || fatal "Unable import crons"
 
     #.bashrc
-    echo 'function req() { grep "$@" /var/log/muskie.log | bunyan ;}' \
+    echo 'function req() { svcs -L muskie | xargs cat | grep "$@" | bunyan ;}' \
         >>/root/.bashrc
 }
 
