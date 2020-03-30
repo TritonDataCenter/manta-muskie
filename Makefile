@@ -5,7 +5,7 @@
 #
 
 #
-# Copyright 2020 Joyent, Inc.
+# Copyright 2019 Joyent, Inc.
 #
 
 #
@@ -77,7 +77,7 @@ manta-scripts: deps/manta-scripts/.git
 test: $(STAMP_NODE_MODULES)
 	PATH=$(ROOT)/$(NODE_INSTALL)/bin:$(PATH) \
 	    $(NODE) ./node_modules/.bin/nodeunit --reporter=tap \
-	    test/*.test.js
+	    test/*.test.js test/mpu/*.test.js
 
 #
 # This target can be used to invoke "acsetup.js", a program which configures
