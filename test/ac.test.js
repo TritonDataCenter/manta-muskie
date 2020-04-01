@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright 2019 Joyent, Inc.
+ * Copyright 2020 Joyent, Inc.
  */
 
 var _helper = __dirname + '/helper.js';
@@ -26,7 +26,6 @@ var test = helper.test;
 ///--- Helpers
 
 function writeObject(client, key, roles, cb) {
-    cb = once(cb);
     var headers;
     if (typeof (roles) === 'function') {
         cb = roles;
@@ -37,6 +36,7 @@ function writeObject(client, key, roles, cb) {
             'role-tag': roles
         };
     }
+    cb = once(cb);
     var input = new MemoryStream();
     var msg = JSON.stringify({hello: 'world'});
     var opts = {

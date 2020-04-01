@@ -31,7 +31,7 @@
         "lstream": "0.0.4",
         "mahi": "2.4.0",
         "marlin": "git+https://github.com/joyent/manta-marlin.git#57150b778bc5cf41a7d366de0ea7230648866b05",
-        "mime": "1.6.0",
+        "mime": "1.4.0",
         "moray": "3.4.1",
         "moray-filter": "1.0.0",
         "once": "1.4.0",
