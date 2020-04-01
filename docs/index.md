@@ -1,7 +1,7 @@
 ---
 title: Joyent Manta Service REST API
 markdown2extras: wiki-tables, code-friendly
-apisections: Directories, Objects, Jobs, SnapLinks
+apisections: Directories, Objects, Jobs, SnapLinks, Multipart Uploads
 ---
 <!--
     This Source Code Form is subject to the terms of the Mozilla Public
@@ -30,6 +30,7 @@ There are also detailed reference materials:
 
 * [Object Storage Reference](storage-reference.html)
 * [Compute Jobs Reference](jobs-reference.html)
+* [Multipart Uploads Reference](mpu-reference.html)
 
 ## Conventions
 
@@ -189,9 +190,11 @@ The complete list of codes that will be sent are:
 - DirectoryNotEmptyError
 - DirectoryOperationError
 - InternalError
+- InvalidMultipartUploadStateError
 - JobNotFoundError
 - JobStateError
 - KeyDoesNotExistError
+- MultipartUploadInvalidArgumentError
 - NotAcceptableError
 - NotEnoughSpaceError
 - LinkNotFoundError
@@ -951,3 +954,354 @@ Additional newlines added for clarity:
       "key": "/$MANTA_USER/stor/words.4"
     }
 
+
+# Multipart Uploads
+
+## CreateMultipartUpload (POST /:login/uploads)
+
+Creates a new mulitpart upload. This call is not idempotent, so calling it
+twice, even with the same inputs, will create two mulitpart uploads.  On
+success, an HTTP `201` is returned with a JSON document containing the URI for
+the multipart upload and its ID in the response body.
+
+### Inputs
+
+The body of this request must be a JSON document with the following properties:
+
+||**Name**||**JS Type**||**Description**||
+||objectPath||String||*(required)* the Manta path where the target object will be stored||
+||headers||Array(String)||(optional) an array of headers to store on the target object||
+
+Headers supplied in the request body will be stored as headers on the target
+object when the multipart upload is committed.  Headers may only be provided
+when the multipart upload is created and cannot be changed until after the
+target object has been committed.  As with all Manta objects, you are allowed
+4 KB of header data.
+
+The following headers are supported for target objects:
+
+- Content-Length
+- Content-MD5
+- Durability-Level
+
+
+The following headers are not supported and will cause the request to fail with
+a MultipartUploadInvalidArgumentError:
+
+- If-Match
+- If-None-Match
+- If-Modified-Since
+- If-Unmodified-Since
+
+Unsupported headers may change in future revisions.
+
+### Sample Request
+
+To use the sample request data below exactly, replace $MANTA_USER with your
+Manta login.
+
+    $ cat mpu.json
+    {
+        "objectPath": "/$MANTA_USER/stor/myObj.txt",
+        "headers": {
+            "content-length": 5242900,
+            "content-md5": "e1iePOxoKQYqJS6MLu6lyg=="
+        }
+    }
+
+    $ manta /$MANTA_USER/uploads -X POST -H 'content-type: application/json' --data-binary @mpu.json
+
+    POST /$MANTA_USER/uploads HTTP/1.1
+    Host: us-east.manta.joyent.com
+    User-Agent: curl/7.51.0
+    Accept: */*
+    content-type: application/json
+    date: Tue, 09 Jan 2018 22:44:29 GMT
+    Authorization: $Authorization
+    Content-Length: 161
+
+
+    HTTP/1.1 201 Created
+    Connection: close
+    Content-Type: application/json
+    Content-Length: 125
+    Content-MD5: xrJUHTD0ZjzZUZElJdezDA==
+    Date: Tue, 09 Jan 2018 22:44:30 GMT
+    Server: Manta/2
+    x-request-id: a73fb1e0-f58e-11e7-83c3-f3f97664d32b
+    x-response-time: 453
+    x-server-name: 9857d980-a49b-c317-b313-d1649b6ed333
+
+    {
+        "id":"d52da3a7-a55c-4961-b95a-84fbfc5d7903",
+        "partsDirectory":"/$MANTA_USER/uploads/d52/d52da3a7-a55c-4961-b95a-84fbfc5d7903"
+    }
+
+## UploadPart (PUT /:login/uploads/[0-f]+/:id/:partNum)
+
+Creates or overwrites a part for a multipart upload.  This operation generally
+functions like the PutObject operation, with some key differences highlighted
+below.  On success, an HTTP `204` is returned.
+
+As with PutObject, an etag for the part is returned in the "Etag" header of the
+response.  The service uses etags and part numbers to identify parts when the
+multipart upload is committed, so you should save this value to use for the
+CommitMultipartUpload operation.
+
+The service will store the number of copies specified in the `Durability-Level`
+header input to CreateMultipartUpload when the multipart upload was created, or
+two copies if no durability level was specified.  As with all target object
+headers, the durability level cannot be changed once a multipart upload is
+created.
+
+As with the PutObject operation, you may specify a `Content-MD5` header for the
+part, which the service will verify matches the data uploaded.  Unlike
+PutObject, conditional request semantics (e.g., `If-Match` or
+`If-Modified-Since`) are not supported for UploadPart.
+
+The multipart upload API requires a minimum part size of 5 MB for all parts
+except the last one. This size is validated when CommitMultipartUpload is
+called.  UploadPart operations will succeed even if the part is under the
+minimum size.
+
+Any part number between 0 and 9999 is valid, but committing a multipart upload
+requires consecutive parts starting from part 0.  See
+[CommitMultipartUpload](#CommitMultipartUpload) for details.
+
+### Sample Request
+
+    $ manta /$MANTA_USER/uploads/d52/d52da3a7-a55c-4961-b95a-84fbfc5d7903/0 \
+        -X PUT -H 'content-type: text/plain' --data-binary @5mb-part.txt
+
+    PUT /$MANTA_USER/uploads/d52/d52da3a7-a55c-4961-b95a-84fbfc5d7903/0
+    HTTP/1.1
+    Host: us-east.manta.joyent.com
+    User-Agent: curl/7.51.0
+    Accept: */*
+    content-type: text/plain
+    date: Wed, 10 Jan 2018 22:02:51 GMT
+    Authorization: $Authorization
+    Content-Length: 5242880
+    Expect: 100-continue
+
+
+    HTTP/1.1 100 Continue
+
+
+    HTTP/1.1 204 No Content
+    Connection: close
+    Etag: 92a9e0de-9498-46bf-b559-0da424a5ea77
+    Last-Modified: Wed, 10 Jan 2018 22:02:52 GMT
+    Computed-MD5: XzY+DlipXwbL6bvGYsXftg==
+    Date: Wed, 10 Jan 2018 22:02:52 GMT
+    Server: Manta/2
+    x-request-id: 00a2f440-f652-11e7-958f-0db50252a777
+    x-response-time: 633
+    x-server-name: 9857d980-a49b-c317-b313-d1649b6ed333
+
+
+## GetMultipartUpload (GET /:login/uploads/[0-f]+/:id/state)
+
+Gets the high-level multipart upload container object for a given id.
+Content-type will be `application/json`.  An HTTP `204` is returned on success.
+
+### Sample Request
+
+    $ manta /$MANTA_USER/uploads/d52/d52da3a7-a55c-4961-b95a-84fbfc5d7903/state | json
+
+    GET /$MANTA_USER/uploads/d52/d52da3a7-a55c-4961-b95a-84fbfc5d7903/state
+    HTTP/1.1
+    Host: us-east.manta.joyent.com
+    User-Agent: curl/7.51.0
+    Accept: */*
+    date: Wed, 10 Jan 2018 22:08:51 GMT
+    Authorization: $Authorization
+
+
+    HTTP/1.1 200 OK
+    Connection: close
+    Content-Type: application/json
+    Content-Length: 311
+    Content-MD5: Gy/GKwCzvvOt2NuQXxfOkg==
+    Date: Wed, 10 Jan 2018 22:08:52 GMT
+    Server: Manta/2
+    x-request-id: d762ff70-f652-11e7-958f-0db50252a777
+    x-response-time: 267
+    x-server-name: 9857d980-a49b-c317-b313-d1649b6ed333
+
+
+    {
+         "id": "d52da3a7-a55c-4961-b95a-84fbfc5d7903",
+         "state": "created",
+         "partsDirectory": "/$MANTA_USER/uploads/d52/d52da3a7-a55c-4961-b95a-84fbfc5d7903",
+         "targetObject": "/$MANTA_USER/stor/myObj.txt",
+         "headers": {
+             "content-length": 5242900,
+             "content-md5": "e1iePOxoKQYqJS6MLu6lyg=="
+         },
+         "numCopies": 2,
+         "creationTimeMs": 1515537870145
+    }
+
+## CommitMultipartUpload (POST /:login/uploads/[0-f]+/:id/commit)
+
+Commits the multipart upload with the input set of parts.
+This operation is atomic and idempotent.  Once a multipart upload is committed,
+it cannot be aborted or committed with a different set of parts, though the
+operation may be safely retried with the same inputs.  On success, an HTTP `201`
+is returned with the URI of the target object in the `Location` header.  The
+URI of the target object is the same as the "objectPath" specified when the
+multipart upload was created.
+
+### Inputs
+
+The body of this request must be a JSON document with the following properties:
+
+||**Name**||**JS Type**||**Description**||
+||parts||Array(String)||*(required)* array of etags of parts to commit, in order, starting from part 0||
+
+The service will verify that the part etags specified in the input array match
+what is currently in Manta and that all parts, except the last part, meet the
+minimum part size of 5 MB.  Additionally, the service will verify that the
+caller has permissions to operate on the "objectPath" URI specified when the
+multipart upload was created.
+
+### Sample Request
+
+    $ cat commit.json
+    {
+        "parts": [
+            "92a9e0de-9498-46bf-b559-0da424a5ea77",
+            "e1bbee18-72e8-409d-ad75-b359989e8c1a"
+        ]
+    }
+
+    $ manta /$MANTA_USER/uploads/af1/af143a31-c332-4442-a9a9-773894fe98c3/commit -X POST \
+        -H 'content-type: application/json' --data-binary @commit.json
+
+    POST /$MANTA_USER/uploads/af1/af143a31-c332-4442-a9a9-773894fe98c3/commit
+    HTTP/1.1
+    Host: us-east.manta.joyent.com
+    User-Agent: curl/7.51.0
+    Accept: */*
+    content-type: application/json
+    date: Wed, 10 Jan 2018 22:33:28 GMT
+    Authorization: $Authorization
+    Content-Length: 120
+
+
+    HTTP/1.1 201 Created
+    Connection: close
+    Etag: 68b5778d-85a9-4529-9bfd-fb9fe52e3b3a
+    Last-Modified: Wed, 10 Jan 2018 22:33:25 GMT
+    Location: /$MANTA_USER/stor/myObj.txt
+    Computed-MD5: e1iePOxoKQYqJS6MLu6lyg==
+    Date: Wed, 10 Jan 2018 22:33:29 GMT
+    Server: Manta/2
+    x-request-id: 4771cc30-f656-11e7-958f-0db50252a777
+    x-response-time: 994
+    x-server-name: 9857d980-a49b-c317-b313-d1649b6ed333
+    Transfer-Encoding: chunked
+
+
+## AbortMultipartUpload (POST /:login/uploads/[0-f]+/:id/abort)
+
+Aborts the multipart upload.  This operation is atomic and idempotent.  Once a
+multipart upload has been aborted, it cannot be committed, but the
+AbortMultipartUpload operation may safely be retried.  On success, an HTTP `204`
+is returned.
+
+### Sample Request
+
+    $ manta /$MANTA_USER/uploads/d52/d52da3a7-a55c-4961-b95a-84fbfc5d7903/abort -X POST
+
+    POST /$MANTA_USER/uploads/d52/d52da3a7-a55c-4961-b95a-84fbfc5d7903/abort
+    HTTP/1.1
+    Host: us-east.manta.joyent.com
+    User-Agent: curl/7.51.0
+    Accept: */*
+    date: Wed, 10 Jan 2018 22:14:01 GMT
+    Authorization: $Authorization
+
+
+    HTTP/1.1 204 No Content
+    Connection: close
+    Date: Wed, 10 Jan 2018 22:14:02 GMT
+    Server: Manta/2
+    x-request-id: 90376f40-f653-11e7-958f-0db50252a777
+    x-response-time: 308
+    x-server-name: 9857d980-a49b-c317-b313-d1649b6ed333
+
+# Multipart Upload Redirect Endpoints
+
+To allow clients to resolve a multipart upload's URI based only on its upload
+ID, requests to `/:login/uploads/:id` and `/:login/uploads/:id/:partNum` will
+redirect the request to the multipart upload's fully qualified parts directory.
+On success, an HTTP `301` is returned, with the parts directory URI in the
+"Location" response header.
+
+### Sample Request
+
+    $ manta /$MANTA_USER/uploads/d52da3a7-a55c-4961-b95a-84fbfc5d7903
+
+    GET /$MANTA_USER/uploads/d52da3a7-a55c-4961-b95a-84fbfc5d7903 HTTP/1.1
+    Host: us-east.manta.joyent.com
+    User-Agent: curl/7.51.0
+    Accept: */*
+    date: Wed, 10 Jan 2018 23:15:49 GMT
+    Authorization: $Authorization
+
+
+    HTTP/1.1 301 Moved Permanently
+    Connection: close
+    Location: /$MANTA_USER/uploads/d52/d52da3a7-a55c-4961-b95a-84fbfc5d7903
+    Date: Wed, 10 Jan 2018 23:15:50 GMT
+    Server: Manta/2
+    x-request-id: 325fc210-f65c-11e7-958f-0db50252a777
+    x-response-time: 141
+    x-server-name: 9857d980-a49b-c317-b313-d1649b6ed333
+    Transfer-Encoding: chunked
+
+If the multipart upload does not exist, the redirect endpoints will return an
+HTTP `404`:
+
+    $ manta /$MANTA_USER/uploads/1afb5e32-ae0e-4b4a-b4db-efaa3c694527 | json
+
+    GET /$MANTA_USER/uploads/1afb5e32-ae0e-4b4a-b4db-efaa3c694527 HTTP/1.1
+    Host: 172.27.13.143:8080
+    Host: us-east.manta.joyent.com
+    User-Agent: curl/7.51.0
+    Accept: */*
+    date: Wed, 10 Jan 2018 23:19:25 GMT
+    Authorization: $Authorization
+
+
+    HTTP/1.1 404 Not Found
+    Connection: close
+    Content-Type: application/json
+    Content-Length: 110
+    Content-MD5: OwMLZJnfs9GTFuLlfsVOAg==
+    Date: Wed, 10 Jan 2018 23:19:26 GMT
+    Server: Manta/2
+    x-request-id: b30da710-f65c-11e7-958f-0db50252a777
+    x-response-time: 66
+    x-server-name: 9857d980-a49b-c317-b313-d1649b6ed333
+
+    {
+        "code": "ResourceNotFound",
+        "message": "/$MANTA_USER/uploads/1afb5e32-ae0e-4b4a-b4db-efaa3c694527 was not found"
+    }
+
+
+The complete list of redirect endpoints is as follows:
+
+- GET /:login/uploads/:id
+- PUT /:login/uploads/:id
+- HEAD /:login/uploads/:id
+- POST /:login/uploads/:id
+- DELETE /:login/uploads/:id
+- GET /:login/uploads/:id/:partNum
+- PUT /:login/uploads/:id/:partNum
+- HEAD /:login/uploads/:id/:partNum
+- POST /:login/uploads/:id/:partNum
+- DELETE /:login/uploads/:id/:partNum

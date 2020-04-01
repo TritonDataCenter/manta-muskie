@@ -177,6 +177,17 @@
     }}
     "maximum": 2000
   },
+
+  {{#MPU_ENABLE}}
+  "enableMPU": true,
+
+  "multipartUpload": {
+  {{#MUSKIE_MPU_PREFIX_DIR_LEN}}
+    "prefixDirLen": {{MUSKIE_MPU_PREFIX_DIR_LEN}}
+    {{/MUSKIE_MPU_PREFIX_DIR_LEN}}
+  },
+  {{/MPU_ENABLE}}
+
   "medusa": {
     "moray": {
       "srvDomain": "{{ELECTRIC_MORAY}}",

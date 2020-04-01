@@ -9,6 +9,8 @@
         "url": "git+ssh://git@github.com:joyent/muskie.git"
     },
     "dependencies": {
+        "ajv": "5.2.2",
+        "ajv-keywords": "2.1.0",
         "aperture-config": "git+https://github.com/joyent/aperture-config.git#448811fa1696cd6c63d8d3391187c084b39b2e7b",
         "artedi": "1.1.1",
         "assert-plus": "0.1.5",
