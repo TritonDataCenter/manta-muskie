@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2019, Joyent, Inc.
+ * Copyright 2020 Joyent, Inc.
  */
 
 var crypto = require('crypto');
@@ -137,12 +137,10 @@ test('put object', function (t) {
 
 
 test('put overwrite', function (t) {
-    var etag;
     var self = this;
     this.putObject(t, function (_, headers) {
-        etag = headers.etag;
         self.putObject(t, function (__, headers2) {
-            t.ok(etag !== headers2.etag);
+            t.notEqual(headers.etag, headers2.etag, 'etags differ');
             t.end();
         });
     });
@@ -436,17 +434,16 @@ test('MANTA-625 (custom headers)', function (t) {
 
 
 test('put if-match ok', function (t) {
-    var etag;
     var self = this;
     this.putObject(t, function (_, headers) {
-        etag = headers.etag;
+        var etag = headers.etag;
         var opts = {
             headers: {
                 'if-match': etag
             }
         };
         self.putObject(t, opts, function (__, headers2) {
-            t.ok(etag !== headers2.etag);
+            t.notEqual(etag, headers2.etag, 'etags differ');
             t.end();
         });
     });
@@ -473,17 +470,15 @@ test('put if-match fail', function (t) {
 
 
 test('put if-none-match ok', function (t) {
-    var etag;
     var self = this;
     this.putObject(t, function (_, headers) {
-        etag = headers.etag;
         var opts = {
             headers: {
                 'if-none-match': uuid.v4()
             }
         };
         self.putObject(t, opts, function (__, headers2) {
-            t.ok(etag !== headers2.etag);
+            t.notEqual(headers.etag, headers2.etag, 'etags differ');
             t.end();
         });
     });
@@ -515,14 +510,13 @@ test('put unmodified-since ok', function (t) {
     var self = this;
     this.putObject(t, function (_, headers) {
         var date = headers['last-modified'];
-        var etag = headers.etag;
         var opts = {
             headers: {
                 'if-unmodified-since': date
             }
         };
         self.putObject(t, opts, function (__, headers2) {
-            t.ok(etag !== headers2.etag);
+            t.notEqual(headers.etag, headers2.etag, 'etags differ');
             t.end();
         });
     });
