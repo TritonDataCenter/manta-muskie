@@ -7,7 +7,7 @@
 -->
 
 <!--
-    Copyright (c) 2014, Joyent, Inc.
+    Copyright 2020 Joyent, Inc.
 -->
 
 <service_bundle type="manifest" name="muskie">
@@ -55,8 +55,6 @@
                 <method_environment>
                     <envvar name="PATH"
                             value="/opt/smartdc/muskie/build/node/bin:/opt/local/bin:/usr/bin:/usr/sbin:/bin"/>
-                    <envvar name="LD_PRELOAD_32"
-                            value="/usr/lib/extendedFILE.so.1" />
                     <envvar name="NODE_NDEBUG" value="1" />
 		</method_environment>
             </method_context>
