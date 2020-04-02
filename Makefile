@@ -35,8 +35,9 @@ SMF_MANIFESTS_IN =	smf/manifests/muskie.xml.in \
 #
 NAME 			= muskie
 NODE_PREBUILT_TAG       = zone64
-NODE_PREBUILT_VERSION	:= v6.17.0
-NODE_PREBUILT_IMAGE     = c2c31b00-1d60-11e9-9a77-ff9f06554b0f
+NODE_PREBUILT_VERSION	:= v6.17.1
+#  minimal-64-lts 19.4.0
+NODE_PREBUILT_IMAGE     = 5417ab20-3156-11ea-8b19-2b66f5e7a439
 
 ENGBLD_USE_BUILDIMAGE	= true
 ENGBLD_REQUIRE		:= $(shell git submodule update --init deps/eng)
