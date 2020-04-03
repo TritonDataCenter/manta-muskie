@@ -50,18 +50,6 @@
         }
     }
   },
-  "marlin": {
-    "moray": {
-        "srvDomain": "{{MARLIN_MORAY_SHARD}}",
-        "cueballOptions": {
-            "resolvers": ["nameservice.{{DOMAIN_NAME}}"]
-        }
-    },
-    "jobCache": {
-      "size": 500,
-      "expiry": 30
-    }
-  },
 
   {{!
     These settings are used for the generic cueball HttpAgent. This is used
@@ -188,18 +176,6 @@
   },
   {{/MPU_ENABLE}}
 
-  "medusa": {
-    "moray": {
-      "srvDomain": "{{ELECTRIC_MORAY}}",
-      "cueballOptions": {
-          "resolvers": ["nameservice.{{DOMAIN_NAME}}"]
-      }
-    },
-    "reflector": {
-      "host": "{{MEDUSA_REFLECTOR}}",
-      "port": 8381
-    }
-  },
   "storage": {
     "lag": 60000,
     "multiDC": {{MUSKIE_MULTI_DC}}{{#MUSKIE_DEFAULT_MAX_STREAMING_SIZE_MB}},
