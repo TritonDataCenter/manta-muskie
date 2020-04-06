@@ -24,6 +24,7 @@ var after = helper.after;
 var before = helper.before;
 var test = helper.test;
 
+var mpuEnabled = Boolean(require('../etc/config.json').enableMPU);
 
 
 ///--- Helpers
@@ -244,6 +245,9 @@ before(function (cb) {
     this.operatorClient = helper.createOperatorClient();
     this.top = '/' + this.client.user;
     this.root = this.top + '/stor';
+    if (mpuEnabled) {
+        this.mpuRoot = this.top + '/uploads';
+    }
     this.dir = this.root + '/' + uuid.v4();
     this.key = this.dir + '/' + uuid.v4();
     this.client.mkdir(this.dir, cb);
@@ -506,8 +510,8 @@ test('ls top', function (t) {
         res.once('end', function (http_res) {
             t.ok(http_res);
             t.checkResponse(http_res, 200);
-            t.equal(0, objs.length);
-
+            t.equal(0, objs.length,
+                'zero *objects* at top level `ls /:login`: objs=' + objs);
             var names = dirs.map(function (d) {
                 return (d.name);
             }).filter(function (d) {
@@ -516,7 +520,6 @@ test('ls top', function (t) {
                 }
                 return (true);
             }).sort();
-
             t.deepEqual(names, ['public', 'reports', 'stor']);
             t.end();
         });
@@ -551,7 +554,6 @@ test('ls top with marker', function (t) {
             t.ok(http_res);
             t.checkResponse(http_res, 200);
             t.equal(0, objs.length);
-
             var names = dirs.map(function (d) {
                 return (d.name);
             }).filter(function (d) {
@@ -560,8 +562,7 @@ test('ls top with marker', function (t) {
                 }
                 return (true);
             }).sort();
-
-            t.deepEqual(names, ['reports', 'stor']);
+            t.deepEqual(['reports', 'stor'], names);
             t.end();
         });
     });
@@ -577,6 +578,18 @@ test('rmdir top', function (t) {
         t.end();
     });
 });
+
+if (mpuEnabled) {
+    test('rmdir mpuRoot', function (t) {
+        this.client.unlink(this.mpuRoot, function (err, res) {
+            t.ok(err);
+            t.ok(res);
+            t.equal(err.name, 'OperationNotAllowedOnRootDirectoryError');
+            t.checkResponse(res, 400);
+            t.end();
+        });
+    });
+}
 
 test('mkdir root', function (t) {
     this.client.mkdir(this.root, function (err, res) {
