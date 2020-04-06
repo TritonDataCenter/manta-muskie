@@ -170,7 +170,7 @@ function testListWithParams(t, params) {
     var subdirs = [];
     var count = 5;
     var i;
-    for (i = 0; i < ount; i++) {
+    for (i = 0; i < count; i++) {
         subdirs.push(self.dir + '/' + uuid.v4());
     }
     subdirs = subdirs.sort();
