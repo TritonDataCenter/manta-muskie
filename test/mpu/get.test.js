@@ -26,6 +26,9 @@ var test = testHelper.test;
 
 var ifErr = helper.ifErr;
 
+var mpuEnabled = Boolean(require('../../etc/config.json').enableMPU);
+if (mpuEnabled) {
+
 before(function (cb) {
     helper.initMPUTester.call(this, cb);
 });
@@ -87,3 +90,5 @@ test('get upload: non-existent id', function (t) {
         t.end();
     });
 });
+
+} // mpuEnabled

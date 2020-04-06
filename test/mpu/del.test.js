@@ -27,6 +27,9 @@ var test = testHelper.test;
 var ifErr = helper.ifErr;
 
 
+var mpuEnabled = Boolean(require('../../etc/config.json').enableMPU);
+if (mpuEnabled) {
+
 before(function (cb) {
     helper.initMPUTester.call(this, cb);
 });
@@ -375,3 +378,5 @@ test('del part: operator but query param is not bool', function (t) {
         });
     });
 });
+
+} // mpuEnabled

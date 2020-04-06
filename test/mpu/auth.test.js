@@ -28,6 +28,9 @@ var ifErr = helper.ifErr;
 var computePartsMD5 = helper.computePartsMD5;
 
 
+var mpuEnabled = Boolean(require('../../etc/config.json').enableMPU);
+if (mpuEnabled) {
+
 before(function (cb) {
     helper.initMPUTester.call(this, cb);
 });
@@ -714,3 +717,5 @@ test('DELETE /:account/uploads/[0-f]/:id/:partNum disallowed', function (t) {
         });
     });
 });
+
+} // mpuEnabled

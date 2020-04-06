@@ -29,6 +29,8 @@ var computePartsMD5 = helper.computePartsMD5;
 var createPartOptions = helper.createPartOptions;
 var writeObject = helper.writeObject;
 
+var mpuEnabled = Boolean(require('../../etc/config.json').enableMPU);
+if (mpuEnabled) {
 
 before(function (cb) {
     helper.initMPUTester.call(this, cb);
@@ -192,3 +194,5 @@ test('abort upload: non-existent id', function (t) {
         t.end();
     });
 });
+
+} // mpuEnabled
