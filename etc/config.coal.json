@@ -38,10 +38,6 @@
             "cueballOptions": {
                 "resolvers": [ "nameservice.coal.joyent.us" ]
             }
-        },
-        "jobCache": {
-            "size": 500,
-            "expiry": 30
         }
     },
     "cueballHttpAgent": {
@@ -69,18 +65,6 @@
             "delay": 0,
             "maxDelay": 0
           }
-        }
-    },
-    "medusa": {
-        "moray": {
-          "srvDomain": "electric-moray.coal.joyent.us",
-          "cueballOptions": {
-              "resolvers": ["nameservice.coal.joyent.us"]
-          }
-        },
-        "reflector": {
-            "host": "medusa.coal.joyent.us",
-            "port": 8381
         }
     },
     "storage": {

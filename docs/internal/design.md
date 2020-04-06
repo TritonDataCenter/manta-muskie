@@ -30,11 +30,6 @@ At runtime, muskie depends on [mahi](https://github.com/joyent/mahi) for
 authentication/authorization, the
 [electric-moray](https://github.com/joyent/electric-moray) stack for
 object traffic, and [mako](https://github.com/joyent/mako) for writing objects.
-The same [moray](https://github.com/joyent/moray) instance that
-[marlin](https://github.com/joyent/manta-marlin) uses is contacted for all APIs
-involving job management.  Lastly,
-[medusa](https://github.com/joyent/manta-medusa) is needed for `mlogin`
-functionality.
 
 ## Storage Picker
 

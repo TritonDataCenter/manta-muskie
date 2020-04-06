@@ -318,7 +318,7 @@ function clientsConnected(appName, cfg, clients) {
 
     /*
      * Establish minimal set of client connections required to begin
-     * successfully servicing non-jobs read requests.
+     * successfully servicing read requests.
      */
 
     clients.agent = new cueball.HttpAgent(cfg.cueballHttpAgent);
@@ -327,7 +327,7 @@ function clientsConnected(appName, cfg, clients) {
     barrier.start('createMorayClient');
     createMorayClient(cfg, onMorayConnect.bind(null, clients, barrier));
 
-    // Establish other client connections needed for writes and jobs requests.
+    // Establish other client connections needed for write requests.
     createPickerClient(cfg.storage, cfg.log,
         onPickerConnect.bind(null, clients));
     clients.sharkAgent = createCueballSharkAgent(cfg.sharkConfig);

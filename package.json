@@ -1,7 +1,7 @@
 {
     "name": "muskie",
     "description": "Manta public-facing WebAPI",
-    "version": "999.0.0",
+    "version": "2.1.0",
     "author": "Joyent (joyent.com)",
     "private": true,
     "repository": {

@@ -1,7 +1,7 @@
 ---
 title: Joyent Manta Service REST API
 markdown2extras: wiki-tables, code-friendly
-apisections: Directories, Objects, Jobs, SnapLinks, Multipart Uploads
+apisections: Directories, Objects, SnapLinks, Multipart Uploads
 ---
 <!--
     This Source Code Form is subject to the terms of the Mozilla Public
@@ -29,7 +29,6 @@ examples using the CLI and setting up your environment.
 There are also detailed reference materials:
 
 * [Object Storage Reference](storage-reference.html)
-* [Compute Jobs Reference](jobs-reference.html)
 * [Multipart Uploads Reference](mpu-reference.html)
 
 ## Conventions
@@ -180,7 +179,6 @@ The complete list of codes that will be sent are:
 - InvalidCredentialsError
 - InvalidDurabilityLevelError
 - InvalidKeyIdError
-- InvalidJobError
 - InvalidLinkError
 - InvalidLimitError
 - InvalidSignatureError
@@ -191,8 +189,6 @@ The complete list of codes that will be sent are:
 - DirectoryOperationError
 - InternalError
 - InvalidMultipartUploadStateError
-- JobNotFoundError
-- JobStateError
 - KeyDoesNotExistError
 - MultipartUploadInvalidArgumentError
 - NotAcceptableError
@@ -210,12 +206,6 @@ The complete list of codes that will be sent are:
 - SSLRequiredError
 - UploadTimeoutError
 - UserDoesNotExistError
-
-Additionally, jobs may emit the above errors, or:
-
-|| **Error name** || **Reason** ||
-|| TaskInitError  || Failed to initialize a task (usually a failure to load assets). ||
-|| UserTaskError  || User's script returned a non-zero status or one of its processes dumped core. ||
 
 # Directories
 
