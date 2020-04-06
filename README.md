@@ -17,7 +17,7 @@ guidelines, issues, and general documentation, visit the main
 manta-muskie holds the source code for the Manta WebAPI, otherwise known as
 "the front door".  It is analogous to CloudAPI for SDC.  See the restdown
 docs for API information, but effectively this is where you go to call
-PUT/GET/DEL on your stuff, as well as to submit and control compute jobs.
+PUT/GET/DEL on your stuff.
 
 API documentation is in [docs/index.md](./docs/index.md).  Some design
 documentation (possibly quite dated) is in [docs/internal](./docs/internal).
@@ -197,7 +197,7 @@ check first before reporting problems:
 3. If a test fails with a message like "Error: MUSKIE\_SALT required", then
    check that you've specified the three `MUSKIE_` environment variables
    described above.
-4. If a test fails due to authorization errors (perhaps while completing a job),
+4. If a test fails due to authorization errors,
    you may have an incorrect muskie configuration. Check that the `MUSKIE_ID`,
    `MUSKIE_KEY` and `MUSKIE_IV` attributes in your config.json match the
    environment variables set for the user running the tests (`$MANTA_USER`).

@@ -511,7 +511,7 @@ test('ls top', function (t) {
             var names = dirs.map(function (d) {
                 return (d.name);
             }).filter(function (d) {
-                if (d === 'uploads' || d === 'jobs') {
+                if (d === 'uploads') {
                     return (false);
                 }
                 return (true);
@@ -555,7 +555,7 @@ test('ls top with marker', function (t) {
             var names = dirs.map(function (d) {
                 return (d.name);
             }).filter(function (d) {
-                if (d === 'uploads' || d === 'jobs') {
+                if (d === 'uploads') {
                     return (false);
                 }
                 return (true);

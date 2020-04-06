@@ -23,8 +23,6 @@ var kang = require('kang');
 var keyapi = require('keyapi');
 var libmanta = require('libmanta');
 var mahi = require('mahi');
-var marlin = require('marlin');
-var medusa = require('./lib/medusa');
 var once = require('once');
 var restify = require('restify');
 var vasync = require('vasync');
@@ -217,58 +215,6 @@ function createKeyAPIClient(opts, clients) {
 }
 
 
-function onMarlinConnect(clients, marlinClient) {
-    clients.marlin = marlinClient;
-}
-
-
-function createMarlinClient(opts, onConnect) {
-    var log = opts.log.child({component: 'marlin'}, true);
-    var _opts = {
-        moray: opts.moray,
-        setup_jobs: true,
-        log: log
-    };
-
-    marlin.createClient(_opts, function (err, marlinClient) {
-        if (err) {
-            log.fatal(err, 'marlin: unable to create a client');
-            process.nextTick(createMarlinClient.bind(null, opts));
-        } else {
-            log.info({
-                remote: marlinClient.ma_client.host
-            }, 'marlin: ready');
-
-            /*
-             * In general, for various failures, we should get both an 'error'
-             * and a 'close' event.  We want to wait for both so that we don't
-             * start reconnecting while the first client is still connected.  (A
-             * persistent error could result in way too many Moray connections.)
-             */
-            var barrier = vasync.barrier();
-            barrier.start('wait-for-close');
-            marlinClient.on('close', function () {
-                barrier.done('wait-for-close');
-            });
-
-            barrier.start('wait-for-error');
-            marlinClient.on('error', function (marlin_err) {
-                log.error(marlin_err, 'marlin error');
-                barrier.done('wait-for-error');
-                marlinClient.close();
-            });
-
-            barrier.on('drain', function doReconnect() {
-                log.info('marlin: reconnecting');
-                createMarlinClient(opts);
-            });
-
-            onConnect(marlinClient);
-        }
-    });
-}
-
-
 function onMorayConnect(clients, barrier, morayClient) {
     clients.moray = morayClient;
     barrier.done('createMorayClient');
@@ -305,29 +251,6 @@ function createMorayClient(cfg, onConnect) {
         onConnect(client);
     });
 }
-
-
-function onMedusaConnect(clients, medusaClient) {
-    clients.medusa = medusaClient;
-}
-
-
-function createMedusaConnector(opts, onConnect) {
-    assert.object(opts, 'options');
-    assert.object(opts.log, 'options.log');
-
-    var log = opts.log.child({ component: 'medusa' });
-    log.debug({ opts: opts }, 'medusa options');
-
-    var client = medusa.createConnector(opts);
-
-    client.once('connect', function _onConnect() {
-        log.info('medusa: connected');
-        onConnect(client);
-    });
-}
-
-
 
 
 function clientsConnected(appName, cfg, clients) {
@@ -395,7 +318,7 @@ function clientsConnected(appName, cfg, clients) {
 
     /*
      * Establish minimal set of client connections required to begin
-     * successfully servicing non-jobs read requests.
+     * successfully servicing read requests.
      */
 
     clients.agent = new cueball.HttpAgent(cfg.cueballHttpAgent);
@@ -404,11 +327,9 @@ function clientsConnected(appName, cfg, clients) {
     barrier.start('createMorayClient');
     createMorayClient(cfg, onMorayConnect.bind(null, clients, barrier));
 
-    // Establish other client connections needed for writes and jobs requests.
+    // Establish other client connections needed for write requests.
     createPickerClient(cfg.storage, cfg.log,
         onPickerConnect.bind(null, clients));
-    createMarlinClient(cfg.marlin, onMarlinConnect.bind(null, clients));
-    createMedusaConnector(cfg.medusa, onMedusaConnect.bind(null, clients));
     clients.sharkAgent = createCueballSharkAgent(cfg.sharkConfig);
     clients.keyapi = createKeyAPIClient(cfg);
 

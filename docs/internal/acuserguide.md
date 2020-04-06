@@ -5,7 +5,7 @@
 -->
 
 <!--
-    Copyright (c) 2014, Joyent, Inc.
+    Copyright 2020 Joyent, Inc.
 -->
 
 # Access Control User Guide
@@ -36,7 +36,7 @@ broken down to four logical components.
 
 * Principal - the "subject", or the identity the rule applies to e.g. Bob
   the Contractor. Principals in the Joyent Cloud are users.
-* Action - the "verb", or the action a user takes e.g., PutObject, CreateJob
+* Action - the "verb", or the action a user takes e.g., PutObject
 * Resource - the "object", or target of the action e.g., machine, Manta object
 * Context - any extra constraints e.g. "between 08:00-17:00", "from eu-ams1"
 
@@ -312,24 +312,6 @@ parent directory is the resource, so role tags are pulled from the parent
 directory. So, in order to allow object creation, there must be a role that
 allows `putobject` access on the directory.
 
-#### Manta Jobs
-
-Job creation and listing access is checked by getting role tags from your
-`~~/jobs` directory.
-
-When you create a job, all the context from the job creation request is saved
-and used when making Manta requests from within the job. Roles that were active
-when the job was created will be used as the active roles for requests in a
-job. The same roles will be used to check for `getobject` access for job inputs.
-
-This also means that objects and directories created during a job are tagged
-with the same roles that were active at job creation. This includes objects and
-directories under `~~/jobs/<uuid>/stor` like intermediate objects (TODO
-MANTA-2173).
-
-An additional piece of context `fromjob` (boolean) is also added to those
-requests.
-
 ## Examples
 
 ### Making a Request
@@ -549,7 +531,6 @@ Some examples of aperture rules:
 
 * `Can getobject if sourceip = 10.0.0.0/32`
 * `Can putobject if day in (Monday, Tuesday, Wednesday, Thursday, Friday)`
-* `Can createjob`
 
 For more information see <https://github.com/joyent/node-aperture>
 
@@ -571,17 +552,13 @@ However, explicit deny is not supported in Joyent's access control system.
 
 | action | related operations |
 | --- | --- |
-| getobject | read object, get archived job stats |
+| getobject | read object |
 | getdirectory | list directories |
 | putobject | create objects, overwrite objects, update object metadata |
 | putdirectory | create directories, update directory metadata |
 | putlink | create snaplinks\* |
 | deleteobject | delete objects |
 | deletedirectory | delete (empty) directories |
-| createjob | create jobs |
-| managejob | add input keys to jobs, end job input, cancel jobs |
-| listjobs | list jobs |
-| getjob | get live job status, errors, inputs, and outputs |
 
 \* You must also have `getobject` access on the source.
 
@@ -616,7 +593,6 @@ Context specific to Manta requests:
 
 | name | [type][types] | description |
 | --- | --- | --- |
-| fromjob | boolean | true iff the request was made from within a Manta job |
 | overwrite | boolean | true iff a request is overwriting an existing object or metadata |
 | parentdirectory | string | full path of the parent directory |
 | ... | ... | ... |
