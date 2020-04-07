@@ -11,3 +11,5 @@ cscope.out
 smf/manifests/*.xml
 *.tar.gz
 *.log
+.DS_Store
+._.DS_Store
