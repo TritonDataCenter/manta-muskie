@@ -527,7 +527,7 @@ test('put unmodified-since fail', function (t) {
     var self = this;
     this.putObject(t, function (_, headers) {
         var d = new Date(Date.parse(headers['last-modified']) - 10000);
-        var old = restify.httpDate(new Date(d));
+        var old = new Date(d).toUTCString();
         var opts = {
             headers: {
                 'if-unmodified-since': old
@@ -719,7 +719,7 @@ test('get if-none-match ok', function (t) {
 test('get if-modified-since ok (data)', function (t) {
     var self = this;
     this.putObject(t, function () {
-        var d = restify.httpDate(new Date(1));
+        var d = new Date(1).toUTCString();
         var opts = {
             headers: {
                 'if-modified-since': d
@@ -737,7 +737,7 @@ test('get if-modified-since ok (data)', function (t) {
 test('get if-modified-since 304', function (t) {
     var self = this;
     this.putObject(t, function () {
-        var d = restify.httpDate(new Date(Date.now() + 10000));
+        var d = new Date(Date.now() + 10000).toUTCString();
         var opts = {
             headers: {
                 'if-modified-since': d
@@ -772,7 +772,7 @@ test('get if-unmodified-since 200', function (t) {
 test('get if-unmodified-since 412', function (t) {
     var self = this;
     this.putObject(t, function (_, headers) {
-        var d = restify.httpDate(new Date(Date.now() - 100000));
+        var d = new Date(Date.now() - 100000).toUTCString();
         var opts = {
             headers: {
                 'if-unmodified-since': d
