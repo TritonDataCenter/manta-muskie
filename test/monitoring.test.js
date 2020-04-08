@@ -5,14 +5,14 @@
  */
 
 /*
- * Copyright (c) 2017, Joyent, Inc.
+ * Copyright 2020 Joyent, Inc.
  */
 
 if (require.cache[__dirname + '/helper.js'])
     delete require.cache[__dirname + '/helper.js'];
 var helper = require('./helper.js');
 
-var restify = require('restify');
+var restifyClients = require('restify-clients');
 var url = require('url');
 var jsprim = require('jsprim');
 
@@ -59,7 +59,7 @@ before(function (cb) {
 });
 
 test('kang handler running', function (t) {
-    var client = restify.createJsonClient({
+    var client = restifyClients.createJsonClient({
         connectTimeout: 250,
         rejectUnauthorized: false,
         retry: false,
@@ -75,7 +75,7 @@ test('kang handler running', function (t) {
 });
 
 test('metric handler running', function (t) {
-    var client = restify.createStringClient({
+    var client = restifyClients.createStringClient({
         connectTimeout: 250,
         rejectUnauthorized: false,
         retry: false,

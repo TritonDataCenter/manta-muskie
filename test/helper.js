@@ -19,6 +19,7 @@ var fs = require('fs');
 var manta = require('manta');
 var once = require('once');
 var restify = require('restify');
+var restifyClients = require('restify-clients');
 var smartdc = require('smartdc');
 var smartdc_auth = require('smartdc-auth');
 var sshpk = require('sshpk');
@@ -162,7 +163,7 @@ function createUserClient(login) {
 
 function createJsonClient() {
     var log = createLogger();
-    var client = restify.createClient({
+    var client = restifyClients.createClient({
         agent: false,
         connectTimeout: 250,
         log: log,
@@ -178,7 +179,7 @@ function createJsonClient() {
 
 function createRawClient() {
     var log = createLogger();
-    var client = restify.createClient({
+    var client = restifyClients.createClient({
         agent: false,
         connectTimeout: 250,
         log: log,
