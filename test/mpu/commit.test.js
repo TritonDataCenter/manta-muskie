@@ -738,7 +738,7 @@ test('commit upload: incorrect part etag', function (t) {
 });
 
 
-test('commit upload: more than 10000 parts specified', function (t) {
+test('commit upload: more than 800 parts specified', function (t) {
     var self = this;
     self.createUpload(self.path, null, function (err) {
         if (ifErr(t, err, 'created upload')) {
@@ -764,7 +764,7 @@ test('commit upload: more than 10000 parts specified', function (t) {
 
             self.commitUpload(self.uploadId, parts, function (err3) {
                 if (!err3) {
-                    t.fail('commit specified > 10000 parts');
+                    t.fail('commit specified > 800 parts');
                     t.end();
                     return;
                 }
