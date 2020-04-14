@@ -343,7 +343,7 @@ test('chattr: content-type', function (t) {
 
 
 
-test('chattr: durability-level (not ok)', function (t) {
+test('chattr: bogus durability-level', function (t) {
     var opts = {
         headers: {
             'durability-level': '4'
@@ -361,7 +361,7 @@ test('chattr: durability-level (not ok)', function (t) {
 });
 
 
-test('chattr: content-md5 (not ok)', function (t) {
+test('chattr: bogus content-md5', function (t) {
     var opts = {
         headers: {
             'content-md5': 'foo'
@@ -379,7 +379,7 @@ test('chattr: content-md5 (not ok)', function (t) {
 });
 
 
-test('chattr: content-length (not ok)', function (t) {
+test('chattr: bogus content-length', function (t) {
     var opts = {
         headers: {
             'content-length': '4'
