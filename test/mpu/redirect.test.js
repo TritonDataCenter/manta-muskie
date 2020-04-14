@@ -134,7 +134,7 @@ test('redirect upload: POST /:account/uploads/:id', function (t) {
         var options = {
             headers: {
                 'content-type': 'application/json',
-                'expect': 'application/json'
+                'accept': 'application/json'
             },
             path: self.redirectPath()
         };
@@ -282,7 +282,7 @@ test('redirect upload: POST /:account/uploads/:id/:partNum', function (t) {
         var options = {
             headers: {
                 'content-type': 'application/json',
-                'expect': 'application/json'
+                'accept': 'application/json'
             },
             path: self.redirectPath(pn)
         };
