@@ -74,10 +74,11 @@ endif
 #
 # Repo-specific targets
 #
-check:: python2-symlink
 
 .PHONY: all
 all: $(SMF_MANIFESTS) $(STAMP_NODE_MODULES) manta-scripts
+
+check:: python2-symlink
 
 .PHONY: manta-scripts
 manta-scripts: deps/manta-scripts/.git
