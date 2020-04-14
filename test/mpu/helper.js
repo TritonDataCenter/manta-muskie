@@ -214,7 +214,7 @@ function createUploadHelper(p, h, client, cb) {
     var opts = {
         headers: {
             'content-type': 'application/json',
-            'expect': 'application/json'
+            'accept': 'application/json'
         },
         path: self.uploadsRoot
     };
