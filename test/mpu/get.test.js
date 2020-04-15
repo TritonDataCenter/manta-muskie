@@ -49,7 +49,7 @@ test('get upload: non-uuid id', function (t) {
     var options = {
         headers: {
             'content-type': 'application/json',
-            'expect': 'application/json'
+            'accept': 'application/json'
         }
     };
 

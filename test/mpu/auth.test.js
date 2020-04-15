@@ -239,7 +239,7 @@ test('POST /:account/uploads/[0-f]/:id disallowed', function (t) {
         var opts = {
             headers: {
                 'content-type': 'application/json',
-                'expect': 'application/json'
+                'accept': 'application/json'
             },
             path: self.uploadPath()
         };
@@ -359,7 +359,7 @@ test('POST /:account/uploads/[0-f]/:id/state disallowed', function (t) {
         var opts = {
             headers: {
                 'content-type': 'application/json',
-                'expect': 'application/json'
+                'accept': 'application/json'
             },
             path: p
         };
@@ -664,7 +664,7 @@ test('POST /:account/uploads/[0-f]/:id/:partNum disallowed', function (t) {
             var opts = {
                 headers: {
                     'content-type': 'application/json',
-                    'expect': 'application/json'
+                    'accept': 'application/json'
                 },
                 path: self.uploadPath(pn)
             };

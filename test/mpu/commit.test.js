@@ -785,7 +785,7 @@ test('commit upload: non-uuid id', function (t) {
     var options = {
         headers: {
             'content-type': 'application/json',
-            'expect': 'application/json'
+            'accept': 'application/json'
         },
         path: '/' + this.client.user + '/uploads/f/' + bogus + '/' + action
     };
