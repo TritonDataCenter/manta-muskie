@@ -8,8 +8,8 @@
  * Copyright 2020 Joyent, Inc.
  */
 
-var uuid = require('node-uuid');
 var path = require('path');
+var uuidv4 = require('uuid/v4');
 var vasync = require('vasync');
 var verror = require('verror');
 
@@ -182,7 +182,7 @@ test('abort upload: non-uuid id', function (t) {
 
 test('abort upload: non-existent id', function (t) {
     var self = this;
-    var bogus = uuid.v4();
+    var bogus = uuidv4();
     self.uploadId = bogus;
 
     self.getUpload(bogus, function (err, upload) {

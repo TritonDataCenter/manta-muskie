@@ -9,7 +9,6 @@
  */
 
 var path = require('path');
-var uuid = require('node-uuid');
 var vasync = require('vasync');
 var verror = require('verror');
 

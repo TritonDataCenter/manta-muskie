@@ -9,8 +9,8 @@
  */
 
 var MemoryStream = require('stream').PassThrough;
-var uuid = require('node-uuid');
 var path = require('path');
+var uuidv4 = require('uuid/v4');
 var vasync = require('vasync');
 var verror = require('verror');
 
@@ -559,7 +559,7 @@ test('commit upload: path is top-level directory', function (t) {
 test('commit upload: parent dir does not exist (parent is top-level dir)',
 function (t) {
     var self = this;
-    var p = '/' + self.client.user + '/' + uuid.v4() + '/foo.txt';
+    var p = '/' + self.client.user + '/' + uuidv4() + '/foo.txt';
 
     self.createUpload(p, null, function (err) {
         if (ifErr(t, err, 'created upload')) {
@@ -817,7 +817,7 @@ test('commit upload: non-uuid id', function (t) {
 
 test('commit upload: non-existent id', function (t) {
     var self = this;
-    var bogus = uuid.v4();
+    var bogus = uuidv4();
     self.uploadId = bogus;
     self.commitUpload(bogus, [], function (err, upload) {
         t.ok(err);

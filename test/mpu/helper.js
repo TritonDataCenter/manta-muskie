@@ -18,7 +18,7 @@ var obj = require('../../lib/obj');
 var path = require('path');
 var sshpk = require('sshpk');
 var util = require('util');
-var uuid = require('node-uuid');
+var uuidv4 = require('uuid/v4');
 
 
 if (require.cache[path.join(__dirname, '/../helper.js')])
@@ -66,8 +66,8 @@ function initMPUTester(tcb) {
 
     self.uploadsRoot = '/' + self.client.user + '/uploads';
     self.root = '/' + self.client.user + '/stor';
-    self.dir = self.root + '/' + uuid.v4();
-    self.path = self.dir + '/' + uuid.v4();
+    self.dir = self.root + '/' + uuidv4();
+    self.path = self.dir + '/' + uuidv4();
 
     self.uploadId = null;
     self.partsDirectory = null;

@@ -5,13 +5,13 @@
  */
 
 /*
- * Copyright (c) 2014, Joyent, Inc.
+ * Copyright 2020 Joyent, Inc.
  */
 
 var crypto = require('crypto');
 
 var MemoryStream = require('stream').PassThrough;
-var uuid = require('node-uuid');
+var uuidv4 = require('uuid/v4');
 
 if (require.cache[__dirname + '/helper.js'])
     delete require.cache[__dirname + '/helper.js'];
@@ -58,8 +58,8 @@ before(function (cb) {
     this.client = helper.createClient();
     this.httpClient = helper.createRawClient();
     this.root = '/' + this.client.user + '/stor';
-    this.dir = this.root + '/' + uuid.v4();
-    this.key = this.dir + '/' + uuid.v4();
+    this.dir = this.root + '/' + uuidv4();
+    this.key = this.dir + '/' + uuidv4();
 
     this.get = function get(t, headers, _cb) {
         var opts = {

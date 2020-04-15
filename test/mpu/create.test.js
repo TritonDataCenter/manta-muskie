@@ -9,7 +9,7 @@
  */
 
 var path = require('path');
-var uuid = require('node-uuid');
+var uuidv4 = require('uuid/v4');
 var verror = require('verror');
 
 if (require.cache[path.join(__dirname, '/../helper.js')])
@@ -293,7 +293,7 @@ test('create upload: no input object path', function (t) {
 
 test('create upload: object path under a nonexistent account', function (t) {
     var self = this;
-    var bogus = uuid.v4();
+    var bogus = uuidv4();
     var p = '/' + bogus + '/foo.txt';
 
     self.createUpload(p, null, function (err) {

@@ -9,7 +9,7 @@
  */
 
 var path = require('path');
-var uuid = require('node-uuid');
+var uuidv4 = require('uuid/v4');
 var vasync = require('vasync');
 var verror = require('verror');
 
@@ -78,7 +78,7 @@ test('get upload: non-uuid id', function (t) {
 
 test('get upload: non-existent id', function (t) {
     var self = this;
-    var bogus = uuid.v4();
+    var bogus = uuidv4();
     self.uploadId = bogus;
 
     self.getUpload(bogus, function (err, upload) {

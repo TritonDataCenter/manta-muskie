@@ -5,13 +5,13 @@
  */
 
 /*
- * Copyright 2019 Joyent, Inc.
+ * Copyright 2020 Joyent, Inc.
  */
 
 var crypto = require('crypto');
 
 var MemoryStream = require('stream').PassThrough;
-var uuid = require('node-uuid');
+var uuidv4 = require('uuid/v4');
 
 if (require.cache[__dirname + '/helper.js'])
     delete require.cache[__dirname + '/helper.js'];
@@ -58,10 +58,10 @@ before(function (cb) {
     this.client = helper.createClient();
     this.pubRoot = '/' + this.client.user + '/public';
     this.root = '/' + this.client.user + '/stor';
-    this.dir = this.root + '/' + uuid.v4();
-    this.pubKey = this.pubRoot + '/' + uuid.v4();
-    this.key = this.dir + '/' + uuid.v4();
-    this.obj = this.dir + '/' + uuid.v4();
+    this.dir = this.root + '/' + uuidv4();
+    this.pubKey = this.pubRoot + '/' + uuidv4();
+    this.key = this.dir + '/' + uuidv4();
+    this.obj = this.dir + '/' + uuidv4();
 
     this.checkContent = function checkContent(t, stream, res) {
         t.ok(stream);
@@ -148,7 +148,7 @@ test('put link', function (t) {
 
 // Requires an admin user
 // test('put source account not found', function (t) {
-//         var src = '/' + uuid.v4().substr(0, 7) + '/stor/' + uuid.v4();
+//         var src = '/' + uuidv4().substr(0, 7) + '/stor/' + uuidv4();
 //         this.client.ln(src, this.key, function (err, res) {
 //                 t.ok(err);
 //                 t.equal(err.name, 'SourceObjectNotFoundError');
