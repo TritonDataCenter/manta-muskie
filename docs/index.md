@@ -643,7 +643,7 @@ except the last one. This size is validated when CommitMultipartUpload is
 called.  UploadPart operations will succeed even if the part is under the
 minimum size.
 
-Any part number between 0 and 9999 is valid, but committing a multipart upload
+Any part number between 0 and 799 is valid, but committing a multipart upload
 requires consecutive parts starting from part 0.  See
 [CommitMultipartUpload](#CommitMultipartUpload) for details.
 
