@@ -39,6 +39,10 @@ NODE_PREBUILT_VERSION	:= v6.17.1
 #  minimal-64-lts 19.4.0
 NODE_PREBUILT_IMAGE     = 5417ab20-3156-11ea-8b19-2b66f5e7a439
 
+TEST_JOBS ?= 10
+TEST_TIMEOUT_S ?= 1200
+TEST_FILTER ?= .*
+
 ENGBLD_USE_BUILDIMAGE	= true
 ENGBLD_REQUIRE		:= $(shell git submodule update --init deps/eng)
 include ./deps/eng/tools/mk/Makefile.defs
@@ -86,10 +90,18 @@ manta-scripts: deps/manta-scripts/.git
 	cp deps/manta-scripts/*.sh $(BUILD)/scripts
 
 .PHONY: test
-test: $(STAMP_NODE_MODULES)
-	PATH=$(ROOT)/$(NODE_INSTALL)/bin:$(PATH) \
-	    $(NODE) ./node_modules/.bin/nodeunit --reporter=tap \
-	    test/*.test.js test/mpu/*.test.js
+test: $(STAMP_NODE_MODULES) | $(TAP_EXEC)
+	@testFiles="$(shell ls test/*.test.js test/mpu/*.test.js | egrep "$(TEST_FILTER)")" && \
+	    test -z "$$testFiles" || \
+	    NODE_NDEBUG= ./node_modules/.bin/tap --timeout $(TEST_TIMEOUT_S) -j $(TEST_JOBS) -o ./test.tap $$testFiles
+#XXX
+#.PHONY: test
+#test:
+#    @echo "To run tests, run:"
+#    @echo ""
+#    @echo '    ./build/node/bin/node $$(find test/ -type f -name "*.js")'
+#    @echo ""
+#    @echo "from the /opt/smartdc/mako directory on a storage instance."
 
 #
 # This target can be used to invoke "acsetup.js", a program which configures
