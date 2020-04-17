@@ -5,14 +5,14 @@
  */
 
 /*
- * Copyright 2019 Joyent, Inc.
+ * Copyright 2020 Joyent, Inc.
  */
 
 var crypto = require('crypto');
 
 var MemoryStream = require('stream').PassThrough;
 var restify = require('restify');
-var uuid = require('node-uuid');
+var uuidv4 = require('uuid/v4');
 var vasync = require('vasync');
 
 if (require.cache[__dirname + '/helper.js'])
@@ -57,8 +57,8 @@ function writeObject(client, key, opts, cb) {
 before(function (cb) {
     this.client = helper.createClient();
     this.root = '/' + this.client.user + '/stor';
-    this.dir = this.root + '/' + uuid.v4();
-    this.key = this.dir + '/' + uuid.v4();
+    this.dir = this.root + '/' + uuidv4();
+    this.key = this.dir + '/' + uuidv4();
     this.client.mkdir(this.dir, cb);
 });
 

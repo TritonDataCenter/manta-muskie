@@ -14,7 +14,7 @@ var MemoryStream = require('stream').PassThrough;
 var once = require('once');
 var restifyClients = require('restify-clients');
 var vasync = require('vasync');
-var uuid = require('node-uuid');
+var uuidv4 = require('uuid/v4');
 var crypto = require('crypto');
 var fs = require('fs');
 
@@ -62,7 +62,7 @@ function authorization(opts) {
     opts.user = opts.user || process.env.MANTA_USER;
     opts.keyId = opts.keyId || process.env.MANTA_KEY_ID;
     opts.algorithm = opts.algorithm || 'rsa-sha256';
-    opts.signature = opts.signature || uuid.v4();
+    opts.signature = opts.signature || uuidv4();
 
     var value = sprintf(SIG_FMT,
                         opts.user,
@@ -145,8 +145,8 @@ before(function (cb) {
     this.client = helper.createClient();
     this.rawClient = helper.createRawClient();
     this.root = '/' + this.client.user + '/stor';
-    this.dir = this.root + '/' + uuid.v4();
-    this.key = this.dir + '/' + uuid.v4();
+    this.dir = this.root + '/' + uuidv4();
+    this.key = this.dir + '/' + uuidv4();
 
     self.client.mkdir(self.dir, function (err2) {
         if (err2) {
@@ -281,7 +281,7 @@ test('auth caller not found', function (t) {
         path: '/poseidon/stor',
         headers: {
             authorization:  authorization({
-                user: uuid.v4()
+                user: uuidv4()
             })
         }
     };
@@ -300,7 +300,7 @@ test('auth key not found', function (t) {
         path: '/poseidon/stor',
         headers: {
             authorization:  authorization({
-                keyId: uuid.v4()
+                keyId: uuidv4()
             })
         }
     };
@@ -409,7 +409,7 @@ test('presigned URL invalid signature', function (t) {
         t.ifError(err);
         t.ok(path);
 
-        path = path.replace(self.key, self.key + '/' + uuid.v4());
+        path = path.replace(self.key, self.key + '/' + uuidv4());
         rawRequest(path, function (err2, req, res, obj) {
             t.ok(err2);
             t.equal(res.statusCode, 403);

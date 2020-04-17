@@ -9,7 +9,7 @@
  */
 
 var MemoryStream = require('stream').PassThrough;
-var uuid = require('node-uuid');
+var uuidv4 = require('uuid/v4');
 var vasync = require('vasync');
 
 if (require.cache[__dirname + '/helper.js'])
@@ -172,7 +172,7 @@ function testListWithParams(t, params) {
     var count = 5;
     var i;
     for (i = 0; i < count; i++) {
-        subdirs.push(self.dir + '/' + uuid.v4());
+        subdirs.push(self.dir + '/' + uuidv4());
     }
     subdirs = subdirs.sort();
 
@@ -248,8 +248,8 @@ before(function (cb) {
     if (mpuEnabled) {
         this.mpuRoot = this.top + '/uploads';
     }
-    this.dir = this.root + '/' + uuid.v4();
-    this.key = this.dir + '/' + uuid.v4();
+    this.dir = this.root + '/' + uuidv4();
+    this.key = this.dir + '/' + uuidv4();
     this.client.mkdir(this.dir, cb);
 });
 
@@ -602,7 +602,7 @@ test('mkdir root', function (t) {
 
 
 test('mkdir no parent',  function (t) {
-    var key = this.root + '/' + uuid.v4() + '/' + uuid.v4();
+    var key = this.root + '/' + uuidv4() + '/' + uuidv4();
     this.client.mkdir(key, function (err, res) {
         t.ok(err);
         t.ok(res);
@@ -618,7 +618,7 @@ test('put under non-directory', function (t) {
 
     writeObject(this.client, this.key, function (put_err) {
         t.ifError(put_err);
-        var key = self.key + '/' + uuid.v4();
+        var key = self.key + '/' + uuidv4();
         self.client.mkdir(key, function (err, res) {
             t.ok(err);
             t.ok(res);
@@ -656,7 +656,7 @@ test('ls empty', function (t) {
 
 test('ls with obj and dir', function (t) {
     var dir = false;
-    var key = this.dir + '/' + uuid.v4();
+    var key = this.dir + '/' + uuidv4();
     var obj = false;
     var self = this;
 
@@ -780,7 +780,7 @@ test('ls escapes marker', function (t) {
 
 
 test('ls 404', function (t) {
-    this.client.ls(this.dir + '/' + uuid.v4(), function (err, res) {
+    this.client.ls(this.dir + '/' + uuidv4(), function (err, res) {
         t.ok(err);
         t.equal(err.name, 'NotFoundError');
         t.end();
@@ -872,7 +872,7 @@ test('rmdir', function (t) {
 
 
 test('rmdir 404', function (t) {
-    this.client.unlink(this.root + '/' + uuid.v4(), function (err, res) {
+    this.client.unlink(this.root + '/' + uuidv4(), function (err, res) {
         t.ok(err);
         t.equal(err.name, 'ResourceNotFoundError');
         t.checkResponse(res, 404);
@@ -882,7 +882,7 @@ test('rmdir 404', function (t) {
 
 
 test('rmdir 404', function (t) {
-    this.client.unlink(this.root + '/' + uuid.v4(), function (err, res) {
+    this.client.unlink(this.root + '/' + uuidv4(), function (err, res) {
         t.ok(err);
         t.equal(err.name, 'ResourceNotFoundError');
         t.checkResponse(res, 404);

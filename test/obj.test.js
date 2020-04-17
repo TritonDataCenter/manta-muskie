@@ -12,7 +12,7 @@ var crypto = require('crypto');
 
 var MemoryStream = require('stream').PassThrough;
 var restify = require('restify');
-var uuid = require('node-uuid');
+var uuidv4 = require('uuid/v4');
 var vasync = require('vasync');
 
 if (require.cache[__dirname + '/helper.js'])
@@ -59,8 +59,8 @@ before(function (cb) {
 
     this.client = helper.createClient();
     this.root = '/' + this.client.user + '/stor';
-    this.dir = this.root + '/' + uuid.v4();
-    this.key = this.dir + '/' + uuid.v4();
+    this.dir = this.root + '/' + uuidv4();
+    this.key = this.dir + '/' + uuidv4();
     this.putObject = function putObject(t, opts, _cb) {
         if (typeof (opts) === 'function') {
             _cb = opts;
@@ -455,7 +455,7 @@ test('put if-match fail', function (t) {
     this.putObject(t, function () {
         var opts = {
             headers: {
-                'if-match': uuid.v4()
+                'if-match': uuidv4()
             }
         };
         writeObject(self.client, self.key, opts, function (err, res) {
@@ -474,7 +474,7 @@ test('put if-none-match ok', function (t) {
     this.putObject(t, function (_, headers) {
         var opts = {
             headers: {
-                'if-none-match': uuid.v4()
+                'if-none-match': uuidv4()
             }
         };
         self.putObject(t, opts, function (__, headers2) {
@@ -564,7 +564,7 @@ test('put bad content-md5', function (t) {
 
 
 test('put parent ENOEXIST', function (t) {
-    var k = this.root + '/' + uuid.v4() + '/' + uuid.v4();
+    var k = this.root + '/' + uuidv4() + '/' + uuidv4();
     writeObject(this.client, k, function (err, res) {
         t.ok(err);
         t.ok(res);
@@ -578,7 +578,7 @@ test('put parent ENOEXIST', function (t) {
 test('put parent not directory', function (t) {
     var self = this;
     this.putObject(t, function () {
-        var k = self.key + '/' + uuid.v4();
+        var k = self.key + '/' + uuidv4();
         writeObject(self.client, k, function (err, res) {
             t.ok(err);
             t.ok(res);
@@ -667,7 +667,7 @@ test('get if-match fail', function (t) {
     this.putObject(t, function () {
         var opts = {
             headers: {
-                'if-match': uuid.v4()
+                'if-match': uuidv4()
             }
         };
         self.client.get(self.key, opts, function (err, stream, res) {
@@ -704,7 +704,7 @@ test('get if-none-match ok', function (t) {
     this.putObject(t, function () {
         var opts = {
             headers: {
-                'if-none-match': uuid.v4()
+                'if-none-match': uuidv4()
             }
         };
         self.client.get(self.key, opts, function (err, stream, res) {
@@ -987,7 +987,7 @@ test('del if-match fail', function (t) {
     this.putObject(t, function () {
         var opts = {
             headers: {
-                'if-match': uuid.v4()
+                'if-match': uuidv4()
             }
         };
         self.client.unlink(self.key, opts, function (err, res) {
@@ -1005,7 +1005,7 @@ test('del if-none-match ok', function (t) {
     this.putObject(t, function () {
         var opts = {
             headers: {
-                'if-none-match': uuid.v4()
+                'if-none-match': uuidv4()
             }
         };
         self.client.unlink(self.key, opts, function (err, res) {

@@ -11,7 +11,7 @@
 var manta = require('manta');
 var path = require('path');
 var MemoryStream = require('stream').PassThrough;
-var uuid = require('node-uuid');
+var uuidv4 = require('uuid/v4');
 var vasync = require('vasync');
 var verror = require('verror');
 
@@ -339,7 +339,7 @@ test('redirect upload: DELETE /:account/uploads/:id/:partNum', function (t) {
 
 test('redirect upload: non-existent id', function (t) {
     var self = this;
-    var bogus = uuid.v4();
+    var bogus = uuidv4();
     var opts = {
         account: self.client.user
     };
