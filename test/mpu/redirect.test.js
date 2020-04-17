@@ -175,13 +175,18 @@ test('redirect upload: DELETE /:account/uploads/:id', function (t) {
             account: self.client.user
         };
         self.client.unlink(self.redirectPath(), opts, function (err2, res) {
-            if (ifErr(t, err2, 'redirect upload')) {
+            t.ok(err2, 'should not redirect delete upload dir');
+
+            if (!err2) {
                 t.end();
                 return;
             }
 
-            t.checkResponse(res, 301);
-            t.equal(res.headers.location, self.uploadPath());
+            t.ok(verror.hasCauseWithName(err2,
+                'MethodNotAllowedError'),
+                'should not be allowed to redirect to delete upload dir.');
+            t.checkResponse(res, 405);
+
             t.end();
         });
     });
@@ -324,13 +329,18 @@ test('redirect upload: DELETE /:account/uploads/:id/:partNum', function (t) {
         };
         var pn = 0;
         self.client.unlink(self.redirectPath(pn), opts, function (err2, res) {
-            if (ifErr(t, err2, 'redirect upload')) {
+            t.ok(err2, 'should not redirect delete upload part');
+
+            if (!err2) {
                 t.end();
                 return;
             }
 
-            t.checkResponse(res, 301);
-            t.equal(res.headers.location, self.uploadPath(pn));
+            t.ok(verror.hasCauseWithName(err2,
+                'MethodNotAllowedError'),
+                'should not be allowed to redirect to delete upload part.');
+            t.checkResponse(res, 405);
+
             t.end();
         });
     });
