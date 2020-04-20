@@ -9,9 +9,11 @@
  */
 
 var bunyan = require('bunyan');
+var test = require('@smaller/tap').test;
+
 var configure = require('../lib/configure.js');
 
-exports.configureLogging = function (t) {
+test('configure.configureLogging', function (t) {
     var appName = 'muskie';
     var bunyanCfg1 = {
         level: 'info'
@@ -19,9 +21,6 @@ exports.configureLogging = function (t) {
     var bunyanCfg2 = {
         level: 'debug'
     };
-
-    // Record the value of LOG_LEVEL so it can be restored after testing
-    var startingLogLevel = process.env.LOG_LEVEL || '';
 
     // Unset the LOG_LEVEL to set a known starting point for the tests
     process.env.LOG_LEVEL = '';
@@ -103,8 +102,5 @@ exports.configureLogging = function (t) {
     t.equal(logObj15.level(), bunyan.TRACE);
     t.equal(logObj15.src, true);
 
-    // Restore LOG_LEVEL to the setting prior to the execution of the tests
-    process.env.LOG_LEVEL = startingLogLevel;
-
-    t.done();
-};
+    t.end();
+});

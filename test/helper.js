@@ -8,42 +8,27 @@
  * Copyright 2020 Joyent, Inc.
  */
 
-var domain = require('domain');
+var fs = require('fs');
 var http = require('http');
 var https = require('https');
 
-var auth = require('../lib/auth');
-
+var assert = require('assert-plus');
 var bunyan = require('bunyan');
-var fs = require('fs');
 var manta = require('manta');
-var once = require('once');
-var restify = require('restify');
 var restifyClients = require('restify-clients');
 var smartdc = require('smartdc');
 var smartdc_auth = require('smartdc-auth');
 var sshpk = require('sshpk');
-var VError = require('verror').VError;
+
+var auth = require('../lib/auth');
 
 
 ///--- Globals
 
+// XXX can we drop these?
 http.globalAgent.maxSockets = 50;
 https.globalAgent.maxSockets = 50;
 
-// Check the environment variables before we do anything else.
-var envErr = checkEnvironment();
-if (envErr) {
-    console.error('Environment error: ' + envErr.message);
-    process.exit(1);
-}
-
-var TOKEN_CFG = {
-    salt: process.env.MUSKIE_SALT,
-    key: process.env.MUSKIE_KEY,
-    iv: process.env.MUSKIE_IV,
-    maxAge: +process.env.MUSKIE_MAX_AGE || 604800000
-};
 
 var POSEIDON_ID = process.env.MUSKIE_POSEIDON_ID ||
         '930896af-bf8c-48d4-885c-6573a94b1853';
@@ -64,8 +49,7 @@ var TEST_REGULAR_KEY = process.env.MUSKIETEST_REGULAR_KEYFILE ||
 var TEST_OPERATOR = process.env.MUSKIETEST_OPERATOR_USER || 'poseidon';
 var TEST_OPERATOR_KEY;
 
-// if MUSKIETEST_OPERATOR_KEYFILE is set, make sure file exists.
-
+// If MUSKIETEST_OPERATOR_KEYFILE is set, make sure file exists.
 if (process.env.MUSKIETEST_OPERATOR_KEYFILE) {
     if (fs.existsSync(process.env.MUSKIETEST_OPERATOR_KEYFILE)) {
         TEST_OPERATOR_KEY = process.env.MUSKIETEST_OPERATOR_KEYFILE;
@@ -107,13 +91,17 @@ function createLogger(name, stream) {
         name: name || process.argv[1],
         stream: stream || process.stdout,
         src: true,
-        serializers: restify.bunyan.serializers
+        serializers: restifyClients.bunyan.serializers
     });
     return (log);
 }
 
 
 function createClient() {
+    assert.string(process.env.MANTA_URL, 'process.env.MANTA_URL');
+    assert.string(process.env.MANTA_USER, 'process.env.MANTA_USER');
+    assert.string(process.env.MANTA_KEY_ID, 'process.env.MANTA_KEY_ID');
+
     var key = getRegularPrivkey();
     var log = createLogger();
     var client = manta.createClient({
@@ -125,11 +113,11 @@ function createClient() {
             key: key,
             keyId: process.env.MANTA_KEY_ID,
             log: log,
-            user: process.env.MANTA_USER || 'admin'
+            user: process.env.MANTA_USER
         }),
         rejectUnauthorized: false,
-        url: process.env.MANTA_URL || 'http://localhost:8080',
-        user: process.env.MANTA_USER || 'admin'
+        url: process.env.MANTA_URL,
+        user: process.env.MANTA_USER
     });
 
     return (client);
@@ -137,6 +125,10 @@ function createClient() {
 
 
 function createUserClient(login) {
+    assert.string(process.env.MANTA_URL, 'process.env.MANTA_URL');
+    assert.string(process.env.MANTA_USER, 'process.env.MANTA_USER');
+    assert.string(process.env.MANTA_KEY_ID, 'process.env.MANTA_KEY_ID');
+
     var key = getRegularPrivkey();
     var log = createLogger();
     var client = manta.createClient({
@@ -148,12 +140,12 @@ function createUserClient(login) {
             key: key,
             keyId: process.env.MANTA_KEY_ID,
             log: log,
-            user: process.env.MANTA_USER || 'admin',
+            user: process.env.MANTA_USER,
             subuser: login
         }),
         rejectUnauthorized: false,
-        url: process.env.MANTA_URL || 'http://localhost:8080',
-        user: process.env.MANTA_USER || 'admin',
+        url: process.env.MANTA_URL,
+        user: process.env.MANTA_USER,
         subuser: login
     });
 
@@ -162,6 +154,8 @@ function createUserClient(login) {
 
 
 function createJsonClient() {
+    assert.string(process.env.MANTA_URL, 'process.env.MANTA_URL');
+
     var log = createLogger();
     var client = restifyClients.createClient({
         agent: false,
@@ -170,7 +164,7 @@ function createJsonClient() {
         rejectUnauthorized: false,
         retry: false,
         type: 'json',
-        url: process.env.MANTA_URL || 'http://localhost:8080'
+        url: process.env.MANTA_URL
     });
 
     return (client);
@@ -178,6 +172,8 @@ function createJsonClient() {
 
 
 function createRawClient() {
+    assert.string(process.env.MANTA_URL, 'process.env.MANTA_URL');
+
     var log = createLogger();
     var client = restifyClients.createClient({
         agent: false,
@@ -186,7 +182,7 @@ function createRawClient() {
         rejectUnauthorized: false,
         retry: false,
         type: 'http',
-        url: process.env.MANTA_URL || 'http://localhost:8080'
+        url: process.env.MANTA_URL
     });
 
     return (client);
@@ -194,6 +190,10 @@ function createRawClient() {
 
 
 function createSDCClient() {
+    assert.string(process.env.SDC_URL, 'process.env.SDC_URL');
+    assert.string(process.env.SDC_ACCOUNT, 'process.env.SDC_ACCOUNT');
+    assert.string(process.env.SDC_KEY_ID, 'process.env.SDC_KEY_ID');
+
     var key = getRegularPrivkey();
     var log = createLogger();
     var client = smartdc.createClient({
@@ -204,14 +204,16 @@ function createSDCClient() {
             user: process.env.SDC_ACCOUNT
         }),
         rejectUnauthorized: false,
-        user: process.env.SDC_ACCOUNT || 'admin',
-        url: process.env.SDC_URL || 'http://localhost:8080'
+        user: process.env.SDC_ACCOUNT,
+        url: process.env.SDC_URL
     });
 
     return (client);
 }
 
 function createOperatorSDCClient() {
+    assert.string(process.env.SDC_URL, 'process.env.SDC_URL');
+
     var key = getOperatorPrivkey();
     var keyId = getKeyFingerprint(key);
 
@@ -226,7 +228,7 @@ function createOperatorSDCClient() {
         }),
         rejectUnauthorized: false,
         version: '9.0.0',
-        url: process.env.SDC_URL || 'http://localhost:8080',
+        url: process.env.SDC_URL,
         user: TEST_OPERATOR
     });
 
@@ -234,6 +236,8 @@ function createOperatorSDCClient() {
 }
 
 function createOperatorClient() {
+    assert.string(process.env.MANTA_URL, 'process.env.MANTA_URL');
+
     var key = getOperatorPrivkey();
     var keyId = getKeyFingerprint(key);
 
@@ -250,7 +254,7 @@ function createOperatorClient() {
             user: TEST_OPERATOR
         }),
         rejectUnauthorized: false,
-        url: process.env.MANTA_URL || 'http://localhost:8080',
+        url: process.env.MANTA_URL,
         user: TEST_OPERATOR
     });
 
@@ -282,8 +286,20 @@ function checkResponse(t, res, code) {
 
 
 function createAuthToken(opts, cb) {
+    assert.string(process.env.MUSKIE_SALT, 'process.env.MUSKIE_SALT');
+    assert.string(process.env.MUSKIE_KEY, 'process.env.MUSKIE_KEY');
+    assert.string(process.env.MUSKIE_IV, 'process.env.MUSKIE_IV');
+    assert.optionalString(process.env.MUSKIE_MAX_AGE, 'process.env.MUSKIE_MAX_AGE');
+
+    var tokenCfg = {
+        salt: process.env.MUSKIE_SALT,
+        key: process.env.MUSKIE_KEY,
+        iv: process.env.MUSKIE_IV,
+        maxAge: +process.env.MUSKIE_MAX_AGE || 604800000
+    };
+
     var check = ['salt', 'key', 'iv'].every(function (env) {
-        if (!TOKEN_CFG[env]) {
+        if (!tokenCfg[env]) {
             cb(new Error('MUSKIE_' + env.toUpperCase() + ' required'));
             return (false);
         } else {
@@ -295,7 +311,7 @@ function createAuthToken(opts, cb) {
         return;
     }
 
-    auth.createAuthToken(opts, TOKEN_CFG, function (err, token) {
+    auth.createAuthToken(opts, tokenCfg, function (err, token) {
         if (err) {
             cb(err);
             return;
@@ -375,117 +391,10 @@ function signUrl(opts, expires, cb) {
     }, cb);
 }
 
-/*
- * Loop through the required environment variables to make sure they are all
- * set. If one or more are not set, the names of the variables are combined
- * into an array and an error is returned.
- */
-function checkEnvironment() {
-    var environment = {
-        'MANTA_URL': process.env.MANTA_URL,
-        'MANTA_USER': process.env.MANTA_USER,
-        'MANTA_KEY_ID': process.env.MANTA_KEY_ID,
-        'MANTA_TLS_INSECURE': process.env.MANTA_TLS_INSECURE,
-        'SDC_URL': process.env.SDC_URL,
-        'SDC_ACCOUNT': process.env.SDC_ACCOUNT,
-        'SDC_KEY_ID': process.env.SDC_KEY_ID,
-        'SDC_TESTING': process.env.SDC_TESTING,
-        'MUSKIE_IV': process.env.MUSKIE_IV,
-        'MUSKIE_KEY': process.env.MUSKIE_KEY,
-        'MUSKIE_SALT': process.env.MUSKIE_SALT
-    };
-
-    var unset = [];
-    Object.keys(environment).forEach(function (key)  {
-        if (typeof (environment[key]) !== 'string') {
-            unset.push(key);
-        }
-    });
-    if (unset.length > 0) {
-        var errString = unset.join(', ');
-        return (new VError('Environment variables ' + errString +
-            ' must be set'));
-    }
-}
-
-
 
 ///--- Exports
 
 module.exports = {
-
-    after: function after(teardown) {
-        module.parent.exports.tearDown = function _teardown(cb) {
-            cb = once(cb);
-            var d = domain.create();
-            var self = this;
-
-            d.once('error', function (e) {
-                console.error('after:\n' + e.stack);
-                process.exit(1);
-            });
-            d.run(function () {
-                teardown.call(self, function (err) {
-                    if (err) {
-                        console.error('after:\n' + err.stack);
-                        process.exit(1);
-                    }
-                    cb();
-                });
-            });
-        };
-    },
-
-    before: function before(setup) {
-        module.parent.exports.setUp = function _setup(cb) {
-            cb = once(cb);
-
-            var d = domain.create();
-            var self = this;
-
-            d.once('error', function (e) {
-                console.error('before:\n' + e.stack);
-                process.exit(1);
-            });
-
-            d.run(function () {
-
-                setup.call(self, function (err) {
-                    if (err) {
-                        console.error('before:\n' + err.stack);
-                        process.exit(1);
-                    }
-                    cb();
-                });
-            });
-        };
-    },
-
-    test: function test(name, tester) {
-        module.parent.exports[name] = function _(t) {
-            var self = this;
-            var d = domain.create();
-            d.once('error', function (e) {
-                console.error(name + ':\n' + e.stack);
-                process.exit(1);
-            });
-            d.run(function () {
-                var _done = false;
-                t.end = once(function end() {
-                    if (!_done) {
-                        _done = true;
-                        t.done();
-                    }
-                });
-                t.notOk = function notOk(ok, message) {
-                    return (t.ok(!ok, message));
-                };
-                t.checkResponse = checkResponse.bind(self, t);
-                tester.call(self, t);
-            });
-        };
-    },
-
     POSEIDON_ID: POSEIDON_ID,
     TEST_OPERATOR: TEST_OPERATOR,
     createClient: createClient,

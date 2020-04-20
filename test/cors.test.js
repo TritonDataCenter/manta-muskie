@@ -11,64 +11,36 @@
 var crypto = require('crypto');
 
 var MemoryStream = require('stream').PassThrough;
+var test = require('@smaller/tap').test;
 var uuidv4 = require('uuid/v4');
 
-if (require.cache[__dirname + '/helper.js'])
-    delete require.cache[__dirname + '/helper.js'];
-var helper = require('./helper.js');
-
+var helper = require('./helper');
 
 
 ///--- Globals
 
-var after = helper.after;
-var before = helper.before;
-var test = helper.test;
-
 var TEXT = 'hello world';
-
-
-
-///--- Helpers
-
-function writeObject(client, key, opts, cb) {
-    if (typeof (opts) === 'function') {
-        cb = opts;
-        opts = {};
-    }
-    var _opts = {
-        headers: opts.headers,
-        md5: crypto.createHash('md5').update(TEXT).digest('base64'),
-        size: Buffer.byteLength(TEXT),
-        type: 'text/plain'
-    };
-    var stream = new MemoryStream();
-
-    client.put(key, stream, _opts, cb);
-    process.nextTick(stream.end.bind(stream, TEXT));
-}
-
 
 
 ///--- Tests
 
-before(function (cb) {
-    var self = this;
+test('cors', function (suite) {
+    var client;
+    var httpClient;
+    var dir;
+    var key;
 
-    this.client = helper.createClient();
-    this.httpClient = helper.createRawClient();
-    this.root = '/' + this.client.user + '/stor';
-    this.dir = this.root + '/' + uuidv4();
-    this.key = this.dir + '/' + uuidv4();
-
-    this.get = function get(t, headers, _cb) {
+    // Call "GET $key" with given headers, test for successful response and
+    // call back with the response headers `function (null, resHeaders)`.
+    // The first callback arg is always empty (null or undefined).
+    function testGet(t, headers, cb) {
         var opts = {
             headers: headers
         };
-        self.client.get(self.key, opts, function (err, stream, res) {
-            t.ifError(err);
+        client.get(key, opts, function (err, stream, res) {
+            t.ifError(err, '"GET ' + key + '" did not error');
             if (err) {
-                t.end();
+                cb();
                 return;
             }
 
@@ -78,27 +50,21 @@ before(function (cb) {
                 body += chunk;
             });
             stream.once('error', function (err2) {
-                t.ifError(err2);
-                t.end();
+                t.ifError(err2, 'no GET stream error');
+                cb();
             });
             stream.once('end', function () {
-                t.equal(body, TEXT);
-                t.ok(res);
-                t.equal(res.statusCode, 200);
-
-                var hdrs = res.headers;
-                if (_cb) {
-                    _cb(hdrs);
-                    return;
-                }
-                t.equal(hdrs['access-control-allow-origin'],
-                        headers.origin);
-                t.end();
+                t.equal(res.statusCode, 200,
+                    'got 200 status code: ' + res.statusCode);
+                t.equal(body, TEXT, 'GET body matches TEXT');
+                cb(null, res.headers);
             });
         });
     };
 
-    this.put = function put(headers, _cb) {
+    // Call "PUT $key" with the given headers, test for successful response
+    // and callback with `function ()`, i.e. no error is returned.
+    function testPut(t, headers, cb) {
         var md5 = crypto.createHash('md5');
         var opts = {
             headers: headers,
@@ -108,134 +74,148 @@ before(function (cb) {
         };
         var stream = new MemoryStream();
 
-        self.client.put(self.key, stream, opts, _cb);
-        process.nextTick(stream.end.bind(stream, TEXT));
+        client.put(key, stream, opts, function onPut(err) {
+            t.ifError(err, '"PUT ' + key + '" did not error');
+            cb();
+        });
+
+        setImmediate(function streamInContent() {
+            stream.end(TEXT);
+        })
     };
 
-    this.client.mkdir(this.dir, function (err) {
-        if (err) {
-            cb(err);
-            return;
-        }
-        cb();
-    });
-});
 
+    suite.test('setup', function (t) {
+        client = helper.createClient();
+        httpClient = helper.createRawClient();
+        var root = '/' + client.user + '/stor';
+        dir = root + '/test-cors-dir-' + uuidv4().split('-')[0];
+        key = dir + '/test-cors-file-' + uuidv4().split('-')[0];
 
-after(function (cb) {
-    this.client.rmr(this.dir, cb.bind(null, null));
-});
-
-
-test('origin *', function (t) {
-    var put_headers = {
-        'access-control-allow-origin': '*'
-    };
-    var self = this;
-
-    this.put(put_headers, function (put_err) {
-        t.ifError(put_err);
-        var headers = {
-            origin: 'http://127.0.0.1'
-        };
-        self.get(t, headers);
-    });
-});
-
-
-test('origin list', function (t) {
-    var put_headers = {
-        'access-control-allow-origin': 'http://foo.com, http://bar.com'
-    };
-    var self = this;
-
-    this.put(put_headers, function (put_err) {
-        t.ifError(put_err);
-        var headers = {
-            origin: 'http://foo.com'
-        };
-        self.get(t, headers);
-    });
-});
-
-
-test('origin deny', function (t) {
-    var put_headers = {
-        'access-control-allow-origin': 'http://foo.com'
-    };
-    var self = this;
-
-    this.put(put_headers, function (put_err) {
-        t.ifError(put_err);
-        var headers = {
-            origin: 'http://bar.com'
-        };
-        self.get(t, headers, function (h) {
-            t.notOk(h['access-control-allow-origin']);
+        client.mkdir(dir, function (err) {
+            t.ifError(err, 'make test dir ' + dir);
             t.end();
         });
     });
-});
 
-
-test('method explicit', function (t) {
-    var put_headers = {
-        'access-control-allow-origin': '*',
-        'access-control-allow-methods': 'GET'
-    };
-    var self = this;
-
-    this.put(put_headers, function (put_err) {
-        t.ifError(put_err);
-        var headers = {
-            origin: 'http://foo.com'
+    suite.test('origin *', function (t) {
+        var putHeaders = {
+            'access-control-allow-origin': '*'
         };
-        self.get(t, headers);
-    });
-});
 
-
-test('method explicit fail', function (t) {
-    var put_headers = {
-        'access-control-allow-origin': '*',
-        'access-control-allow-methods': 'DELETE'
-    };
-    var self = this;
-
-    this.put(put_headers, function (put_err) {
-        t.ifError(put_err);
-        var headers = {
-            origin: 'http://foo.com'
-        };
-        self.get(t, headers, function (h) {
-            t.notOk(h['access-control-allow-origin']);
-            t.notOk(h['access-control-allow-methods']);
-            t.end();
+        testPut(t, putHeaders, function () {
+            var headers = {
+                origin: 'http://127.0.0.1'
+            };
+            testGet(t, headers, function (_, resHeaders) {
+                t.equal(resHeaders['access-control-allow-origin'],
+                    headers.origin,
+                    'access-control-allow-origin matches given Origin header');
+                t.end();
+            });
         });
     });
-});
 
-
-test('other access-control ok', function (t) {
-    var put_headers = {
-        'access-control-allow-origin': '*',
-        'access-control-expose-headers': 'x-foo',
-        'access-control-max-age': 3600
-    };
-    var self = this;
-
-    this.put(put_headers, function (put_err) {
-        t.ifError(put_err);
-        var headers = {
-            origin: 'http://foo.com'
+    suite.test('origin list of URLs', function (t) {
+        var putHeaders = {
+            'access-control-allow-origin': 'http://foo.com, http://bar.com'
         };
-        self.get(t, headers, function (h) {
-            t.equal(h['access-control-allow-origin'],
+
+        testPut(t, putHeaders, function () {
+            var headers = {
+                origin: 'http://foo.com'
+            };
+            testGet(t, headers, function (_, resHeaders) {
+                t.equal(resHeaders['access-control-allow-origin'],
+                    headers.origin,
+                    'access-control-allow-origin matches given Origin header');
+                t.end();
+            });
+        });
+    });
+
+    suite.test('origin deny', function (t) {
+        var putHeaders = {
+            'access-control-allow-origin': 'http://foo.com'
+        };
+
+        testPut(t, putHeaders, function () {
+            var headers = {
+                origin: 'http://bar.com'
+            };
+            testGet(t, headers, function (_, resHeaders) {
+                t.notOk(resHeaders['access-control-allow-origin'],
+                    'there is no access-control-allow-origin header');
+                t.end();
+            });
+        });
+    });
+
+    suite.test('method explicit', function (t) {
+        var putHeaders = {
+            'access-control-allow-origin': '*',
+            'access-control-allow-methods': 'GET'
+        };
+
+        testPut(t, putHeaders, function () {
+            var headers = {
+                origin: 'http://foo.com'
+            };
+            testGet(t, headers, function (_, resHeaders) {
+                t.equal(resHeaders['access-control-allow-origin'],
+                    headers.origin,
+                    'access-control-allow-origin matches given Origin header');
+                t.end();
+            });
+        });
+    });
+
+    suite.test('method explicit fail', function (t) {
+        var putHeaders = {
+            'access-control-allow-origin': '*',
+            'access-control-allow-methods': 'DELETE'
+        };
+
+        testPut(t, putHeaders, function () {
+            var headers = {
+                origin: 'http://foo.com'
+            };
+            testGet(t, headers, function (_, resHeaders) {
+                t.notOk(resHeaders['access-control-allow-origin']);
+                t.notOk(resHeaders['access-control-allow-methods']);
+                t.end();
+            });
+        });
+    });
+
+    suite.test('other access-control ok', function (t) {
+        var putHeaders = {
+            'access-control-allow-origin': '*',
+            'access-control-expose-headers': 'x-foo',
+            'access-control-max-age': 3600
+        };
+
+        testPut(t, putHeaders, function () {
+            var headers = {
+                origin: 'http://foo.com'
+            };
+            testGet(t, headers, function (_, resHeaders) {
+                t.equal(resHeaders['access-control-allow-origin'],
                     headers.origin);
-            t.equal(h['access-control-expose-headers'],
-                    put_headers['access-control-expose-headers']);
-            t.notOk(h['access-control-max-age']);
+                t.equal(resHeaders['access-control-expose-headers'],
+                    putHeaders['access-control-expose-headers']);
+                t.notOk(resHeaders['access-control-max-age']);
+                t.end();
+            });
+        });
+    });
+
+    suite.test('teardown', function (t) {
+        client.rmr(dir, function onRm(err) {
+            t.ifError(err, 'remove test dir ' + dir);
             t.end();
         });
     });
+
+    suite.end();
 });

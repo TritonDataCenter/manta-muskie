@@ -8,17 +8,10 @@
  * Copyright 2020 Joyent, Inc.
  */
 
-var _helper = __dirname + '/helper.js';
-if (require.cache[_helper])
-    delete require.cache[_helper];
-var helper = require(_helper);
-
-var util = require('util');
+var test = require('@smaller/tap').test;
 var verror = require('verror');
 
 var errors = require('../lib/errors');
-
-var test = helper.test;
 
 test('ServiceUnavailableError', function (t) {
     var cause = new Error('cause');
