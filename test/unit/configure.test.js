@@ -11,7 +11,7 @@
 var bunyan = require('bunyan');
 var test = require('@smaller/tap').test;
 
-var configure = require('../lib/configure.js');
+var configure = require('../../lib/configure.js');
 
 test('configure.configureLogging', function (t) {
     var appName = 'muskie';

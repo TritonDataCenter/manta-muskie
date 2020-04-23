@@ -14,7 +14,7 @@ var MemoryStream = require('stream').PassThrough;
 var test = require('@smaller/tap').test;
 var uuidv4 = require('uuid/v4');
 
-var helper = require('./helper');
+var helper = require('../helper');
 
 
 ///--- Globals

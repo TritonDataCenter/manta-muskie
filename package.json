@@ -51,6 +51,7 @@
         "forkexec": "^1.0.0",
         "jsverify": "^0.8.4",
         "manta": "5.2.1",
+        "qlocker": "^1.0.1",
         "restify-clients": "2.6.7",
         "smartdc": "7.3.1",
         "smartdc-auth": "^2.5.7",

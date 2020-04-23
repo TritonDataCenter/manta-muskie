@@ -11,7 +11,7 @@
 var test = require('@smaller/tap').test;
 var verror = require('verror');
 
-var errors = require('../lib/errors');
+var errors = require('../../lib/errors');
 
 test('ServiceUnavailableError', function (t) {
     var cause = new Error('cause');

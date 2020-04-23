@@ -15,6 +15,7 @@ var https = require('https');
 var assert = require('assert-plus');
 var bunyan = require('bunyan');
 var manta = require('manta');
+var qlocker = require('qlocker');
 var restifyClients = require('restify-clients');
 var smartdc = require('smartdc');
 var smartdc_auth = require('smartdc-auth');
@@ -392,6 +393,107 @@ function signUrl(opts, expires, cb) {
 }
 
 
+
+// This will return test user (aka a Triton account) info that can be used for
+// the webapi integration tests. If the test user doesn't exist, it will create
+// one and wait for it to be ready.
+//
+// The idea here is to support multiple concurrent tests, in separate processes,
+// coordinating here. Roughly the process will be:
+// - get an inter-process lock (/var/db/muskietest/user.lock)
+// - load existing test user info if it exists (/var/db/muskietest/user.json)
+// - otherwise create the user, wait for it to be active and save that info
+// - release lock
+function ensureTestUser(cb) {
+    const DB_DIR = '/var/db/muskietest';
+    var context = {
+        dbDir: DB_DIR,
+        lockFile: path.join(DB_DIR, 'user.lock'),
+        infoFile: path.join(DB_DIR, 'user-info.json')
+    };
+
+    vasync.pipeline({
+        arg: context,
+        funcs: [
+            function mkdirpDbDir(ctx, next) {
+                fs.mkdir(ctx.dbDir, function onMkdir(err) {
+                    if (err && err.code !== 'EEXIST') {
+                        next(err);
+                    } else {
+                        next();
+                    }
+                });
+            },
+            function getUserLock(ctx, next) {
+                qlocker.lock(ctx.lockFile, function (err, unlockFn) {
+                    ctx.unlockFn = unlockFn;
+                    next(err);
+                });
+            },
+            function loadUserInfo(ctx, next) {
+                fs.readFile(ctx.infoFile, function (err, data) {
+                    if (err) {
+                        if (err.code === 'ENOENT') {
+                            next();
+                        } else {
+                            next(err);
+                        }
+                    } else {
+                        try {
+                            ctx.userInfo = JSON.parse(data)
+                        } catch (parseErr) {
+                            next(new VError(parseErr,
+                                'could not parse muskie test user info file ' +
+                                '"%s" (delete it and re-run tests)',
+                                ctx.infoFile));
+                            return;
+                        }
+                        next();
+                    }
+                });
+            },
+            function sanityCheckUserInfo(ctx, next) {
+                if (!ctx.userInfo) {
+                    next();
+                    return;
+                }
+
+                // XXX START HERE
+                var mantaClient = getMantaClient(ctx.userInfo);
+                var login = ctx.userInfo.login;
+                var p = '/' + login + '/stor'
+                mantaClient.info(p, function (err, info) {
+                    console.log('XXX err', err);
+                    console.log('XXX info', info);
+                    if (err) {
+                        delete ctx.userInfo;
+                        next(new VError(err,
+                            'could not verify that test user "%s" is usable',
+                            login));
+                    } else {
+                        next();
+                    }
+                });
+            }
+
+            // XXX create user if don't have
+            // XXX RBAC info on user
+            // XXX wait for user to be ready
+            // XXX docs in README on side-effects of testing (creating the user)
+            // XXX tooling to cleanly delete the test user
+        ]
+    }, function finish(err) {
+        if (context.unlockFn) {
+            // Release the lock.
+            context.unlockFn(function () {
+                cb(err, context.user);
+            });
+        } else {
+            cb(null, context.user);
+        }
+    });
+}
+
 ///--- Exports
 
 module.exports = {
@@ -406,6 +508,7 @@ module.exports = {
     createAuthToken: createAuthToken,
     createOperatorSDCClient: createOperatorSDCClient,
     createOperatorClient: createOperatorClient,
+    ensureTestUser: ensureTestUser,
     signRequest: signRequest,
     signUrl: signUrl,
     getRegularPubkey: getRegularPubkey,

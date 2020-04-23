@@ -5,15 +5,14 @@
  */
 
 /*
- * Copyright (c) 2019, Joyent, Inc.
+ * Copyright 2020 Joyent, Inc.
  */
 
-var mod_util = require('../lib/utils.js');
 var jsc = require('jsverify');
+var test = require('@smaller/tap').test;
 
-///--- Constants
+var mod_util = require('../../lib/utils.js');
 
-///--- Tests
 
 /**
  * shuffleTest is a property test. jsverify generates 100 random
@@ -23,7 +22,11 @@ var jsc = require('jsverify');
  * shuffle actually shuffles, only that the contents of the original
  * array all remain present when shuffle.
  */
-exports.shuffleTest = function (t) {
+test('utils.shuffle', function (t) {
+    // Dev Note: This `jsc.checkForall` emits "OK, passed 100 tests" to stdout
+    // without exposing a way to set `opts.quiet` on the internal `jsc.check()`
+    // it is calling. It would be nice to silence that, because it can break
+    // TAP parsing.
     var propRes =
         jsc.checkForall(jsc.nearray(jsc.nat), function propShuff(arr) {
             var prevLength = arr.length;
@@ -45,5 +48,5 @@ exports.shuffleTest = function (t) {
     // use equals, as propRes is a report object on property failure,
     // but it's contents are logged by jsverify
     t.ok(propRes === true, 'Property:: shuffle maintains arr contents');
-    t.done();
-};
+    t.end();
+});
