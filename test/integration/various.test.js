@@ -258,7 +258,7 @@ test('various specific issue tests', function (suite) {
         });
         setImmediate(function endIt() {
             stream.end(TEXT);
-        })
+        });
     });
 
 

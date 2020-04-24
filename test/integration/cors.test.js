@@ -26,7 +26,6 @@ var TEXT = 'hello world';
 
 test('cors', function (suite) {
     var client;
-    var httpClient;
     var dir;
     var key;
 
@@ -60,7 +59,7 @@ test('cors', function (suite) {
                 cb(null, res.headers);
             });
         });
-    };
+    }
 
     // Call "PUT $key" with the given headers, test for successful response
     // and callback with `function ()`, i.e. no error is returned.
@@ -81,13 +80,12 @@ test('cors', function (suite) {
 
         setImmediate(function streamInContent() {
             stream.end(TEXT);
-        })
-    };
+        });
+    }
 
 
     suite.test('setup', function (t) {
         client = helper.createClient();
-        httpClient = helper.createRawClient();
         var root = '/' + client.user + '/stor';
         dir = root + '/test-cors-dir-' + uuidv4().split('-')[0];
         key = dir + '/test-cors-file-' + uuidv4().split('-')[0];

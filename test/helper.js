@@ -11,6 +11,7 @@
 var fs = require('fs');
 var http = require('http');
 var https = require('https');
+var path = require('path');
 
 var assert = require('assert-plus');
 var bunyan = require('bunyan');
@@ -20,6 +21,8 @@ var restifyClients = require('restify-clients');
 var smartdc = require('smartdc');
 var smartdc_auth = require('smartdc-auth');
 var sshpk = require('sshpk');
+var vasync = require('vasync');
+var VError = require('verror');
 
 var auth = require('../lib/auth');
 
@@ -434,13 +437,14 @@ function ensureTestUser(cb) {
                 fs.readFile(ctx.infoFile, function (err, data) {
                     if (err) {
                         if (err.code === 'ENOENT') {
+                            ctx.userInfo = null;
                             next();
                         } else {
                             next(err);
                         }
                     } else {
                         try {
-                            ctx.userInfo = JSON.parse(data)
+                            ctx.userInfo = JSON.parse(data);
                         } catch (parseErr) {
                             next(new VError(parseErr,
                                 'could not parse muskie test user info file ' +
@@ -453,15 +457,17 @@ function ensureTestUser(cb) {
                 });
             },
             function sanityCheckUserInfo(ctx, next) {
+                console.log('XXX sanityCheckUserInfo', ctx.userInfo);
                 if (!ctx.userInfo) {
                     next();
                     return;
                 }
 
                 // XXX START HERE
+                XXX
                 var mantaClient = getMantaClient(ctx.userInfo);
                 var login = ctx.userInfo.login;
-                var p = '/' + login + '/stor'
+                var p = '/' + login + '/stor';
                 mantaClient.info(p, function (err, info) {
                     console.log('XXX err', err);
                     console.log('XXX info', info);
@@ -474,7 +480,18 @@ function ensureTestUser(cb) {
                         next();
                     }
                 });
-            }
+            },
+
+            function createAccountIfNecessary(ctx, next) {
+                if (ctx.userInfo) {
+                    next();
+                    return;
+                }
+
+                XXX
+                // get ufds master client
+                //
+            },
 
             // XXX create user if don't have
             // XXX RBAC info on user

@@ -187,7 +187,7 @@ test('picker', function (t) {
     }
 
     // the actual test code, yes, it runs iterations
-    function select(t) {
+    function select(_t) {
         var start = new Date().getTime();
         picker.choose({}, function onChosen(err, sharks) {
             assert.ifError(err);
