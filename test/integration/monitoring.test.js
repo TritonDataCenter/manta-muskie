@@ -14,8 +14,6 @@ var test = require('@smaller/tap').test;
 var url = require('url');
 var VError = require('verror');
 
-var helper = require('../helper');
-
 // There is a monitoring server at port `http_port + 800` for each muskie
 // process. We can't use $MANTA_URL in general, because that may be the
 // *loadbalancer* service host or IP. There is always at least a webapi server

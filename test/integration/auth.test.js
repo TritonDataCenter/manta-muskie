@@ -137,19 +137,20 @@ test('auth', function (suite) {
     var rawClient;
     var dir;
     var key;
-    var testUser;
+    var testAccount;
 
-    suite.test('setup: test user', function (t) {
-        helper.ensureTestUser(function (err, user) {
-            console.log('XXX testUser', user);
-            t.ifError(err, 'no error ensuring test user');
-            testUser = user;
+    suite.test('setup: test account', function (t) {
+        helper.ensureTestAccounts(t, function (err, accounts) {
+            t.ifError(err, 'no error loading/creating test accounts');
+            t.ok(accounts.regular, 'have regular test account: ' +
+                accounts.regular.login);
+            testAccount = accounts.regular;
             t.end();
         });
     });
 
-    suite.test('setup', function (t) {
-        client = helper.createClient();
+    suite.test('setup: test dir and object', function (t) {
+        client = helper.mantaClientFromAccountInfo(testAccount);
         rawClient = helper.createRawClient();
         var root = '/' + client.user + '/stor';
         dir = root + '/test-auth-dir-' + uuidv4().split('-')[0];
@@ -168,7 +169,6 @@ test('auth', function (suite) {
             });
         });
     });
-
 
     suite.test('access test object', function (t) {
         client.get(key, function (err, stream) {
@@ -283,6 +283,7 @@ test('auth', function (suite) {
                 })
             }
         };
+        // XXX "rawClient" is an HttpClient, "rawRequest" is a JsonClient. sigh.
         rawRequest(opts, function (err) {
             t.ok(err);
             t.equal(err.statusCode, 403);
@@ -330,7 +331,9 @@ test('auth', function (suite) {
 
 
     suite.test('presigned URL no expires', function (t) {
-        helper.signUrl(key, function (signErr, path) {
+        client.signURL({
+            path: key
+        }, function (signErr, path) {
             t.ifError(signErr);
             t.ok(path);
 
@@ -348,7 +351,9 @@ test('auth', function (suite) {
 
 
     suite.test('presigned URL no keyid', function (t) {
-        helper.signUrl(key, function (err, path) {
+        client.signURL({
+            path: key
+        }, function (err, path) {
             t.ifError(err);
             t.ok(path);
 
@@ -366,7 +371,9 @@ test('auth', function (suite) {
 
 
     suite.test('presigned URL no algorithm', function (t) {
-        helper.signUrl(key, function (err, path) {
+        client.signURL({
+            path: key
+        }, function (err, path) {
             t.ifError(err);
             t.ok(path);
 
@@ -384,7 +391,9 @@ test('auth', function (suite) {
 
 
     suite.test('presigned URL no signature', function (t) {
-        helper.signUrl(key, function (err, path) {
+        client.signURL({
+            path: key
+        }, function (err, path) {
             t.ifError(err);
             t.ok(path);
 
@@ -402,7 +411,9 @@ test('auth', function (suite) {
 
 
     suite.test('presigned URL invalid signature', function (t) {
-        helper.signUrl(key, function (err, path) {
+        client.signURL({
+            path: key
+        }, function (err, path) {
             t.ifError(err);
             t.ok(path);
 
@@ -419,8 +430,10 @@ test('auth', function (suite) {
 
 
     suite.test('presigned URL expired request', function (t) {
-        var expiry = Math.floor((Date.now()/1000 - 10));
-        helper.signUrl(key, expiry, function (err, path) {
+        client.signURL({
+            path: key,
+            expires: Math.floor(Date.now() / 1000 - 10)
+        }, function (err, path) {
             t.ifError(err);
             t.ok(path);
 
@@ -436,7 +449,9 @@ test('auth', function (suite) {
 
 
     suite.test('presigned URL ok', function (t) {
-        helper.signUrl(key, function (err, path) {
+        client.signURL({
+            path: key
+        }, function (err, path) {
             t.ifError(err);
             t.ok(path);
 
@@ -451,7 +466,9 @@ test('auth', function (suite) {
 
 
     suite.test('presigned URL ok, directory no trailing slash', function (t) {
-        helper.signUrl(dir, function (err, path) {
+        client.signURL({
+            path: dir
+        }, function (err, path) {
             t.ifError(err);
             t.ok(path);
 
@@ -466,7 +483,9 @@ test('auth', function (suite) {
 
 
     suite.test('presigned URL ok, directory trailing slash', function (t) {
-        helper.signUrl(dir + '/', function (err, path) {
+        client.signURL({
+            path: dir + '/'
+        }, function (err, path) {
             t.ifError(err);
             t.ok(path);
 
