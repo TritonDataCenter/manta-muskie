@@ -26,7 +26,7 @@ var monitorUrl = 'http://localhost:8881';
 test('monitoring', function (suite) {
     test('kang handler running', function (t) {
         var client = restifyClients.createJsonClient({
-            connectTimeout: 250,
+            connectTimeout: 2000,
             rejectUnauthorized: false,
             retry: false,
             url: monitorUrl
@@ -41,7 +41,7 @@ test('monitoring', function (suite) {
 
     test('metric handler running', function (t) {
         var client = restifyClients.createStringClient({
-            connectTimeout: 250,
+            connectTimeout: 2000,
             rejectUnauthorized: false,
             retry: false,
             url: monitorUrl

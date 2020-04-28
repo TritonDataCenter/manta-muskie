@@ -89,31 +89,16 @@ manta-scripts: deps/manta-scripts/.git
 	mkdir -p $(BUILD)/scripts
 	cp deps/manta-scripts/*.sh $(BUILD)/scripts
 
-.PHONY: test
-test: $(STAMP_NODE_MODULES) | $(TAP_EXEC)
-	@testFiles="$(shell ls test/*.test.js test/mpu/*.test.js | egrep "$(TEST_FILTER)")" && \
-	    test -z "$$testFiles" || \
-	    NODE_NDEBUG= ./node_modules/.bin/tap --timeout $(TEST_TIMEOUT_S) -j $(TEST_JOBS) -o ./test.tap $$testFiles
-#XXX
-#.PHONY: test
-#test:
-#    @echo "To run tests, run:"
-#    @echo ""
-#    @echo '    ./build/node/bin/node $$(find test/ -type f -name "*.js")'
-#    @echo ""
-#    @echo "from the /opt/smartdc/mako directory on a storage instance."
+.PHONY: test-unit
+test-unit: $(STAMP_NODE_MODULES) | $(TAP_EXEC)
+	./node_modules/.bin/tap -j10 -o test.tap test/unit/*.test.js
 
-#
-# This target can be used to invoke "acsetup.js", a program which configures
-# access control in the current Manta account in preparation for running the
-# Muskie test suite.  The most common invocations will include:
-#
-#	make test-ac-setup
-#	make test-ac-teardown
-#
-.PHONY: test-ac-%
-test-ac-%: $(STAMP_NODE_MODULES)
-	PATH=$(ROOT)/$(NODE_INSTALL)/bin:$(PATH) $(NODE) test/acsetup.js $*
+.PHONY: test
+test:
+	@echo "To run all tests, run the following from /opt/smartdc/muskie on a webapi VM:"
+	@echo ""
+	@echo "    ./test/runtests"
+	@exit 1
 
 .PHONY: release
 release: all docs

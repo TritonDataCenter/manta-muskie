@@ -1,0 +1,44 @@
+#!/bin/bash
+
+#
+# The following will run all muskie tests inside a deployed muskie (aka
+# "webapi") instance:
+#
+#       ./test/runtests
+#       /node_modules/.bin/tap -j10 test/**/*.test.js
+#
+#
+# 'runtests' is just a super-light shim around calling the 'tap' runner with
+# some defaults. See <https://node-tap.org/docs/cli/> for a number of 'TAP_*'
+# environment variables that can be used to tweak how tests are run. Some common
+# use cases are:
+#
+# - Force TAP format output:
+#
+#       TAP=1 ./test/runtests
+#       TAP=1 ./node_modules/.bin/tap test/**/*.test.js
+#
+# - Run a single test file. The nice thing about 'node-tap'-based tests is that
+#   they run independently without any special code-loading environment.
+#
+#       ./node_modules/.bin/tap test/integration/foo.test.js
+#       node test/integration/foo.test.js
+#
+# - Run the test files one at a time (serially). By default we run test in
+#   parallel (another benefit of node-tap's design).
+#
+#       TEST_JOBS=1 ./test/runtests
+#       /node_modules/.bin/tap -j1 test/**/*.test.js
+#
+# - Set a different test timeout. The default 'tap' timeout is 30s. Set
+#   to **0** to disable test timeouts.
+#
+#       TAP_TIMEOUT=60 ./test/runtests
+#       TAP_TIMEOUT=60 /node_modules/.bin/tap test/**/*.test.js
+#
+
+[[ -n "$TEST_JOBS" ]] || TEST_JOBS=10
+
+#XXX ./node_modules/.bin/tap test/**/*.test.js  # once mpu tests moved over
+./node_modules/.bin/tap -j $TEST_JOBS -o ./test.tap test/{unit,integration}/*.test.js
+
