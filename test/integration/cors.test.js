@@ -28,6 +28,7 @@ test('cors', function (suite) {
     var client;
     var dir;
     var key;
+    var testAccount;
 
     // Call "GET $key" with given headers, test for successful response and
     // call back with the response headers `function (null, resHeaders)`.
@@ -83,9 +84,18 @@ test('cors', function (suite) {
         });
     }
 
+    suite.test('setup: test account', function (t) {
+        helper.ensureTestAccounts(t, function (err, accounts) {
+            t.ifError(err, 'no error loading/creating test accounts');
+            t.ok(accounts.regular, 'have regular test account: ' +
+                accounts.regular.login);
+            testAccount = accounts.regular;
+            t.end();
+        });
+    });
 
-    suite.test('setup', function (t) {
-        client = helper.createClient();
+    suite.test('setup: client and test dir', function (t) {
+        client = helper.mantaClientFromAccountInfo(testAccount);
         var root = '/' + client.user + '/stor';
         dir = root + '/test-cors-dir-' + uuidv4().split('-')[0];
         key = dir + '/test-cors-file-' + uuidv4().split('-')[0];

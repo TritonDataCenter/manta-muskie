@@ -112,7 +112,6 @@ before(function (cb) {
     self.sdcClient = helper.createSDCClient();
     self.client = helper.createClient();
     self.jsonClient = helper.createJsonClient();
-    self.rawClient = helper.createRawClient();
     self.userClient = helper.createUserClient('muskie_test_user');
     self.operClient = helper.createOperatorClient();
     self.paths = [];
@@ -132,7 +131,6 @@ after(function (cb) {
             inputs: self.operPaths
         }, function (err2) {
             self.client.close();
-            self.rawClient.close();
             self.userClient.close();
             self.sdcClient.client.close();
             self.operClient.close();

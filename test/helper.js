@@ -35,9 +35,6 @@ http.globalAgent.maxSockets = 50;
 https.globalAgent.maxSockets = 50;
 
 
-var POSEIDON_ID = process.env.MUSKIE_POSEIDON_ID ||
-        '930896af-bf8c-48d4-885c-6573a94b1853';
-
 /*
  * We need a regular (non-operator) account for some tests.  The regular
  * Manta client environment variables (MANTA_USER, MANTA_KEY_ID) are used
@@ -132,36 +129,6 @@ function mantaClientFromAccountInfo(accountInfo) {
 }
 
 
-//// XXX
-//function createClient() {
-//    assert.string(process.env.MANTA_URL, 'process.env.MANTA_URL');
-//    assert.string(process.env.MANTA_USER, 'process.env.MANTA_USER');
-//    assert.string(process.env.MANTA_KEY_ID, 'process.env.MANTA_KEY_ID');
-//
-//    var key = getRegularPrivkey();
-//    var log = createLogger();
-//    var client = manta.createClient({
-//        agent: false,
-//        connectTimeout: 2000,
-//        log: log,
-//        retry: false,
-//        sign: manta.privateKeySigner({
-//            key: key,
-//            keyId: process.env.MANTA_KEY_ID,
-//            log: log,
-//            user: process.env.MANTA_USER
-//        }),
-//        rejectUnauthorized: false,
-//        url: process.env.MANTA_URL,
-//        user: process.env.MANTA_USER
-//    });
-//
-//    return (client);
-//}
-
-
-
-
 function createUserClient(login) {
     assert.string(process.env.MANTA_URL, 'process.env.MANTA_URL');
     assert.string(process.env.MANTA_USER, 'process.env.MANTA_USER');
@@ -208,8 +175,7 @@ function createJsonClient() {
     return (client);
 }
 
-
-function createRawClient() {
+function createStringClient() {
     assert.string(process.env.MANTA_URL, 'process.env.MANTA_URL');
 
     var client = restifyClients.createClient({
@@ -218,7 +184,7 @@ function createRawClient() {
         log: createLogger(),
         rejectUnauthorized: false,
         retry: false,
-        type: 'http',
+        type: 'string',
         url: process.env.MANTA_URL
     });
 
@@ -323,45 +289,6 @@ function checkResponse(t, res, code) {
 }
 
 
-function createAuthToken(opts, cb) {
-    assert.string(process.env.MUSKIE_SALT, 'process.env.MUSKIE_SALT');
-    assert.string(process.env.MUSKIE_KEY, 'process.env.MUSKIE_KEY');
-    assert.string(process.env.MUSKIE_IV, 'process.env.MUSKIE_IV');
-    assert.optionalString(process.env.MUSKIE_MAX_AGE, 'process.env.MUSKIE_MAX_AGE');
-
-    var tokenCfg = {
-        salt: process.env.MUSKIE_SALT,
-        key: process.env.MUSKIE_KEY,
-        iv: process.env.MUSKIE_IV,
-        maxAge: +process.env.MUSKIE_MAX_AGE || 604800000
-    };
-
-    var check = ['salt', 'key', 'iv'].every(function (env) {
-        if (!tokenCfg[env]) {
-            cb(new Error('MUSKIE_' + env.toUpperCase() + ' required'));
-            return (false);
-        } else {
-            return (true);
-        }
-    });
-
-    if (!check) {
-        return;
-    }
-
-    auth.createAuthToken(opts, tokenCfg, function (err, token) {
-        if (err) {
-            cb(err);
-            return;
-        } else if (!token) {
-            cb(new Error('no token'));
-            return;
-        }
-        cb(null, token);
-    });
-}
-
-
 // XXX can we use a manta client for this? Should be able to.
 //function signRequest(opts, cb) {
 //    var key = opts.key || getRegularPrivkey();
@@ -436,6 +363,7 @@ function createAuthToken(opts, cb) {
 function _ensureAccount(opts, cb) {
     assert.object(opts.t, 'opts.t');
     assert.object(opts.ufdsClient, 'opts.ufdsClient');
+    assert.bool(opts.isOperator, 'opts.isOperator');
     assert.string(opts.login, 'opts.login');
     assert.string(opts.cacheDir, 'opts.cacheDir');
 
@@ -474,6 +402,15 @@ function _ensureAccount(opts, cb) {
                     });
                 }
             });
+        },
+
+        function addToOperatorsIfRequested(ctx, next) {
+            if (!opts.isOperator) {
+                next();
+                return;
+            }
+
+            ctx.account.addToGroup('operators', next);
         },
 
         function ensureTheKey(ctx, next) {
@@ -541,7 +478,7 @@ function _ensureAccount(opts, cb) {
                 pubKey: ctx.pubKey,
                 privKey: ctx.privKey,
                 fp: ctx.fp,
-                isOperator: false
+                isOperator: opts.isOperator
             };
             next();
         }
@@ -553,6 +490,55 @@ function _ensureAccount(opts, cb) {
             cb(null, info);
         }
     });
+}
+
+
+// Wait for the given account to be "ready". Here "ready" means that we get
+// a successful response from `HEAD /:login/stor`.
+function _waitForAccountToBeReady(t, opts, cb) {
+    assert.object(t, 't');
+    assert.object(opts.accountInfo, 'opts.accountInfo');
+    assert.finite(opts.timeout, 'opts.timeout'); // number of seconds
+
+    var client = mantaClientFromAccountInfo(opts.accountInfo);
+    var lastErr = true; // `true` to force first `pingAttempt`
+    var start = Date.now();
+
+    // Currently we wait forever here, relying on test timeouts.
+    vasync.whilst(
+        function notYetWorking() {
+            return !!lastErr;
+        },
+        function pingAttempt(attemptCb) {
+            if ((Date.now() - start) / 1000 > opts.timeout) {
+                cb(new VError(
+                    'reached %ds timeout waiting for account "%s" to be ready',
+                    opts.timeout, opts.accountInfo.login));
+                return;
+            }
+
+            var p = '/' + opts.accountInfo.login + '/stor';
+            client.info(p, function (err, info, res) {
+                if (res === undefined) {
+                    // MantaClient.info callback is crazy this way.
+                    res = info;
+                }
+                t.comment(`[${new Date().toISOString()}] ` +
+                    `HEAD ${p} -> ${res ? res.statusCode : '<no response>'}`);
+                lastErr = err;
+                if (err) {
+                    // Short delay before the next attempt.
+                    setTimeout(attemptCb, 1000);
+                } else {
+                    attemptCb();
+                }
+            });
+        },
+        function done(err) {
+            client.close();
+            cb(err);
+        }
+    )
 }
 
 
@@ -577,7 +563,9 @@ function ensureTestAccounts(t, cb) {
     var context = {
         dbDir: DB_DIR,
         lockFile: path.join(DB_DIR, 'accounts.lock'),
-        infoFile: path.join(DB_DIR, 'accounts.json')
+        // XXX
+        //infoFile: path.join(DB_DIR, 'accounts.json'),
+        accounts: {}
     };
 
     vasync.pipeline({
@@ -620,68 +608,71 @@ function ensureTestAccounts(t, cb) {
             },
             function getLock(ctx, next) {
                 qlocker.lock(ctx.lockFile, function (err, unlockFn) {
-                    t.comment('have test accounts lock');
+                    t.comment(`[${new Date().toISOString()}] ` +
+                        `acquired test accounts lock`);
                     ctx.unlockFn = unlockFn;
                     next(err);
                 });
             },
-            function loadAccountInfo(ctx, next) {
-                fs.readFile(ctx.infoFile, function (err, data) {
-                    if (err) {
-                        if (err.code === 'ENOENT') {
-                            ctx.accounts = null;
-                            next();
-                        } else {
-                            next(err);
-                        }
-                    } else {
-                        try {
-                            ctx.accounts = JSON.parse(data);
-                        } catch (parseErr) {
-                            next(new VError(parseErr,
-                                'could not parse muskie test account info ' +
-                                'file "%s" (delete it and re-run tests)',
-                                ctx.infoFile));
-                            return;
-                        }
-                        t.comment('loaded test account info from cache:' +
-                            ctx.infoFile);
-                        next();
-                    }
-                });
-            },
-            function sanityCheckAccountInfo(ctx, next) {
-                if (!ctx.accounts) {
-                    next();
-                    return;
-                }
 
-                // We have account info from an earlier run. Do a sanity
-                // check that it works, then return.
-                XXX
-                var mantaClient = getMantaClient(ctx.accounts);
-                var login = ctx.accounts.login;
-                var p = '/' + login + '/stor';
-                mantaClient.info(p, function (err, info) {
-                    console.log('XXX err', err);
-                    console.log('XXX info', info);
-                    if (err) {
-                        delete ctx.accounts;
-                        // XXX If we error out here, then a broken test account
-                        //     will require the developer to manually recover.
-                        //     That could be a PITA.
-                        next(new VError(err,
-                            'could not verify that test user "%s" is usable',
-                            login));
-                    } else {
-                        next(true);  // early abort
-                    }
-                });
-            },
+            // XXX
+            //function loadAccountInfo(ctx, next) {
+            //    fs.readFile(ctx.infoFile, function (err, data) {
+            //        if (err) {
+            //            if (err.code === 'ENOENT') {
+            //                ctx.accounts = null;
+            //                next();
+            //            } else {
+            //                next(err);
+            //            }
+            //        } else {
+            //            try {
+            //                ctx.accounts = JSON.parse(data);
+            //            } catch (parseErr) {
+            //                next(new VError(parseErr,
+            //                    'could not parse muskie test account info ' +
+            //                    'file "%s" (delete it and re-run tests)',
+            //                    ctx.infoFile));
+            //                return;
+            //            }
+            //            t.comment('loaded test account info from cache:' +
+            //                ctx.infoFile);
+            //            next();
+            //        }
+            //    });
+            //},
+            //function sanityCheckAccountInfo(ctx, next) {
+            //    if (!ctx.accounts) {
+            //        next();
+            //        return;
+            //    }
+            //
+            //    // We have account info from an earlier run. Do a sanity
+            //    // check that it works, then return.
+            //    XXX
+            //    var mantaClient = getMantaClient(ctx.accounts);
+            //    var login = ctx.accounts.login;
+            //    var p = '/' + login + '/stor';
+            //    mantaClient.info(p, function (err, info) {
+            //        console.log('XXX err', err);
+            //        console.log('XXX info', info);
+            //        if (err) {
+            //            delete ctx.accounts;
+            //            // XXX If we error out here, then a broken test account
+            //            //     will require the developer to manually recover.
+            //            //     That could be a PITA.
+            //            next(new VError(err,
+            //                'could not verify that test user "%s" is usable',
+            //                login));
+            //        } else {
+            //            next(true);  // early abort
+            //        }
+            //    });
+            //},
+            //
+            //// If we get this far, then we need to create the test accounts.
 
-            // If we get this far, then we need to create the test accounts.
-
-            // There is a guard against running in production, so we can
+            // There is a guard above against running in production, so we can
             // (hopefully) assume this DC's UFDS is the master. If not, then
             // we'll be creating accounts in a non-master UFDS which breaks UFDS
             // replication.
@@ -710,8 +701,8 @@ function ensureTestAccounts(t, cb) {
             // Create (or load) the 'muskietest_account_...' account.
             function ensureRegularAccount(ctx, next) {
                 // We put (part of) the instance UUID in the test account
-                // to balance between not creating zillions of test accounts
-                // on re-runs, and not having test runs from separate muskie
+                // to balance between (a) not creating zillions of test accounts
+                // on re-runs and (b) not having test runs from separate muskie
                 // instances collide with each other.
                 var login = 'muskietest_account_' + ctx.instUuid.split('-')[0];
 
@@ -720,6 +711,7 @@ function ensureTestAccounts(t, cb) {
                     t: t,
                     ufdsClient: ctx.ufdsClient,
                     login: login,
+                    isOperator: false,
                     cacheDir: ctx.dbDir
                 }, function (err, info) {
                     if (err) {
@@ -727,86 +719,48 @@ function ensureTestAccounts(t, cb) {
                     } else {
                         t.ok(info, 'ensured regular account: login=' +
                             info.login + ', ...');
-                        ctx.accounts = {
-                            regular: info
-                        };
+                        ctx.accounts.regular = info;
                         next();
                     }
                 });
             },
 
-            // XXX operator
-            //// Create (or load) the 'muskietest_operator_...' account.
-            //function ensureOperatorAccount(ctx, next) {
-            //    // We put (part of) the instance UUID in the test account
-            //    // to balance between not creating zillions of test accounts
-            //    // on re-runs, and not having test runs from separate muskie
-            //    // instances collide with each other.
-            //    var login = 'muskietest_operator_' + ctx.instUuid.split('-')[0];
-            //
-            //    ctx.ufdsClient.getUserEx({
-            //        searchType: 'login',
-            //        value: login
-            //    }, function (getErr, account) {
-            //        if (getErr && getErr.name !== 'ResourceNotFoundError') {
-            //            next(new VError(getErr,
-            //                'unexpected error loading account "%s"', login));
-            //            return;
-            //        } else if (account) {
-            //            ctx.operator = account;
-            //            next();
-            //        } else {
-            //            ctx.ufdsClient.addUser({
-            //                login: login,
-            //                email: login + '@localhost',
-            //                userpassword: uuidv4()
-            //            }, function (addErr, newAccount) {
-            //                if (addErr) {
-            //                    next(new VError(addErr,
-            //                        'could not create account "%s"', login));
-            //                } else {
-            //                    ctx.operator = newAccount;
-            //                    next();
-            //                }
-            //            });
-            //        }
-            //    });
-            //},
 
-            // XXX parameterize and use for operator
-            function waitForRegularAccountToBeReady(ctx, next) {
-                var accountInfo = ctx.accounts.regular;
-                var client = mantaClientFromAccountInfo(accountInfo);
-                var lastErr = true; // `true` to force first `pingAttempt`
+            // Create (or load) the 'muskietest_operator_...' account.
+            function ensureOperatorAccount(ctx, next) {
+                var login = 'muskietest_operator_' + ctx.instUuid.split('-')[0];
 
-                // Currently we wait forever here, relying on test timeouts.
-                vasync.whilst(
-                    function notYetWorking() {
-                        return !!lastErr;
-                    },
-                    function pingAttempt(attemptCb) {
-                        var login = ctx.accounts.login;
-                        var p = '/' + accountInfo.login + '/stor';
-                        client.info(p, function (err, info, res) {
-                            if (res === undefined) {
-                                // MantaClient.info callback is crazy this way.
-                                res = info;
-                            }
-                            t.comment(`HEAD ${p} -> ${res ? res.statusCode : '<no response>'}`);
-                            lastErr = err;
-                            if (err) {
-                                // Short delay before the next attempt.
-                                setTimeout(attemptCb, 1000);
-                            } else {
-                                attemptCb();
-                            }
-                        });
-                    },
-                    function done(err) {
-                        client.close();
+                // XXX RBAC info
+                _ensureAccount({
+                    t: t,
+                    ufdsClient: ctx.ufdsClient,
+                    login: login,
+                    isOperator: true,
+                    cacheDir: ctx.dbDir
+                }, function (err, info) {
+                    if (err) {
                         next(err);
+                    } else {
+                        t.ok(info, 'ensured operator account: login=' +
+                            info.login + ', ...');
+                        ctx.accounts.operator = info;
+                        next();
                     }
-                )
+                });
+            },
+
+            function waitForRegularAccountToBeReady(ctx, next) {
+                _waitForAccountToBeReady(t, {
+                    accountInfo: ctx.accounts.regular,
+                    timeout: 60
+                }, next);
+            },
+
+            function waitForOperatorAccountToBeReady(ctx, next) {
+                _waitForAccountToBeReady(t, {
+                    accountInfo: ctx.accounts.operator,
+                    timeout: 60
+                }, next);
             },
 
             // XXX save info out to info file
@@ -825,6 +779,8 @@ function ensureTestAccounts(t, cb) {
         vasync.pipeline({funcs: [
             function cleanupLock(_, next) {
                 if (context.unlockFn) {
+                    t.comment(`[${new Date().toISOString()}] ` +
+                        `releasing test accounts lock`);
                     context.unlockFn(next);
                 } else {
                     next();
@@ -846,18 +802,15 @@ function ensureTestAccounts(t, cb) {
 ///--- Exports
 
 module.exports = {
-    POSEIDON_ID: POSEIDON_ID,
     TEST_OPERATOR: TEST_OPERATOR,
-    //XXX
-    //createClient: createClient,
+
     mantaClientFromAccountInfo: mantaClientFromAccountInfo,
 
 
     createJsonClient: createJsonClient,
-    createRawClient: createRawClient,
+    createStringClient: createStringClient,
     createUserClient: createUserClient,
     createLogger: createLogger,
-    createAuthToken: createAuthToken,
     createOperatorClient: createOperatorClient,
     ensureTestAccounts: ensureTestAccounts,
     getRegularPubkey: getRegularPubkey,
