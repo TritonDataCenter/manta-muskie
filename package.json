@@ -53,6 +53,7 @@
         "manta": "5.2.1",
         "qlocker": "^1.0.1",
         "restify-clients": "2.6.7",
+        "smartdc": "^9.0.0",
         "ufds": "^1.6.1"
     },
     "scripts": {
