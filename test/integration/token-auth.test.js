@@ -31,7 +31,7 @@ test('token auth', function (suite) {
     var testAccount;
     var testOperatorAccount;
 
-    suite.test('setup: test account', function (t) {
+    suite.test('setup: test accounts', function (t) {
         helper.ensureTestAccounts(t, function (err, accounts) {
             t.ifError(err, 'no error loading/creating test accounts');
             testAccount = accounts.regular;

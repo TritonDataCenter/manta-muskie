@@ -21,15 +21,6 @@ var auth = require('../../lib/auth');
 var helper = require('../helper');
 
 
-
-
-///--- Globals
-
-var sprintf = util.format;
-
-var SIG_FMT = 'Signature keyId="/%s/keys/%s",algorithm="%s",signature="%s"';
-
-
 ///--- Helpers
 
 function writeObject(client, key, cb) {
@@ -62,7 +53,7 @@ test('auth', function (suite) {
     var dir;
     var jsonClient = helper.createJsonClient();
     var key;
-    var stringClient;
+    var stringClient = helper.createStringClient();
     var testAccount;
 
     suite.test('setup: test account', function (t) {
@@ -77,7 +68,6 @@ test('auth', function (suite) {
 
     suite.test('setup: test dir and object', function (t) {
         client = helper.mantaClientFromAccountInfo(testAccount);
-        stringClient = helper.createStringClient();
         var root = '/' + client.user + '/stor';
         dir = root + '/test-auth-dir-' + uuidv4().split('-')[0];
         key = dir + '/test-auth-file-' + uuidv4().split('-')[0];

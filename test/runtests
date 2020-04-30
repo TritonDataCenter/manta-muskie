@@ -5,7 +5,7 @@
 # "webapi") instance:
 #
 #       ./test/runtests
-#       /node_modules/.bin/tap -j10 test/**/*.test.js
+#       # OR:  ./node_modules/.bin/tap -j10 test/**.test.js
 #
 #
 # 'runtests' is just a super-light shim around calling the 'tap' runner with
@@ -16,29 +16,37 @@
 # - Force TAP format output:
 #
 #       TAP=1 ./test/runtests
-#       TAP=1 ./node_modules/.bin/tap test/**/*.test.js
+#       # OR:  TAP=1 ./node_modules/.bin/tap test/**.test.js
 #
 # - Run a single test file. The nice thing about 'node-tap'-based tests is that
 #   they run independently without any special code-loading environment.
 #
 #       ./node_modules/.bin/tap test/integration/foo.test.js
-#       node test/integration/foo.test.js
+#       # OR:  node test/integration/foo.test.js
 #
 # - Run the test files one at a time (serially). By default we run test in
 #   parallel (another benefit of node-tap's design).
 #
 #       TEST_JOBS=1 ./test/runtests
-#       /node_modules/.bin/tap -j1 test/**/*.test.js
+#       # OR:  ./node_modules/.bin/tap -j1 test/**.test.js
 #
-# - Set a different test timeout. The default 'tap' timeout is 30s. Set
-#   to **0** to disable test timeouts.
+# - Set a different test timeout.
 #
-#       TAP_TIMEOUT=60 ./test/runtests
-#       TAP_TIMEOUT=60 /node_modules/.bin/tap test/**/*.test.js
+#       TAP_TIMEOUT=120 ./test/runtests
+#       # OR:  TAP_TIMEOUT=120 ./node_modules/.bin/tap test/**.test.js
+#       # OR no timeout:  ./node_modules/.bin/tap -T test/**.test.js
 #
 
 [[ -n "$TEST_JOBS" ]] || TEST_JOBS=10
 
-#XXX ./node_modules/.bin/tap test/**/*.test.js  # once mpu tests moved over
-./node_modules/.bin/tap -j $TEST_JOBS -o ./test.tap test/{unit,integration}/*.test.js
+# Default to 80s because:
+# - Test account/RBAC setup ('helper.ensureTestAccounts' and, especially,
+#   'helper.ensureRbacSettings) can take up to 30s to complete on a first
+#   run because they are waiting for caches to update account info.
+# - Some tests (e.g. various.test.js) take longer than 30s, at least when run
+#   in parallel under COAL.
+[[ -n "$TAP_TIMEOUT" ]] || TAP_TIMEOUT=80
+export TAP_TIMEOUT
 
+#XXX ./node_modules/.bin/tap test/**.test.js  # once mpu tests moved over
+./node_modules/.bin/tap -j $TEST_JOBS -o ./test.tap test/{unit,integration}/*.test.js

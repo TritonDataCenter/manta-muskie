@@ -25,6 +25,12 @@ var uuidv4 = require('uuid/v4');
 var vasync = require('vasync');
 var VError = require('verror');
 
+// The relatively large smartdc dep is only required for `ensureRbacSettings()`
+// used only for "test/integration/ac.test.js". A more modern option would be
+// to use node-triton. However its RBAC support is fledgling and node-triton
+// would be an even *bigger* dep.
+var smartdc = require('smartdc');
+
 var auth = require('../lib/auth');
 
 
@@ -33,6 +39,9 @@ var auth = require('../lib/auth');
 // XXX can we drop these?
 http.globalAgent.maxSockets = 50;
 https.globalAgent.maxSockets = 50;
+
+const DB_DIR = '/var/db/muskietest';
+const ACCOUNTS_LOCK_FILE = path.join(DB_DIR, 'accounts.lock');
 
 
 /*
@@ -129,12 +138,14 @@ function mantaClientFromAccountInfo(accountInfo) {
 }
 
 
-function createUserClient(login) {
-    assert.string(process.env.MANTA_URL, 'process.env.MANTA_URL');
-    assert.string(process.env.MANTA_USER, 'process.env.MANTA_USER');
+function mantaClientFromSubuserInfo(accountInfo, subuserLogin) {
+    assert.object(accountInfo, 'accountInfo');
+    assert.string(accountInfo.login, 'accountInfo.login');
+    assert.string(accountInfo.fp, 'accountInfo.fp');
+    assert.string(accountInfo.privKey, 'accountInfo.privKey');
+    assert.string(subuserLogin, 'subuserLogin');
     assert.string(process.env.MANTA_KEY_ID, 'process.env.MANTA_KEY_ID');
 
-    var key = getRegularPrivkey();
     var log = createLogger();
     var client = manta.createClient({
         agent: false,
@@ -142,16 +153,16 @@ function createUserClient(login) {
         log: log,
         retry: false,
         sign: manta.privateKeySigner({
-            key: key,
-            keyId: process.env.MANTA_KEY_ID,
+            key: accountInfo.privKey,
+            keyId: accountInfo.fp,
             log: log,
-            user: process.env.MANTA_USER,
-            subuser: login
+            user: accountInfo.login,
+            subuser: subuserLogin
         }),
         rejectUnauthorized: false,
         url: process.env.MANTA_URL,
-        user: process.env.MANTA_USER,
-        subuser: login
+        user: accountInfo.login,
+        subuser: subuserLogin
     });
 
     return (client);
@@ -358,6 +369,366 @@ function checkResponse(t, res, code) {
 //}
 
 
+// Ensure the RBAC settings (subusers, policies, roles) on the given account
+// are set as given.
+function ensureRbacSettings(opts, cb) {
+    assert.object(opts.t, 'opts.t');
+    assert.object(opts.account, 'opts.account');
+    assert.arrayOfObject(opts.subusers, 'opts.subusers');
+    assert.arrayOfObject(opts.policies, 'opts.policies');
+    assert.arrayOfObject(opts.roles, 'opts.roles');
+    assert.func(cb, 'cb');
+
+    var accUuid = opts.account.uuid;
+    var context = {
+        madeAdditions: false,
+        madeRoleAdditions: false
+    };
+    var t = opts.t;
+
+    vasync.pipeline({arg: context, funcs: [
+        function getLock(ctx, next) {
+            qlocker.lock(ACCOUNTS_LOCK_FILE, function (err, unlockFn) {
+                t.comment(`[${new Date().toISOString()}] ` +
+                    `acquired test accounts lock`);
+                ctx.unlockFn = unlockFn;
+                next(err);
+            });
+        },
+
+        function createSmartdcClient(ctx, next) {
+            try {
+                var muskieConfig = JSON.parse(
+                    fs.readFileSync('/opt/smartdc/muskie/etc/config.json'));
+            } catch (err) {
+                next(new VError(err, 'cannot load muskie config'));
+                return;
+            }
+
+            // ldaps://ufds.$datacenter_name.$dns_domain
+            // -> https://cloudapi.$datacenter_name.$dns_domain
+            var cloudapiUrl = muskieConfig.ufds.url
+                .replace(/^ldaps/, 'https')
+                .replace(/ufds\./, 'cloudapi.');
+
+            ctx.smartdcClient = smartdc.createClient({
+                log: createLogger('smartdc'),
+                sign: smartdc.privateKeySigner({
+                    key: opts.account.privKey,
+                    keyId: opts.account.fp,
+                    user: opts.account.login
+                }),
+                rejectUnauthorized: false,
+                user: opts.account.login,
+                url: cloudapiUrl
+            });
+
+            next();
+        },
+
+        function getCurrSubusers(ctx, next) {
+            ctx.smartdcClient.listUsers(accUuid, function (err, currSubusers) {
+                var currSubuserFromLogin = {};
+                currSubusers.forEach(function (s) {
+                    currSubuserFromLogin[s.login] = s;
+                });
+
+                ctx.subusers = [];
+                ctx.subusersToCreate = [];
+                ctx.subusersToDelete = [];
+
+                opts.subusers.forEach(function (s) {
+                    if (currSubuserFromLogin[s.login] === undefined) {
+                        ctx.subusersToCreate.push(s);
+                    } else {
+                        ctx.subusers.push(currSubuserFromLogin[s.login]);
+                    }
+                });
+
+                var wantSubuserLogins = opts.subusers.map(s => s.login);
+                currSubusers.forEach(function (s) {
+                    if (wantSubuserLogins.indexOf(s.login) === -1) {
+                        ctx.subusersToDelete.push(s);
+                    }
+                });
+
+                next(err);
+            });
+        },
+
+        function deleteSubusers(ctx, next) {
+            vasync.forEachPipeline({
+                inputs: ctx.subusersToDelete,
+                func: function delOneSubuser(subuser, nextSubuser) {
+                    assert.uuid(subuser.id, 'subuser.id');
+                    ctx.smardcClient.deleteUser(opts.account.login, subuser.id,
+                        nextSubuser);
+                }
+            }, function (err) {
+                next(err);
+            });
+        },
+
+        function createSubusers(ctx, next) {
+            vasync.forEachPipeline({
+                inputs: ctx.subusersToCreate,
+                func: function createOneSubuser(subuser, nextSubuser) {
+                    assert.string(subuser.login, 'subuser.login');
+                    assert.string(subuser.password, 'subuser.password');
+                    assert.string(subuser.email, 'subuser.email');
+
+                    t.comment(`creating subuser ` +
+                        `${opts.account.login}/${subuser.login}`);
+                    ctx.smartdcClient.createUser(subuser, function (err, s) {
+                        if (err) {
+                            nextSubuser(err);
+                        } else {
+                            ctx.madeAdditions = true;
+                            ctx.subusers.push(s);
+                            nextSubuser();
+                        }
+                    });
+                }
+            }, function finish(err) {
+                next(err);
+            });
+        },
+
+        // All subusers are given the pubKey of their owning account.
+        function ensureSubusersHaveKey(ctx, next) {
+            vasync.forEachPipeline({
+                inputs: ctx.subusers,
+                func: function ensureKeyOnOneSubuser(subuser, nextSubuser) {
+                    ctx.smartdcClient.getUserKey(
+                        opts.account.login,
+                        subuser.id,
+                        opts.account.fp,
+                        function (err, key) {
+                            if (err && err.name !== 'ResourceNotFoundError') {
+                                // Some unexpected error.
+                                nextSubuser(err);
+                            } else if (err) {
+                                t.comment(`adding key to subuser ` +
+                                    `${opts.account.login}/${subuser.login}`);
+                                ctx.smartdcClient.uploadUserKey(
+                                    opts.account.login,
+                                    subuser.id,
+                                    {
+                                        name: 'muskietest_key',
+                                        key: opts.account.pubKey
+                                    },
+                                    function (err, key) {
+                                        nextSubuser(err);
+                                    }
+                                );
+                            } else {
+                                // Already have the key.
+                                t.comment(`already have subuser ` +
+                                    `${opts.account.login}/${subuser.login}`);
+                                nextSubuser();
+                            }
+                        }
+                    );
+                }
+            }, function finish(err) {
+                next(err);
+            });
+        },
+
+        function getCurrPolicies(ctx, next) {
+            ctx.smartdcClient.listPolicies(opts.account.login, function (err, currPolicies) {
+                if (err) {
+                    next(err);
+                    return;
+                }
+
+                var currPolicyFromName = {};
+                currPolicies.forEach(function (p) {
+                    currPolicyFromName[p.name] = p;
+                });
+
+                ctx.policiesToCreate = [];
+                ctx.policiesToDelete = [];
+
+                opts.policies.forEach(function (p) {
+                    if (currPolicyFromName[p.name] === undefined) {
+                        ctx.policiesToCreate.push(p);
+                    } else {
+                        t.comment(`already have policy ${p.name}`);
+                    }
+                });
+
+                var wantPolicyNames = opts.policies.map(p => p.name);
+                currPolicies.forEach(function (p) {
+                    if (wantPolicyNames.indexOf(p.name) === -1) {
+                        ctx.policiesToDelete.push(p);
+                    }
+                });
+
+                next();
+            });
+        },
+
+        function deletePolicies(ctx, next) {
+            vasync.forEachPipeline({
+                inputs: ctx.policiesToDelete,
+                func: function delOne(policy, nextPolicy) {
+                    assert.uuid(policy.id, 'policy.id');
+                    ctx.smardcClient.deletePolicy(opts.account.login, policy.id,
+                        nextPolicy);
+                }
+            }, function (err) {
+                next(err);
+            });
+        },
+
+        function createPolicies(ctx, next) {
+            vasync.forEachPipeline({
+                inputs: ctx.policiesToCreate,
+                func: function createOne(policy, nextPolicy) {
+                    assert.string(policy.name, 'policy.name');
+                    assert.arrayOfString(policy.rules, 'policy.rules');
+
+                    t.comment(`creating policy ${policy.name}`);
+                    ctx.smartdcClient.createPolicy(policy, function (err) {
+                        ctx.madeAdditions = true;
+                        nextPolicy(err);
+                    });
+                }
+            }, function finish(err) {
+                next(err);
+            });
+        },
+
+        // If we make subuser or policy additions, then we need to *wait*
+        // before adding roles, otherwise CloudAPI CreateRole errors, e.g.:
+        //      Invalid subuser: muskietest_subuser
+        //
+        // This is because CloudAPI CreateRole is using *mahi* to get current
+        // subuser and policy information. Mahi is a cache that can be
+        // 10s (the mahi.git poll interval) out of date.
+        //
+        function lamePauseForCloudapi(ctx, next) {
+            if (!ctx.madeAdditions) {
+                next();
+                return;
+            }
+
+            const MAHI_POLL_INTERVAL_S = 10;
+            t.comment(`waiting ${MAHI_POLL_INTERVAL_S}s for mahi to sync ` +
+                `subuser and policy additions so CloudAPI CreateRole does ` +
+                `not choke`);
+            setTimeout(next, MAHI_POLL_INTERVAL_S * 1000);
+        },
+
+        function getCurrRoles(ctx, next) {
+            ctx.smartdcClient.listRoles(opts.account.login, function (err, currRoles) {
+                if (err) {
+                    next(err);
+                    return;
+                }
+
+                var currRoleFromName = {};
+                currRoles.forEach(function (r) {
+                    currRoleFromName[r.name] = r;
+                });
+
+                ctx.rolesToCreate = [];
+                ctx.rolesToDelete = [];
+
+                opts.roles.forEach(function (r) {
+                    if (currRoleFromName[r.name] === undefined) {
+                        ctx.rolesToCreate.push(r);
+                    } else {
+                        t.comment(`already have role ${r.name}`);
+                    }
+                });
+
+                var wantRoleNames = opts.roles.map(r => r.name);
+                currRoles.forEach(function (r) {
+                    if (wantRoleNames.indexOf(r.name) === -1) {
+                        ctx.rolesToDelete.push(r);
+                    }
+                });
+
+                next();
+            });
+        },
+
+        function deleteRoles(ctx, next) {
+            vasync.forEachPipeline({
+                inputs: ctx.rolesToDelete,
+                func: function delOne(role, nextRole) {
+                    assert.uuid(role.id, 'role.id');
+                    ctx.smardcClient.deleteRole(opts.account.login, role.id,
+                        nextRole);
+                }
+            }, function (err) {
+                next(err);
+            });
+        },
+
+        function createRoles(ctx, next) {
+            vasync.forEachPipeline({
+                inputs: ctx.rolesToCreate,
+                func: function createOne(role, nextRole) {
+                    assert.string(role.name, 'role.name');
+                    assert.optionalArrayOfString(role.members, 'role.members');
+                    assert.optionalArrayOfString(role.default_members,
+                        'role.default_members');
+                    assert.optionalArrayOfString(role.policies,
+                        'role.policies');
+
+                    t.comment(`creating role ${role.name}`); +
+                    ctx.smartdcClient.createRole(role, function (err) {
+                        ctx.madeRoleAdditions = true;
+                        nextRole(err);
+                    });
+                }
+            }, function finish(err) {
+                next(err);
+            });
+        },
+
+        // If we made role additions, then we need to *wait* before using
+        // these in a test case, because Manta uses its "authcache" (aka mahi)
+        // service for RBAC info and that service can be 10s out of date.
+        // (We've already waited above for subuser and/or policy additions.)
+        function pauseForAuthcache(ctx, next) {
+            if (!ctx.madeRoleAdditions) {
+                next();
+                return;
+            }
+
+            const MAHI_POLL_INTERVAL_S = 10;
+            t.comment(`waiting ${MAHI_POLL_INTERVAL_S}s for authcache ` +
+                `to sync role additions so Muskie auth is up to date`);
+            setTimeout(next, MAHI_POLL_INTERVAL_S * 1000);
+        },
+    ]}, function finish(err) {
+        // Cleanup and callback.
+        vasync.pipeline({funcs: [
+            function cleanupLock(_, next) {
+                if (context.unlockFn) {
+                    t.comment(`[${new Date().toISOString()}] ` +
+                        `releasing test accounts lock`);
+                    context.unlockFn(next);
+                } else {
+                    next();
+                }
+            },
+            function cleanupClients(_, next) {
+                if (context.smartdcClient) {
+                    context.smartdcClient.client.close();
+                }
+                next();
+            },
+        ]}, function (cleanupErr) {
+            t.ifError(cleanupErr, 'no error cleaning up ensureRbacSettings');
+            cb(err);
+        });
+    });
+}
 
 
 function _ensureAccount(opts, cb) {
@@ -448,14 +819,18 @@ function _ensureAccount(opts, cb) {
         },
 
         function ensureKeyOnAccount(ctx, next) {
+            var keyInfo = {
+                openssh: ctx.pubKey,
+                name: 'muskietest_key'
+            };
             ctx.fp = getKeyFingerprint(ctx.pubKey);
-            opts.ufdsClient.getKey(ctx.account, ctx.fp, function (getErr, key) {
+            opts.ufdsClient.getKey(ctx.account, keyInfo.name, function (getErr, key) {
                 if (getErr && getErr.name !== 'ResourceNotFoundError') {
                     next(new VError(getErr,
                         'unexpected error checking for key on account "%s"',
                         opts.login));
                 } else if (getErr) {
-                    opts.ufdsClient.addKey(ctx.account, ctx.pubKey, function (addErr) {
+                    opts.ufdsClient.addKey(ctx.account, keyInfo, function (addErr) {
                         if (addErr) {
                             next(new VError(addErr,
                                 'could not add key to account "%s"',
@@ -556,15 +931,8 @@ function _waitForAccountToBeReady(t, opts, cb) {
 // The created accounts are:
 // - muskietest_account_$firstPartOfInstanceUuid
 // - muskietest_operator_$firstPartOfInstanceUuid
-//
-// XXX rbac stuff
 function ensureTestAccounts(t, cb) {
-    const DB_DIR = '/var/db/muskietest';
     var context = {
-        dbDir: DB_DIR,
-        lockFile: path.join(DB_DIR, 'accounts.lock'),
-        // XXX
-        //infoFile: path.join(DB_DIR, 'accounts.json'),
         accounts: {}
     };
 
@@ -598,7 +966,7 @@ function ensureTestAccounts(t, cb) {
             },
 
             function mkdirpDbDir(ctx, next) {
-                fs.mkdir(ctx.dbDir, function onMkdir(err) {
+                fs.mkdir(DB_DIR, function onMkdir(err) {
                     if (err && err.code !== 'EEXIST') {
                         next(err);
                     } else {
@@ -607,70 +975,13 @@ function ensureTestAccounts(t, cb) {
                 });
             },
             function getLock(ctx, next) {
-                qlocker.lock(ctx.lockFile, function (err, unlockFn) {
+                qlocker.lock(ACCOUNTS_LOCK_FILE, function (err, unlockFn) {
                     t.comment(`[${new Date().toISOString()}] ` +
                         `acquired test accounts lock`);
                     ctx.unlockFn = unlockFn;
                     next(err);
                 });
             },
-
-            // XXX
-            //function loadAccountInfo(ctx, next) {
-            //    fs.readFile(ctx.infoFile, function (err, data) {
-            //        if (err) {
-            //            if (err.code === 'ENOENT') {
-            //                ctx.accounts = null;
-            //                next();
-            //            } else {
-            //                next(err);
-            //            }
-            //        } else {
-            //            try {
-            //                ctx.accounts = JSON.parse(data);
-            //            } catch (parseErr) {
-            //                next(new VError(parseErr,
-            //                    'could not parse muskie test account info ' +
-            //                    'file "%s" (delete it and re-run tests)',
-            //                    ctx.infoFile));
-            //                return;
-            //            }
-            //            t.comment('loaded test account info from cache:' +
-            //                ctx.infoFile);
-            //            next();
-            //        }
-            //    });
-            //},
-            //function sanityCheckAccountInfo(ctx, next) {
-            //    if (!ctx.accounts) {
-            //        next();
-            //        return;
-            //    }
-            //
-            //    // We have account info from an earlier run. Do a sanity
-            //    // check that it works, then return.
-            //    XXX
-            //    var mantaClient = getMantaClient(ctx.accounts);
-            //    var login = ctx.accounts.login;
-            //    var p = '/' + login + '/stor';
-            //    mantaClient.info(p, function (err, info) {
-            //        console.log('XXX err', err);
-            //        console.log('XXX info', info);
-            //        if (err) {
-            //            delete ctx.accounts;
-            //            // XXX If we error out here, then a broken test account
-            //            //     will require the developer to manually recover.
-            //            //     That could be a PITA.
-            //            next(new VError(err,
-            //                'could not verify that test user "%s" is usable',
-            //                login));
-            //        } else {
-            //            next(true);  // early abort
-            //        }
-            //    });
-            //},
-            //
-            //// If we get this far, then we need to create the test accounts.
 
             // There is a guard above against running in production, so we can
             // (hopefully) assume this DC's UFDS is the master. If not, then
@@ -706,13 +1017,12 @@ function ensureTestAccounts(t, cb) {
                 // instances collide with each other.
                 var login = 'muskietest_account_' + ctx.instUuid.split('-')[0];
 
-                // XXX RBAC info
                 _ensureAccount({
                     t: t,
                     ufdsClient: ctx.ufdsClient,
                     login: login,
                     isOperator: false,
-                    cacheDir: ctx.dbDir
+                    cacheDir: DB_DIR
                 }, function (err, info) {
                     if (err) {
                         next(err);
@@ -725,18 +1035,16 @@ function ensureTestAccounts(t, cb) {
                 });
             },
 
-
             // Create (or load) the 'muskietest_operator_...' account.
             function ensureOperatorAccount(ctx, next) {
                 var login = 'muskietest_operator_' + ctx.instUuid.split('-')[0];
 
-                // XXX RBAC info
                 _ensureAccount({
                     t: t,
                     ufdsClient: ctx.ufdsClient,
                     login: login,
                     isOperator: true,
-                    cacheDir: ctx.dbDir
+                    cacheDir: DB_DIR
                 }, function (err, info) {
                     if (err) {
                         next(err);
@@ -763,9 +1071,7 @@ function ensureTestAccounts(t, cb) {
                 }, next);
             },
 
-            // XXX save info out to info file
             // XXX test with concurrent tests
-
             // XXX docs in README on side-effects of testing (creating the user)
             // XXX tooling to cleanly delete the test user
         ]
@@ -802,17 +1108,19 @@ function ensureTestAccounts(t, cb) {
 ///--- Exports
 
 module.exports = {
+    // XXX
     TEST_OPERATOR: TEST_OPERATOR,
 
+    ensureTestAccounts: ensureTestAccounts,
+    ensureRbacSettings: ensureRbacSettings,
     mantaClientFromAccountInfo: mantaClientFromAccountInfo,
+    mantaClientFromSubuserInfo: mantaClientFromSubuserInfo,
 
-
+    // XXX
     createJsonClient: createJsonClient,
     createStringClient: createStringClient,
-    createUserClient: createUserClient,
     createLogger: createLogger,
     createOperatorClient: createOperatorClient,
-    ensureTestAccounts: ensureTestAccounts,
     getRegularPubkey: getRegularPubkey,
     getRegularPrivkey: getRegularPrivkey,
     getOperatorPubkey: getOperatorPubkey,
