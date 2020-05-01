@@ -9,7 +9,7 @@
  */
 
 var bunyan = require('bunyan');
-var test = require('@smaller/tap').test;
+var test = require('tap').test;
 
 var configure = require('../../lib/configure.js');
 

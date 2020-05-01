@@ -13,7 +13,7 @@
 var fs = require('fs');
 var util = require('util');
 
-var test = require('@smaller/tap').test;
+var test = require('tap').test;
 var uuidv4 = require('uuid/v4');
 
 var auth = require('../../lib/auth');

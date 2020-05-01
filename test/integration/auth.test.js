@@ -14,7 +14,7 @@ var util = require('util');
 var MemoryStream = require('stream').PassThrough;
 var once = require('once');
 var restifyClients = require('restify-clients');
-var test = require('@smaller/tap').test;
+var test = require('tap').test;
 var uuidv4 = require('uuid/v4');
 
 var auth = require('../../lib/auth');

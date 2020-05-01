@@ -9,7 +9,7 @@
  */
 
 var jsc = require('jsverify');
-var test = require('@smaller/tap').test;
+var test = require('tap').test;
 
 var mod_util = require('../../lib/utils.js');
 

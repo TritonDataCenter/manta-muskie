@@ -8,7 +8,7 @@
  * Copyright 2020 Joyent, Inc.
  */
 
-var test = require('@smaller/tap').test;
+var test = require('tap').test;
 var verror = require('verror');
 
 var errors = require('../../lib/errors');

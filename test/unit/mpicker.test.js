@@ -8,7 +8,7 @@
 
 var forkExecWait = require('forkexec').forkExecWait;
 var path = require('path');
-var test = require('@smaller/tap').test;
+var test = require('tap').test;
 
 var MPICKER = path.resolve(__dirname, '../../bin/mpicker');
 

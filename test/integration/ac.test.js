@@ -13,7 +13,7 @@ var util = require('util');
 var assert = require('assert-plus');
 var MemoryStream = require('stream').PassThrough;
 var once = require('once');
-var test = require('@smaller/tap').test;
+var test = require('tap').test;
 var uuidv4 = require('uuid/v4');
 var vasync = require('vasync');
 

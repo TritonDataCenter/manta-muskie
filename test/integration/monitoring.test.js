@@ -10,7 +10,7 @@
 
 var jsprim = require('jsprim');
 var restifyClients = require('restify-clients');
-var test = require('@smaller/tap').test;
+var test = require('tap').test;
 var url = require('url');
 var VError = require('verror');
 

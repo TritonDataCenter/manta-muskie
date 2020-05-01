@@ -684,7 +684,6 @@ function ensureRbacSettings(opts, cb) {
 
                     t.comment(`creating role ${role.name}`); +
                     ctx.smartdcClient.createRole(role, function (err) {
-                        console.log('XXX createRole', role, err);
                         ctx.madeRoleAdditions = true;
                         nextRole(err);
                     });

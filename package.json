@@ -47,13 +47,13 @@
         "xtend": "2.2.0"
     },
     "devDependencies": {
-        "@smaller/tap": "11.1.4-1.0.0",
         "forkexec": "^1.0.0",
         "jsverify": "^0.8.4",
         "manta": "5.2.1",
         "qlocker": "^1.0.1",
         "restify-clients": "2.6.7",
         "smartdc": "^9.0.0",
+        "tap": "12.x",
         "ufds": "^1.6.1"
     },
     "scripts": {

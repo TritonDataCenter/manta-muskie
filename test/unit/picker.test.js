@@ -12,7 +12,7 @@ var assert = require('assert-plus');
 var bunyan = require('bunyan');
 var fs = require('fs');
 var path = require('path');
-var test = require('@smaller/tap').test;
+var test = require('tap').test;
 
 var mod_picker = require('../../lib/picker.js');
 

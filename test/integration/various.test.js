@@ -12,7 +12,7 @@ var crypto = require('crypto');
 
 var MemoryStream = require('stream').PassThrough;
 var restify = require('restify');
-var test = require('@smaller/tap').test;
+var test = require('tap').test;
 var uuidv4 = require('uuid/v4');
 var vasync = require('vasync');
 
