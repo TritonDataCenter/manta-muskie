@@ -420,6 +420,9 @@ function ensureRbacSettings(opts, cb) {
                 }),
                 rejectUnauthorized: false,
                 user: opts.account.login,
+                // This elects to use the newer arg format for CreateRole.
+                // See https://apidocs.joyent.com/cloudapi/#900
+                version: '~9',
                 url: cloudapiUrl
             });
 
@@ -673,14 +676,15 @@ function ensureRbacSettings(opts, cb) {
                 inputs: ctx.rolesToCreate,
                 func: function createOne(role, nextRole) {
                     assert.string(role.name, 'role.name');
-                    assert.optionalArrayOfString(role.members, 'role.members');
+                    assert.optionalArrayObject(role.members, 'role.members');
                     assert.optionalArrayOfString(role.default_members,
                         'role.default_members');
-                    assert.optionalArrayOfString(role.policies,
+                    assert.optionalArray(role.policies,
                         'role.policies');
 
                     t.comment(`creating role ${role.name}`); +
                     ctx.smartdcClient.createRole(role, function (err) {
+                        console.log('XXX createRole', role, err);
                         ctx.madeRoleAdditions = true;
                         nextRole(err);
                     });
@@ -704,7 +708,7 @@ function ensureRbacSettings(opts, cb) {
             t.comment(`waiting ${MAHI_POLL_INTERVAL_S}s for authcache ` +
                 `to sync role additions so Muskie auth is up to date`);
             setTimeout(next, MAHI_POLL_INTERVAL_S * 1000);
-        },
+        }
     ]}, function finish(err) {
         // Cleanup and callback.
         vasync.pipeline({funcs: [

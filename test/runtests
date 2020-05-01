@@ -37,6 +37,9 @@
 #       # OR no timeout:  ./node_modules/.bin/tap -T test/**.test.js
 #
 
+TOP=$(cd $(dirname $0)/../; pwd)
+PATH=/opt/smartdc/muskie/build/node/bin:$PATH
+
 [[ -n "$TEST_JOBS" ]] || TEST_JOBS=10
 
 # Default to 80s because:
@@ -48,5 +51,5 @@
 [[ -n "$TAP_TIMEOUT" ]] || TAP_TIMEOUT=80
 export TAP_TIMEOUT
 
-#XXX ./node_modules/.bin/tap test/**.test.js  # once mpu tests moved over
-./node_modules/.bin/tap -j $TEST_JOBS -o ./test.tap test/{unit,integration}/*.test.js
+#XXX $TOP/node_modules/.bin/tap test/**.test.js  # once mpu tests moved over
+$TOP/node_modules/.bin/tap -j $TEST_JOBS -o $TOP/test.tap $TOP/test/{unit,integration}/*.test.js

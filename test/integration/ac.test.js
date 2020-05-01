@@ -15,6 +15,7 @@ var MemoryStream = require('stream').PassThrough;
 var once = require('once');
 var test = require('@smaller/tap').test;
 var uuidv4 = require('uuid/v4');
+var vasync = require('vasync');
 
 var helper = require('../helper');
 
@@ -45,33 +46,110 @@ function writeObject(opts, cb) {
     input.end(content);
 }
 
+// 1. Write an object with a role-tag (typically by the account client).
+// 2. Sign the object, optionally with a role (typically by the subuser client).
+// 3. Get the signed URL unauthed.
+// ... then return the result of #3.
+//
+// This called back with `function (err, getResult)` where `err` is
+// some error in writing or signing, and `getResult` is:
+//      {
+//          signedUrl: ...
+//          err: ...
+//          req: ...
+//          res: ...
+//          body: ...
+//      }
+// from the HTTP request of the signed URL.
+function accountWriteSubuserSignAnonGet(opts, cb) {
+    assert.object(opts.t, 'opts.t');
+    assert.string(opts.path, 'opts.path');
+    assert.object(opts.writeClient, 'opts.writeClient');
+    assert.string(opts.writeRoleTag, 'opts.writeRoleTag');
+    assert.object(opts.signClient, 'opts.signClient');
+    assert.optionalString(opts.signRole, 'opts.signRole');
+    assert.optionalObject(opts.getHeaders, 'opts.getHeaders');
+
+    var signedUrl;
+    var t = opts.t;
+
+    vasync.pipeline({funcs: [
+        function writeIt(_, next) {
+            writeObject({
+                client: opts.writeClient,
+                path: opts.path,
+                headers: {
+                    'role-tag': opts.writeRoleTag
+                }
+            }, function (err) {
+                t.comment(`wrote "${opts.path}" role-tag=${opts.writeRoleTag}`);
+                next(err);
+            });
+        },
+        function signIt(_, next) {
+            var signOpts = {
+                path: opts.path
+            };
+            if (opts.signRole) {
+                signOpts.role = [opts.signRole];
+            }
+            opts.signClient.signURL(signOpts, function (err, s) {
+                signedUrl = s;
+                t.comment(`signed URL: ${signedUrl}`);
+                next(err);
+            });
+        }
+    ]}, function (err) {
+        if (err) {
+            cb(err);
+        } else {
+            var stringClient = helper.createStringClient();
+            var getOpts = {
+                path: signedUrl
+            };
+            if (opts.getHeaders) {
+                getOpts.headers = opts.getHeaders
+            }
+            t.comment(`GETing signed URL: getOpts=${JSON.stringify(getOpts)}`);
+            stringClient.get(getOpts, function (err, req, res, body) {
+                cb(null, {
+                    signedUrl: signedUrl,
+                    err: err,
+                    req: req,
+                    res: res,
+                    body: body
+                });
+            });
+        }
+    });
+}
+
 
 ///--- Tests
 
 test('access control', function (suite) {
     var client;
-    var testDir;
-    // XXX
-    //var jsonClient = helper.createJsonClient();
-    //var stringClient;
+    var operClient;
     var subuserClient;
     var testAccount;
-    var testOperatorAccount;
+    var testDir;
+    var testOperAccount;
+    var testOperDir;
 
     suite.test('setup: test accounts', function (t) {
         helper.ensureTestAccounts(t, function (err, accounts) {
             t.ifError(err, 'no error loading/creating test accounts');
             testAccount = accounts.regular;
-            testOperatorAccount = accounts.operator;
+            testOperAccount = accounts.operator;
             t.ok(testAccount, 'have regular test account: ' +
                 testAccount.login);
-            t.ok(testOperatorAccount, 'have operator test account: ' +
-                testOperatorAccount.login);
+            t.ok(testOperAccount, 'have operator test account: ' +
+                testOperAccount.login);
             t.end();
         });
     });
 
-    suite.test('setup: test subusers', function (t) {
+    suite.test('setup: testAccount RBAC settings', function (t) {
         helper.ensureRbacSettings({
             t: t,
             account: testAccount,
@@ -106,21 +184,30 @@ test('access control', function (suite) {
                 {
                     name: 'muskietest_policy_glob',
                     rules: [
-                        // XXX test-ac-* ?
-                        'Can getobject /' + testAccount.login + '/stor/muskietest_glob*'
+                        // "/:login/stor/test-ac-dir-*" is the test dir in which
+                        // all test objects in this test file are placed.
+                        'Can getobject /' + testAccount.login +
+                            '/stor/test-ac-dir-*/globbity-*'
                     ]
                 }
             ],
             roles: [
                 {
                     name: 'muskietest_role_default',
-                    members: [ 'muskietest_subuser' ],
-                    default_members: [ 'muskietest_subuser' ],
+                    members: [
+                        {
+                            type: 'subuser',
+                            login: 'muskietest_subuser',
+                            default: true
+                        }
+                    ],
                     policies: [ 'muskietest_policy_read' ]
                 },
                 {
                     name: 'muskietest_role_limit',
-                    members: [ 'muskietest_subuser' ],
+                    members: [
+                        { type: 'subuser', login: 'muskietest_subuser' }
+                    ],
                     policies: [ 'muskietest_policy_read' ]
                 },
                 {
@@ -129,22 +216,30 @@ test('access control', function (suite) {
                 },
                 {
                     name: 'muskietest_role_write',
-                    members: [ 'muskietest_subuser' ],
+                    members: [
+                        { type: 'subuser', login: 'muskietest_subuser' }
+                    ],
                     policies: [ 'muskietest_policy_write' ]
                 },
                 {
                     name: 'muskietest_role_star',
-                    members: [ 'muskietest_subuser' ],
+                    members: [
+                        { type: 'subuser', login: 'muskietest_subuser' }
+                    ],
                     policies: [ 'muskietest_policy_star' ]
                 },
                 {
                     name: 'muskietest_role_glob',
-                    members: [ 'muskietest_subuser' ],
+                    members: [
+                        { type: 'subuser', login: 'muskietest_subuser' }
+                    ],
                     policies: [ 'muskietest_policy_glob' ]
                 },
                 {
                     name: 'muskietest_role_all',
-                    members: [ 'muskietest_subuser' ],
+                    members: [
+                        { type: 'subuser', login: 'muskietest_subuser' }
+                    ],
                     policies: [
                         'muskietest_policy_read',
                         'muskietest_policy_write'
@@ -158,18 +253,52 @@ test('access control', function (suite) {
         });
     });
 
+    suite.test('setup: testOperAccount RBAC settings', function (t) {
+        helper.ensureRbacSettings({
+            t: t,
+            account: testOperAccount,
+            subusers: [],
+            policies: [
+                {
+                    name: 'muskietest_read',
+                    rules: [ 'can getobject', 'can listdirectory' ]
+                }
+            ],
+            roles: [
+                {
+                    name: 'muskietest_role_xacct',
+                    members: [
+                        { type: 'account', login: testAccount.login }
+                    ],
+                    policies: [
+                        { name: 'muskietest_read' }
+                    ]
+                }
+            ]
+        }, function (err) {
+            t.ifError(err, 'no error setting up RBAC on account ' +
+                testOperAccount.login);
+            t.end();
+        });
+    });
+
     suite.test('setup: test dir', function (t) {
         client = helper.mantaClientFromAccountInfo(testAccount);
-        // XXX
-        //stringClient = helper.createStringClient();
         subuserClient = helper.mantaClientFromSubuserInfo(testAccount,
             'muskietest_subuser');
+        operClient = helper.mantaClientFromAccountInfo(testOperAccount);
+        var marker = uuidv4().split('-')[0]
         testDir = '/' + testAccount.login +
-            '/stor/test-ac-dir-' + uuidv4().split('-')[0];
+            '/stor/test-ac-dir-' + marker;
+        testOperDir = '/' + testOperAccount.login +
+            '/stor/test-ac-dir-' + marker;
 
         client.mkdir(testDir, function (err) {
-            t.ifError(err, 'no error making test dir ' + testDir);
-            t.end();
+            t.ifError(err, 'no error making testDir:' + testDir);
+            operClient.mkdir(testOperDir, function (err) {
+                t.ifError(err, 'no error making testOperDir: ' + testOperDir);
+                t.end();
+            });
         });
     });
 
@@ -359,757 +488,606 @@ test('access control', function (suite) {
         });
     });
 
-// XXX START HERE
+    suite.test('get dir using bad role, cross-account', function (t) {
+        var path = `/${testOperAccount.login}/stor`;
+        subuserClient.get(path, {
+            headers: {
+                role: 'muskietest_role_other'
+            }
+        }, function (getErr) {
+            t.ok(getErr);
+            if (getErr) {
+                t.equal(getErr.name, 'InvalidRoleError');
+            }
+            t.end();
+        });
+    });
 
-    //
-    //suite.test('assume bad role - xacct', function (t) {
-    //    var self = this;
-    //    var path = sprintf('/%s/stor', self.operClient.user);
-    //    self.client.get(path, {
-    //        headers: {
-    //            'role': 'muskietest_role_other'
-    //        }
-    //    }, function (err2) {
-    //        if (!err2) {
-    //            t.fail(err2, 'error expected');
-    //            t.end();
-    //            return;
-    //        }
-    //        t.equal(err2.name, 'InvalidRoleError');
-    //        t.end();
-    //    });
-    //});
-    //
-    //suite.test('mchmod', function (t) {
-    //    var self = this;
-    //    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
-    //    var roles = 'muskietest_role_write';
-    //    writeObject(self.client, path, roles, function (err) {
-    //        if (err) {
-    //            t.fail(err);
-    //            t.end();
-    //            return;
-    //        }
-    //
-    //        self.paths.push(path);
-    //        self.userClient.chattr(path, {
-    //            headers: {
-    //                'role': 'muskietest_role_write',
-    //                'role-tag': 'muskietest_role_other'
-    //            }
-    //        }, function (err2) {
-    //            if (err2) {
-    //                t.fail(err2);
-    //                t.end();
-    //                return;
-    //            }
-    //
-    //            self.client.info(path, function (err3, info) {
-    //                if (err3) {
-    //                    t.fail(err3);
-    //                    t.end();
-    //                    return;
-    //                }
-    //                t.equal(info.headers['role-tag'], 'muskietest_role_other');
-    //                t.end();
-    //            });
-    //        });
-    //    });
-    //});
-    //
-    ///*
-    // * Tests for scenarios around rules with the "*"" or "all" aperture
-    // * resource (support added with MANTA-3962).
-    // */
-    //suite.test('all-resource rules (untagged)', function (t) {
-    //    var self = this;
-    //    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
-    //    var role = 'muskietest_role_star';
-    //    /* First, create a test object, with no role tags. */
-    //    writeObject(self.client, path, function (err) {
-    //        if (err) {
-    //            t.fail(err);
-    //            t.end();
-    //            return;
-    //        }
-    //        self.paths.push(path);
-    //
-    //        /*
-    //         * This should not work: we haven't activated the role and we have
-    //         * no default roles that are tagged on the object, so we have no
-    //         * right to read it.
-    //         */
-    //        self.userClient.info(path, function (err2) {
-    //            if (!err2) {
-    //                t.fail('error expected');
-    //                t.end();
-    //                return;
-    //            }
-    //
-    //            /*
-    //             * This should not work either: the role has a rule "Can putobject"
-    //             * but without the * this doesn't apply to all objects, only role-
-    //             * tagged ones, and this object has no role-tag.
-    //             */
-    //            writeObject(self.userClient, path, {
-    //                'role': role
-    //            }, function (err3) {
-    //                if (!err3) {
-    //                    t.fail('error expected');
-    //                    t.end();
-    //                    return;
-    //                }
-    //
-    //                /*
-    //                 * This should work, though: the "Can getobject *" rule kicks
-    //                 * in, even though this object isn't tagged (thanks to the *).
-    //                 */
-    //                self.userClient.info(path, {
-    //                    headers: {
-    //                        'role': role
-    //                    }
-    //                }, function (err4, info) {
-    //                    if (err4) {
-    //                        t.fail(err4);
-    //                        t.end();
-    //                        return;
-    //                    }
-    //                    t.strictEqual(info.headers['role-tag'], undefined);
-    //                    t.end();
-    //                });
-    //            });
-    //        });
-    //    });
-    //});
-    //
-    //suite.test('all-resource rules (tagged)', function (t) {
-    //    var self = this;
-    //    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
-    //    var role = 'muskietest_role_star';
-    //    /* First, create a test object, this time tagged to the role. */
-    //    writeObject(self.client, path, role, function (err) {
-    //        if (err) {
-    //            t.fail(err);
-    //            t.end();
-    //            return;
-    //        }
-    //        self.paths.push(path);
-    //
-    //        /*
-    //         * We should be able to write it, since it's role-tagged so the
-    //         * "Can putobject" rule applies.
-    //         */
-    //        writeObject(self.userClient, path, {
-    //            'role': role,
-    //            'role-tag': role
-    //        }, function (err2) {
-    //            if (err2) {
-    //                t.fail(err2);
-    //                t.end();
-    //                return;
-    //            }
-    //
-    //            /*
-    //             * And we should also be able to read it thanks to the
-    //             * "Can getobject *" rule.
-    //             */
-    //            self.userClient.info(path, {
-    //                headers: {
-    //                    'role': role
-    //                }
-    //            }, function (err3, info) {
-    //                if (err3) {
-    //                    t.fail(err3);
-    //                    t.end();
-    //                    return;
-    //                }
-    //                t.equal(info.headers['role-tag'], role);
-    //                t.end();
-    //            });
-    //        });
-    //    });
-    //});
-    //
-    ///*
-    // * Tests for scenarios around rules with explicit resource strings (support
-    // * added with MANTA-4284).
-    // */
-    //suite.test('explicit resource rules', function (t) {
-    //    var self = this;
-    //    var path = sprintf('/%s/stor/muskie_test_glob_1', self.client.user);
-    //    var role = 'muskietest_role_glob';
-    //    /* First, create a test object, with no role tags. */
-    //    writeObject(self.client, path, function (err) {
-    //        if (err) {
-    //            t.fail(err);
-    //            t.end();
-    //            return;
-    //        }
-    //        self.paths.push(path);
-    //
-    //        /*
-    //         * This should not work: we haven't activated the role and we have
-    //         * no default roles that are tagged on the object, so we have no
-    //         * right to read it.
-    //         */
-    //        self.userClient.info(path, function (err2) {
-    //            if (!err2) {
-    //                t.fail('error expected');
-    //                t.end();
-    //                return;
-    //            }
-    //
-    //            /*
-    //             * This should work, though: the "Can getobject /..." rule kicks
-    //             * in, even though this object isn't tagged.
-    //             */
-    //            self.userClient.info(path, {
-    //                headers: {
-    //                    'role': role
-    //                }
-    //            }, function (err4, info) {
-    //                if (err4) {
-    //                    t.fail(err4);
-    //                    t.end();
-    //                    return;
-    //                }
-    //                t.strictEqual(info.headers['role-tag'], undefined);
-    //                t.end();
-    //            });
-    //        });
-    //    });
-    //});
-    //
-    //suite.test('explicit resource rules (denied)', function (t) {
-    //    var self = this;
-    //    var path = sprintf('/%s/stor/muskie_test_noglob', self.client.user);
-    //    var role = 'muskietest_role_glob';
-    //    /* First, create a test object, with no role tags. */
-    //    writeObject(self.client, path, function (err) {
-    //        if (err) {
-    //            t.fail(err);
-    //            t.end();
-    //            return;
-    //        }
-    //        self.paths.push(path);
-    //
-    //        /*
-    //         * This should not work: we haven't activated the role and we have
-    //         * no default roles that are tagged on the object, so we have no
-    //         * right to read it.
-    //         */
-    //        self.userClient.info(path, function (err2) {
-    //            if (!err2) {
-    //                t.fail('error expected');
-    //                t.end();
-    //                return;
-    //            }
-    //
-    //            /*
-    //             * This should not work, either: the rule with the explicit
-    //             * resource on muskietest_role_glob does not match the path.
-    //             */
-    //            self.userClient.info(path, {
-    //                headers: {
-    //                    'role': role
-    //                }
-    //            }, function (err4, info) {
-    //                if (!err4) {
-    //                    t.fail('error expected');
-    //                }
-    //                t.equal(err4.name, 'ForbiddenError');
-    //                t.end();
-    //            });
-    //        });
-    //    });
-    //});
-    //
-    //suite.test('cross-account role access (denied)', function (t) {
-    //    var self = this;
-    //    var path = sprintf('/%s/stor', self.operClient.user);
-    //    self.client.info(path, {
-    //        headers: {
-    //            'role': 'muskietest_role_xacct'
-    //        }
-    //    }, function (err3, info) {
-    //        if (!err3) {
-    //            t.fail('error expected');
-    //            t.end();
-    //            return;
-    //        }
-    //        t.equal(err3.name, 'ForbiddenError');
-    //
-    //        self.client.info(path, function (err4, info2) {
-    //            if (!err4) {
-    //                t.fail('error expected');
-    //                t.end();
-    //                return;
-    //            }
-    //            t.equal(err4.name, 'ForbiddenError');
-    //            t.end();
-    //        });
-    //    });
-    //});
-    //
-    //suite.test('cross-account role access', function (t) {
-    //    var self = this;
-    //    var path = sprintf('/%s/stor/muskie_test_obj', self.operClient.user);
-    //    writeObject(self.operClient, path, function (err) {
-    //        if (err) {
-    //            t.fail(err);
-    //            t.end();
-    //            return;
-    //        }
-    //
-    //        self.operPaths.push(path);
-    //        self.operClient.chattr(path, {
-    //            headers: {
-    //                'role-tag': 'muskietest_role_xacct'
-    //            }
-    //        }, function (err2) {
-    //            if (err2) {
-    //                t.fail(err2);
-    //                t.end();
-    //                return;
-    //            }
-    //
-    //            self.client.info(path, {
-    //                headers: {
-    //                    'role': 'muskietest_role_xacct'
-    //                }
-    //            }, function (err3, info) {
-    //                if (err3) {
-    //                    t.fail(err3);
-    //                    t.end();
-    //                    return;
-    //                }
-    //                t.equal(info.headers['role-tag'], 'muskietest_role_xacct');
-    //                t.end();
-    //            });
-    //        });
-    //    });
-    //});
-    //
-    //suite.test('mchmod bad role', function (t) {
-    //    var self = this;
-    //    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
-    //    var roles = 'muskietest_role_write';
-    //    writeObject(self.client, path, roles, function (err) {
-    //        if (err) {
-    //            t.fail(err);
-    //            t.end();
-    //            return;
-    //        }
-    //
-    //        self.paths.push(path);
-    //        self.userClient.chattr(path, {
-    //            headers: {
-    //                'role': 'muskietest_role_write',
-    //                'role-tag': 'asdf'
-    //            }
-    //        }, function (err2) {
-    //            if (!err2) {
-    //                t.fail('error expected');
-    //                t.end();
-    //                return;
-    //            }
-    //            t.equal(err2.name, 'InvalidRoleTagError');
-    //            t.end();
-    //        });
-    //    });
-    //});
-    //
-    //
-    //suite.test('created object gets roles', function (t) {
-    //    var self = this;
-    //    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
-    //    var dir = sprintf('/%s/stor', self.client.user);
-    //    addTag(self.client, dir, 'muskietest_role_write', function (err) {
-    //        if (err) {
-    //            t.fail(err);
-    //            t.end();
-    //            return;
-    //        }
-    //        writeObject(self.userClient, path, {
-    //            'role': 'muskietest_role_write'
-    //        }, function (err2) {
-    //            if (err2) {
-    //                t.fail(err2);
-    //                t.end();
-    //                return;
-    //            }
-    //
-    //            self.paths.push(path);
-    //
-    //            self.client.info(path, function (err3, info) {
-    //                if (err3) {
-    //                    t.fail(err3);
-    //                    t.end();
-    //                    return;
-    //                }
-    //
-    //                /* JSSTYLED */
-    //                var tags = info.headers['role-tag'].split(/\s*,\s*/);
-    //                t.ok(tags.indexOf('muskietest_role_write') >= 0);
-    //
-    //                delTag(self.client, dir, 'muskietest_role_write',
-    //                        function (err4) {
-    //
-    //                    if (err4) {
-    //                        t.fail(err4);
-    //                        t.end();
-    //                        return;
-    //                    }
-    //                    t.end();
-    //                });
-    //            });
-    //        });
-    //    });
-    //});
-    //
-    //
-    //suite.test('create object parent directory check', function (t) {
-    //    var self = this;
-    //    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
-    //    writeObject(self.userClient, path, {
-    //        'role': 'muskietest_role_write'
-    //    }, function (err2) {
-    //        if (!err2) {
-    //            self.paths.push(path);
-    //            t.fail('expected error');
-    //            t.end();
-    //            return;
-    //        }
-    //
-    //        t.equal(err2.name, 'NoMatchingRoleTagError');
-    //        t.end();
-    //    });
-    //});
-    //
-    //
-    //suite.test('create object parent directory check', function (t) {
-    //    var self = this;
-    //    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
-    //    writeObject(self.userClient, path, {
-    //        'role': 'muskietest_role_write'
-    //    }, function (err) {
-    //        if (!err) {
-    //            self.paths.push(path);
-    //            t.fail('expected error');
-    //            t.end();
-    //            return;
-    //        }
-    //
-    //        t.equal(err.name, 'NoMatchingRoleTagError');
-    //        t.end();
-    //    });
-    //});
-    //
-    //
-    //suite.test('create directory parent directory check', function (t) {
-    //    var self = this;
-    //    var path = sprintf('/%s/stor/muskie_test_dir', self.client.user);
-    //    self.userClient.mkdir(path, {
-    //        headers: {
-    //            'role': 'muskietest_role_write'
-    //        }
-    //    }, function (err2) {
-    //        if (!err2) {
-    //            self.paths.push(path);
-    //            t.fail('expected error');
-    //            t.end();
-    //            return;
-    //        }
-    //
-    //        t.equal(err2.name, 'NoMatchingRoleTagError');
-    //        t.end();
-    //    });
-    //});
-    //
-    //
-    //// Ideally, getting a nonexistent object should mean a check on the parent
-    //// directory to see if the user has read permissions on the directory. However,
-    //// since this requires an additional lookup, we're just returning 404s for now.
-    //suite.test('get nonexistent object 404', function (t) {
-    //    var self = this;
-    //    var path = sprintf('/%s/stor/muskie_test_dir', self.client.user);
-    //    self.client.get(path, function (err2) {
-    //        if (!err2) {
-    //            t.fail('error expected');
-    //            t.end();
-    //            return;
-    //        }
-    //        t.equal(err2.name, 'ResourceNotFoundError');
-    //        t.end();
-    //    });
-    //});
-    //
-    //
-    //suite.test('signed URL uses default roles', function (t) {
-    //    var self = this;
-    //    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
-    //    var roles = 'muskietest_role_default';
-    //    var signed;
-    //
-    //    vasync.pipeline({funcs: [
-    //        function write(_, cb) {
-    //            writeObject(self.client, path, roles, cb);
-    //        },
-    //        function sign(_, cb) {
-    //            helper.signUrl({
-    //                path: path,
-    //                client: self.userClient
-    //            }, function (err, s) {
-    //                if (err) {
-    //                    cb(err);
-    //                    return;
-    //                }
-    //                signed = s;
-    //                cb();
-    //            });
-    //        },
-    //        function get(_, cb) {
-    //            self.jsonClient.get({
-    //                path: signed
-    //            }, function (err, req, res, obj) {
-    //                if (err) {
-    //                    t.fail(err);
-    //                    cb(err);
-    //                    return;
-    //                }
-    //                t.ok(obj);
-    //                cb();
-    //            });
-    //        }
-    //    ]}, function (err, results) {
-    //        if (err) {
-    //            t.fail(results.operations[results.ndone - 1]);
-    //            t.end();
-    //            return;
-    //        }
-    //
-    //        t.end();
-    //    });
-    //});
-    //
-    //
-    //suite.test('signed URL ignores role headers', function (t) {
-    //    var self = this;
-    //    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
-    //    var roles = 'muskietest_role_limit';
-    //    var signed;
-    //
-    //    vasync.pipeline({funcs: [
-    //        function write(_, cb) {
-    //            writeObject(self.client, path, roles, cb);
-    //        },
-    //        function sign(_, cb) {
-    //            helper.signUrl({
-    //                path: path,
-    //                client: self.userClient
-    //            }, function (err, s) {
-    //                if (err) {
-    //                    cb(err);
-    //                    return;
-    //                }
-    //                signed = s;
-    //                cb();
-    //            });
-    //        },
-    //        function get(_, cb) {
-    //            self.jsonClient.get({
-    //                path: signed,
-    //                headers: {
-    //                    role: 'muskietest_role_limit'
-    //                }
-    //            }, function (err) {
-    //                if (!err) {
-    //                    t.fail('expected error');
-    //                    cb();
-    //                    return;
-    //                }
-    //
-    //                t.equal(err.name, 'NoMatchingRoleTagError');
-    //                cb();
-    //            });
-    //        }
-    //    ]}, function (err, results) {
-    //        if (err) {
-    //            t.fail(results.operations[results.ndone - 1]);
-    //            t.end();
-    //            return;
-    //        }
-    //
-    //        t.end();
-    //    });
-    //});
-    //
-    //
-    //suite.test('signed URL with included role', function (t) {
-    //    var self = this;
-    //    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
-    //    var roles = 'muskietest_role_limit';
-    //    var signed;
-    //
-    //    vasync.pipeline({funcs: [
-    //        function write(_, cb) {
-    //            writeObject(self.client, path, roles, cb);
-    //        },
-    //        function sign(_, cb) {
-    //            helper.signUrl({
-    //                path: path,
-    //                client: self.userClient,
-    //                role: [ 'muskietest_role_limit' ]
-    //            }, function (err, s) {
-    //                if (err) {
-    //                    cb(err);
-    //                    return;
-    //                }
-    //                signed = s;
-    //                cb();
-    //            });
-    //        },
-    //        function get(_, cb) {
-    //            self.jsonClient.get({
-    //                path: signed
-    //            }, function (err, req, res, obj) {
-    //                if (err) {
-    //                    t.fail(err);
-    //                    cb(err);
-    //                    return;
-    //                }
-    //                t.ok(obj);
-    //                cb();
-    //            });
-    //        }
-    //    ]}, function (err, results) {
-    //        if (err) {
-    //            t.fail(results.operations[results.ndone - 1]);
-    //            t.end();
-    //            return;
-    //        }
-    //
-    //        t.end();
-    //    });
-    //});
-    //
-    //
-    //suite.test('signed URL with included wrong role', function (t) {
-    //    var self = this;
-    //    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
-    //    var roles = 'muskietest_role_default';
-    //    var signed;
-    //
-    //    vasync.pipeline({funcs: [
-    //        function write(_, cb) {
-    //            writeObject(self.client, path, roles, cb);
-    //        },
-    //        function sign(_, cb) {
-    //            helper.signUrl({
-    //                path: path,
-    //                client: self.userClient,
-    //                role: [ 'muskietest_role_limit' ]
-    //            }, function (err, s) {
-    //                if (err) {
-    //                    cb(err);
-    //                    return;
-    //                }
-    //                signed = s;
-    //                cb();
-    //            });
-    //        },
-    //        function get(_, cb) {
-    //            self.jsonClient.get({
-    //                path: signed
-    //            }, function (err) {
-    //                if (!err) {
-    //                    t.fail('expected error');
-    //                    cb();
-    //                    return;
-    //                }
-    //
-    //                t.equal(err.name, 'NoMatchingRoleTagError');
-    //                cb();
-    //            });
-    //        }
-    //    ]}, function (err, results) {
-    //        if (err) {
-    //            t.fail(results.operations[results.ndone - 1]);
-    //            t.end();
-    //            return;
-    //        }
-    //
-    //        t.end();
-    //    });
-    //});
-    //
-    //
-    //suite.test('signed URL with included invalid role', function (t) {
-    //    var self = this;
-    //    var path = sprintf('/%s/stor/muskie_test_obj', self.client.user);
-    //    var roles = 'muskietest_role_default';
-    //    var signed;
-    //
-    //    vasync.pipeline({funcs: [
-    //        function write(_, cb) {
-    //            writeObject(self.client, path, roles, cb);
-    //        },
-    //        function sign(_, cb) {
-    //            helper.signUrl({
-    //                path: path,
-    //                client: self.userClient,
-    //                role: [ 'muskietest_role_asdfasdf' ]
-    //            }, function (err, s) {
-    //                if (err) {
-    //                    cb(err);
-    //                    return;
-    //                }
-    //                signed = s;
-    //                cb();
-    //            });
-    //        },
-    //        function get(_, cb) {
-    //            self.jsonClient.get({
-    //                path: signed
-    //            }, function (err) {
-    //                if (!err) {
-    //                    t.fail('expected error');
-    //                    cb();
-    //                    return;
-    //                }
-    //
-    //                t.equal(err.name, 'InvalidRoleError');
-    //                cb();
-    //            });
-    //        }
-    //    ]}, function (err, results) {
-    //        if (err) {
-    //            t.fail(results.operations[results.ndone - 1]);
-    //            t.end();
-    //            return;
-    //        }
-    //
-    //        t.end();
-    //    });
-    //});
+    suite.test('mchmod/chattr an obj', function (t) {
+        var path = `${testDir}/obj-to-mchmod`;
+        writeObject({
+            client: client,
+            path: path,
+            headers: {
+                'role-tag': 'muskietest_role_write'
+            }
+        }, function (writeErr) {
+            t.ifError(writeErr);
+            if (writeErr) {
+                t.end();
+                return;
+            }
+
+            subuserClient.chattr(path, {
+                headers: {
+                    role: 'muskietest_role_write',
+                    'role-tag': 'muskietest_role_other'
+                }
+            }, function (chattrErr) {
+                t.ifError(chattrErr);
+                if (chattrErr) {
+                    t.end();
+                    return;
+                }
+
+                client.info(path, function (infoErr, info) {
+                    t.ifError(infoErr);
+                    t.equal(info.headers['role-tag'], 'muskietest_role_other');
+                    t.end();
+                });
+            });
+        });
+    });
+
+    suite.test('mchmod/chattr to a bad role fails', function (t) {
+        var path = `${testDir}/obj-to-mchmod-to-bad-role`;
+        writeObject({
+            client: client,
+            path: path,
+            headers: {
+                'role-tag': 'muskietest_role_write'
+            }
+        }, function (writeErr) {
+            t.ifError(writeErr);
+            if (writeErr) {
+                t.end();
+                return;
+            }
+
+            subuserClient.chattr(path, {
+                headers: {
+                    role: 'muskietest_role_write',
+                    'role-tag': 'bogus_role'
+                }
+            }, function (chattrErr) {
+                t.ok(chattrErr, 'expect error from chattr');
+                if (chattrErr) {
+                    t.equal(chattrErr.name, 'InvalidRoleTagError');
+                }
+                t.end();
+            });
+        });
+    });
 
 
+    suite.test('subuser create obj fails on parent dir check', function (t) {
+        var path = `${testDir}/obj-for-subuser-to-create`;
+        writeObject({
+            client: subuserClient,
+            path: path,
+            headers: {
+                'role-tag': 'muskietest_role_write'
+            }
+        }, function (writeErr) {
+            t.ok(writeErr);
+            if (writeErr) {
+                t.equal(writeErr.name, 'NoMatchingRoleTagError');
+            }
+            t.end();
+        });
+    });
+
+    suite.test('subuser create obj fails on parent dir check', function (t) {
+        var path = `${testDir}/obj-for-subuser-to-create`;
+        writeObject({
+            client: subuserClient,
+            path: path,
+            headers: {
+                'role-tag': 'muskietest_role_write'
+            }
+        }, function (writeErr) {
+            t.ok(writeErr);
+            if (writeErr) {
+                t.equal(writeErr.name, 'NoMatchingRoleTagError');
+            }
+            t.end();
+        });
+    });
+
+    suite.test('subuser create dir fails on parent dir check', function (t) {
+        var path = `${testDir}/obj-for-subuser-to-create`;
+        subuserClient.mkdir(path, {
+            headers: {
+                'role-tag': 'muskietest_role_write'
+            }
+        }, function (err) {
+            t.ok(err);
+            if (err) {
+                t.equal(err.name, 'NoMatchingRoleTagError');
+            }
+            t.end();
+        });
+    });
+
+    // Ideally, getting a nonexistent object should mean a check on the parent
+    // directory to see if the user has read permissions on the directory.
+    // However, since this requires an additional lookup, we're just returning
+    // 404s for now.
+    suite.test('get nonexistent object 404', function (t) {
+        var path = `${testDir}/no-such-obj`;
+        client.get(path, function (err) {
+            t.ok(err);
+            if (err) {
+                t.equal(err.name, 'ResourceNotFoundError');
+            }
+            t.end();
+        });
+    });
+
+    suite.test('signed URL uses default roles', function (t) {
+        accountWriteSubuserSignAnonGet({
+            t: t,
+            path: `${testDir}/obj-to-sign`,
+            writeClient: client,
+            writeRoleTag: 'muskietest_role_default',
+            signClient: subuserClient
+        }, function (err, getResult) {
+            t.ifError(err, 'expected no error writing or signing');
+            if (!err) {
+                t.ifError(getResult.err, 'expected no error GETing signed URL');
+                t.equal(getResult.res.statusCode, 200);
+                t.ok(getResult.body);
+            }
+            t.end();
+        });
+    });
+
+    suite.test('signed URL ignores role headers', function (t) {
+        accountWriteSubuserSignAnonGet({
+            t: t,
+            path: `${testDir}/obj-to-sign`,
+            writeClient: client,
+            writeRoleTag: 'muskietest_role_limit',
+            signClient: subuserClient,
+            getHeaders: {
+                role: 'muskietest_role_limit'
+            }
+        }, function (err, getResult) {
+            t.ifError(err, 'expected no error writing or signing');
+            if (getResult) {
+                t.ok(getResult.err, 'expected failure GETing signed URL');
+                if (getResult.res) {
+                    t.equal(getResult.res.statusCode, 403);
+                }
+                if (getResult.err) {
+                    // We expect the string body of the error response to look
+                    // like this:
+                    //      {"code":"NoMatchingRoleTag",
+                    //       "message":"None of your active roles ..."}
+                    try {
+                        var errBody = JSON.parse(getResult.body);
+                        t.equal(errBody.code, 'NoMatchingRoleTag');
+                    } catch (parseErr) {
+                        t.ok(false, 'expected GET body to be JSON error, ' +
+                            'got: ' + getResult.body);
+                    }
+                }
+            }
+            t.end();
+        });
+    });
+
+    suite.test('signed URL with included role', function (t) {
+        accountWriteSubuserSignAnonGet({
+            t: t,
+            path: `${testDir}/obj-to-sign`,
+            writeClient: client,
+            writeRoleTag: 'muskietest_role_limit',
+            signClient: subuserClient,
+            signRole: 'muskietest_role_limit'   // <--- the "included role"
+        }, function (err, getResult) {
+            t.ifError(err, 'expected no error writing or signing');
+            if (!err) {
+                t.ifError(getResult.err, 'expected no error GETing signed URL');
+                t.equal(getResult.res.statusCode, 200);
+                t.ok(getResult.body);
+            }
+            t.end();
+        });
+    });
+
+    suite.test('signed URL with included wrong role', function (t) {
+        accountWriteSubuserSignAnonGet({
+            t: t,
+            path: `${testDir}/obj-to-sign`,
+            writeClient: client,
+            writeRoleTag: 'muskietest_role_default',
+            signClient: subuserClient,
+            signRole: 'muskietest_role_limit'   // <--- wrong role
+        }, function (err, getResult) {
+            t.ifError(err, 'expected no error writing or signing');
+            if (getResult) {
+                t.ok(getResult.err, 'expected failure GETing signed URL');
+                if (getResult.res) {
+                    t.equal(getResult.res.statusCode, 403);
+                }
+                if (getResult.err) {
+                    // We expect the string body of the error response to look
+                    // like this:
+                    //      {"code":"NoMatchingRoleTag",
+                    //       "message":"None of your active roles ..."}
+                    try {
+                        var errBody = JSON.parse(getResult.body);
+                        t.equal(errBody.code, 'NoMatchingRoleTag');
+                    } catch (parseErr) {
+                        t.ok(false, 'expected GET body to be JSON error, ' +
+                            'got: ' + getResult.body);
+                    }
+                }
+            }
+            t.end();
+        });
+    });
+
+    suite.test('signed URL with included invalid role', function (t) {
+        accountWriteSubuserSignAnonGet({
+            t: t,
+            path: `${testDir}/obj-to-sign`,
+            writeClient: client,
+            writeRoleTag: 'muskietest_role_default',
+            signClient: subuserClient,
+            signRole: 'muskietest_role_bogus'   // <--- invalid role
+        }, function (err, getResult) {
+            t.ifError(err, 'expected no error writing or signing');
+            if (getResult) {
+                t.ok(getResult.err, 'expected failure GETing signed URL');
+                if (getResult.res) {
+                    t.equal(getResult.res.statusCode, 409);
+                }
+                if (getResult.err) {
+                    // We expect the string body of the error response to look
+                    // like this:
+                    //      {"code":"InvalidRole",
+                    //       "message":"Role \"...\" is invalid."}
+                    try {
+                        var errBody = JSON.parse(getResult.body);
+                        t.equal(errBody.code, 'InvalidRole');
+                    } catch (parseErr) {
+                        t.ok(false, 'expected GET body to be JSON error, ' +
+                            'got: ' + getResult.body);
+                    }
+                }
+            }
+            t.end();
+        });
+    });
+
+    // Tests for scenarios around rules with the "*"" or "all" aperture
+    // resource (support added with MANTA-3962).
+    suite.test('all-resource rules, untagged', function (t) {
+        var path = `${testDir}/obj-for-star-rules-untagged`;
+        var role = 'muskietest_role_star';
+
+        vasync.pipeline({funcs: [
+            // First, create a test object, with no role tags.
+            function createTestObjWithNoRoleTags(_, next) {
+                writeObject({
+                    client: client,
+                    path: path
+                }, next);
+            },
+
+            // This should not work: we haven't activated the role and we have
+            // no default roles that are tagged on the object, so we have no
+            // right to read it.
+            function subuserInfoShouldFail(_, next) {
+                subuserClient.info(path, function (err) {
+                    t.ok(err, 'expected error on subuser info without role');
+                    next();
+                });
+            },
+
+            // This should not work either: the role has a rule "Can putobject"
+            // but without the * this doesn't apply to all objects, only role-
+            // tagged ones, and this object has no role-tag.
+            function subuserWriteShouldFail(_, next) {
+                writeObject({
+                    client: subuserClient,
+                    path: path,
+                    headers: {
+                        'role-tag': role
+                    }
+                }, function (err) {
+                    t.ok(err, 'expected error on subuser write, even with role');
+                    next();
+                });
+            },
+
+            // This should work, though: the "Can getobject *" rule kicks
+            // in, even though this object isn't tagged (thanks to the *).
+            function subuserInfoWithStarRoleShouldWork(_, next) {
+                subuserClient.info(path, {
+                    headers: {
+                        role: role
+                    }
+                }, function (err, info) {
+                    t.ifError(err, 'expected subuser info with * role to succeed');
+                    t.strictEqual(info.headers['role-tag'], undefined);
+                    next();
+                });
+            }
+        ]}, function finish(err) {
+            t.ifError(err);
+            t.end();
+        });
+    });
+
+
+    suite.test('all-resource rules, tagged', function (t) {
+        var path = `${testDir}/obj-for-star-rules-tagged`;
+        var role = 'muskietest_role_star';
+
+        vasync.pipeline({funcs: [
+            // First, create a test object, this time tagged to the role.
+            function createTestObj(_, next) {
+                writeObject({
+                    client: client,
+                    path: path,
+                    headers: {
+                        'role-tag': role
+                    }
+                }, next);
+            },
+
+            // We should be able to write it, since it's role-tagged so the
+            // "Can putobject" rule applies.
+            function subuserWriteWithRoleShouldWork(_, next) {
+                writeObject({
+                    client: subuserClient,
+                    path: path,
+                    headers: {
+                        role: role,
+                        'role-tag': role
+                    }
+                }, function (err) {
+                    t.ifError(err, 'expected subuser write with role to work');
+                    next();
+                });
+            },
+
+            // And we should also be able to read it thanks to the
+            // "Can getobject *" rule.
+            function subuserInfoWithRoleShouldWork(_, next) {
+                subuserClient.info(path, {
+                    headers: {
+                        role: role
+                    }
+                }, function (err, info) {
+                    t.ifError(err, 'expected subuser info with role to work');
+                    t.equal(info.headers['role-tag'], role);
+                    t.end();
+                });
+            }
+        ]}, function finish(err) {
+            t.ifError(err);
+            t.end();
+        });
+    });
+
+    // Tests for scenarios around rules with explicit resource strings (support
+    // added with MANTA-4284).
+    suite.test('explicit resource rules', function (t) {
+        var path = `${testDir}/globbity-obj-1`;
+        var role = 'muskietest_role_glob';
+
+        vasync.pipeline({funcs: [
+            // First, create a test object, with no role tags.
+            function createTestObjWithNoRoleTags(_, next) {
+                writeObject({
+                    client: client,
+                    path: path
+                }, next);
+            },
+
+            // This should not work: we haven't activated the role and we have
+            // no default roles that are tagged on the object, so we have no
+            // right to read it.
+            function subuserInfoShouldFail(_, next) {
+                subuserClient.info(path, function (err) {
+                    t.ok(err, 'expected error on subuser info without role');
+                    next();
+                });
+            },
+
+            // This should work, though: the "Can getobject /..." rule kicks
+            // in, even though this object isn't tagged.
+            function subuserInfoWithGlobRoleShouldWork(_, next) {
+                subuserClient.info(path, {
+                    headers: {
+                        role: role
+                    }
+                }, function (err, info) {
+                    t.ifError(err, 'expected subuser info with glob role to work');
+                    t.strictEqual(info.headers['role-tag'], undefined);
+                    next();
+                });
+            }
+        ]}, function finish(err) {
+            t.ifError(err);
+            t.end();
+        });
+    });
+
+    suite.test('explicit resource rules, denied', function (t) {
+        var path = `${testDir}/does-not-match-globbity-pattern`;
+        var role = 'muskietest_role_glob';
+
+        vasync.pipeline({funcs: [
+            // First, create a test object, with no role tags.
+            function createTestObjWithNoRoleTags(_, next) {
+                writeObject({
+                    client: client,
+                    path: path
+                }, next);
+            },
+
+            // This should not work: we haven't activated the role and we have
+            // no default roles that are tagged on the object, so we have no
+            // right to read it.
+            function subuserInfoShouldFail(_, next) {
+                subuserClient.info(path, function (err) {
+                    t.ok(err, 'expected error on subuser info without role');
+                    next();
+                });
+            },
+
+            // This should not work, either: the rule with the explicit
+            // resource on muskietest_role_glob does not match the path.
+            function subuserInfoWithGlobRoleShouldFail(_, next) {
+                subuserClient.info(path, {
+                    headers: {
+                        role: role
+                    }
+                }, function (err, info) {
+                    t.ok(err, 'expected subuser info with glob role to fail');
+                    t.equal(err.name, 'ForbiddenError');
+                    next();
+                });
+            }
+        ]}, function finish(err) {
+            t.ifError(err);
+            t.end();
+        });
+    });
+
+
+    suite.test('cross-account role access, denied', function (t) {
+        var path = testOperDir;
+        client.info(path, {
+            headers: {
+                'role': 'muskietest_role_xacct'
+            }
+        }, function (err, info) {
+            t.ok(err);
+            // Note that currently Manta will respond 403 Forbidden for an
+            // *existing* path, and 404 Not Found for a non-existant path.
+            // We *happen* to know that `testOperDir` already exists from the
+            // earlier setup steps in this test file.
+            t.equal(err.name, 'ForbiddenError');
+
+            client.info(path, function (err2, info2) {
+                t.ok(err2);
+                t.equal(err2.name, 'ForbiddenError');
+                t.end();
+            });
+        });
+    });
+
+    suite.test('cross-account role access', function (t) {
+        var path = `${testOperDir}/obj-for-xacct-access`;
+        vasync.pipeline({funcs: [
+            function writeObjWithoutRoleTag(_, next) {
+                writeObject({
+                    client: operClient,
+                    path: path
+                }, next);
+            },
+
+            function chattrToAddXacctRoleTag(_, next) {
+                operClient.chattr(path, {
+                    headers: {
+                        'role-tag': 'muskietest_role_xacct'
+                    }
+                }, next);
+            },
+
+            function clientInfoShouldWork(_, next) {
+                client.info(path, {
+                    headers: {
+                        role: 'muskietest_role_xacct'
+                    }
+                }, function (err, info) {
+                    t.ifError(err, 'expected xacct client.info to work');
+                    t.equal(info.headers['role-tag'], 'muskietest_role_xacct');
+                    next();
+                });
+            }
+        ]}, function finish(err) {
+            t.ifError(err);
+            t.end();
+        });
+    });
+
+    suite.test('created object gets parent dir roles', function (t) {
+        var dir = `${testDir}/dir-with-roles`;
+        var path = `${dir}/obj-inside-dir-with-roles`;
+
+        vasync.pipeline({funcs: [
+            function makeDir(_, next) {
+                client.mkdir(dir, next);
+            },
+
+            function addRoleTagToDir(_, next) {
+                client.chattr(dir, {
+                    headers: {
+                        'role-tag': 'muskietest_role_write'
+                    }
+                }, next);
+            },
+
+            function subuserWriteObjUnderThatDir(_, next) {
+                writeObject({
+                    client: subuserClient,
+                    path: path,
+                    headers: {
+                        role: 'muskietest_role_write'
+                    }
+                }, next);
+            },
+
+            function writtenObjShouldHaveInheritedRoleTag(_, next) {
+                client.info(path, function (err, info) {
+                    t.ifError(err, 'expected client.info to work');
+                    if (!err) {
+                        var roleTags = info.headers['role-tag'].split(/,/);
+                        t.ok(roleTags.indexOf('muskietest_role_write') !== -1,
+                            'have "muskietest_role_write" role-tag from parent dir');
+                        next();
+                    }
+                })
+            }
+        ]}, function finish(err) {
+            t.ifError(err);
+            t.end();
+        });
+    });
+
+
+    // TODOs since 2014, at least:
     // TODO assets OK
-
     // TODO conditions - overwrite
-
     // TODO conditions - day/date/time
-
     // TODO conditions - sourceip
-
     // TODO conditions - user-agent
-
 
 
     suite.test('teardown', function (t) {
         client.rmr(testDir, function onRm(err) {
-            t.ifError(err, 'remove test dir ' + testDir);
-            t.end();
+            t.ifError(err, 'remove testDir: ' + testDir);
+            operClient.rmr(testOperDir, function onRm(err) {
+                t.ifError(err, 'remove testOperDir: ' + testOperDir);
+                t.end();
+            });
         });
     });
 
