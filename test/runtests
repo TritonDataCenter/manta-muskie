@@ -42,13 +42,13 @@ PATH=/opt/smartdc/muskie/build/node/bin:$PATH
 
 [[ -n "$TEST_JOBS" ]] || TEST_JOBS=10
 
-# Default to 80s because:
+# Default to 120s because:
 # - Test account/RBAC setup ('helper.ensureTestAccounts' and, especially,
-#   'helper.ensureRbacSettings) can take up to 30s to complete on a first
+#   'helper.ensureRbacSettings) can take a while to complete on a first
 #   run because they are waiting for caches to update account info.
 # - Some tests (e.g. various.test.js) take longer than 30s, at least when run
 #   in parallel under COAL.
-[[ -n "$TAP_TIMEOUT" ]] || TAP_TIMEOUT=80
+[[ -n "$TAP_TIMEOUT" ]] || TAP_TIMEOUT=120
 export TAP_TIMEOUT
 
 #XXX $TOP/node_modules/.bin/tap test/**.test.js  # once mpu tests moved over

@@ -47,9 +47,7 @@ function writeObject(client, key, opts, cb) {
 
 ///--- Tests
 
-// Anecdotally, not having a timeout here resulted in occassional timeouts
-// of this test file when run with all tests in COAL.
-test('various specific issue tests', {timeout: 60000}, function (suite) {
+test('various specific issue tests', function (suite) {
     var client;
     var dir;
     var key;

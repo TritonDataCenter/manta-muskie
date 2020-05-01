@@ -16,6 +16,7 @@ var path = require('path');
 var assert = require('assert-plus');
 var bunyan = require('bunyan');
 var forkExecWait = require('forkexec').forkExecWait;
+var glob = require('glob');
 var manta = require('manta');
 var qlocker = require('qlocker');
 var restifyClients = require('restify-clients');
@@ -25,7 +26,7 @@ var uuidv4 = require('uuid/v4');
 var vasync = require('vasync');
 var VError = require('verror');
 
-// The relatively large smartdc dep is only required for `ensureRbacSettings()`
+// The relatively large smartdc dep is only required for `_ensureRbacSettings()`
 // used only for "test/integration/ac.test.js". A more modern option would be
 // to use node-triton. However its RBAC support is fledgling and node-triton
 // would be an even *bigger* dep.
@@ -371,7 +372,7 @@ function checkResponse(t, res, code) {
 
 // Ensure the RBAC settings (subusers, policies, roles) on the given account
 // are set as given.
-function ensureRbacSettings(opts, cb) {
+function _ensureRbacSettings(opts, cb) {
     assert.object(opts.t, 'opts.t');
     assert.object(opts.account, 'opts.account');
     assert.arrayOfObject(opts.subusers, 'opts.subusers');
@@ -387,15 +388,6 @@ function ensureRbacSettings(opts, cb) {
     var t = opts.t;
 
     vasync.pipeline({arg: context, funcs: [
-        function getLock(ctx, next) {
-            qlocker.lock(ACCOUNTS_LOCK_FILE, function (err, unlockFn) {
-                t.comment(`[${new Date().toISOString()}] ` +
-                    `acquired test accounts lock`);
-                ctx.unlockFn = unlockFn;
-                next(err);
-            });
-        },
-
         function createSmartdcClient(ctx, next) {
             try {
                 var muskieConfig = JSON.parse(
@@ -526,7 +518,7 @@ function ensureRbacSettings(opts, cb) {
                                 );
                             } else {
                                 // Already have the key.
-                                t.comment(`already have subuser ` +
+                                t.comment(`key is already on subuser ` +
                                     `${opts.account.login}/${subuser.login}`);
                                 nextSubuser();
                             }
@@ -675,7 +667,7 @@ function ensureRbacSettings(opts, cb) {
                 inputs: ctx.rolesToCreate,
                 func: function createOne(role, nextRole) {
                     assert.string(role.name, 'role.name');
-                    assert.optionalArrayObject(role.members, 'role.members');
+                    assert.optionalArrayOfObject(role.members, 'role.members');
                     assert.optionalArrayOfString(role.default_members,
                         'role.default_members');
                     assert.optionalArray(role.policies,
@@ -708,67 +700,84 @@ function ensureRbacSettings(opts, cb) {
             setTimeout(next, MAHI_POLL_INTERVAL_S * 1000);
         }
     ]}, function finish(err) {
-        // Cleanup and callback.
-        vasync.pipeline({funcs: [
-            function cleanupLock(_, next) {
-                if (context.unlockFn) {
-                    t.comment(`[${new Date().toISOString()}] ` +
-                        `releasing test accounts lock`);
-                    context.unlockFn(next);
-                } else {
-                    next();
-                }
-            },
-            function cleanupClients(_, next) {
-                if (context.smartdcClient) {
-                    context.smartdcClient.client.close();
-                }
-                next();
-            },
-        ]}, function (cleanupErr) {
-            t.ifError(cleanupErr, 'no error cleaning up ensureRbacSettings');
-            cb(err);
-        });
+        if (context.smartdcClient) {
+            context.smartdcClient.client.close();
+        }
+        cb(err);
     });
 }
-
 
 function _ensureAccount(opts, cb) {
     assert.object(opts.t, 'opts.t');
     assert.object(opts.ufdsClient, 'opts.ufdsClient');
     assert.bool(opts.isOperator, 'opts.isOperator');
-    assert.string(opts.login, 'opts.login');
+    assert.string(opts.loginPrefix, 'opts.loginPrefix');
     assert.string(opts.cacheDir, 'opts.cacheDir');
 
     var t = opts.t;
     var info;
 
     vasync.pipeline({arg: {}, funcs: [
+        function findExistingKeys(ctx, next) {
+            var pat = path.join(opts.cacheDir, opts.loginPrefix + '*.id_rsa*');
+            glob(pat, function (err, files) {
+                if (err) {
+                    next(err);
+                } else if (files.length === 0) {
+                    // No existing key in the cache: we'll create a new account.
+                    // Note: It is possible there is a pre-existing account
+                    // and they we've just lost its key. We could theoretically
+                    // add a new key and re-use that account. However, we'll
+                    // end up having to wait for 5 minutes for muskie's
+                    // client-side mahi cache to clear. A new account avoids
+                    // that cache delay.
+                    ctx.privKeyPath = null;
+                    ctx.login = opts.loginPrefix + uuidv4().split('-')[0];
+                    next();
+                } else if (files.length === 2) {
+                    // Two files mean there is an existing key:
+                    //      $cacheDir/$login.id_rsa     # the private key
+                    //      $cacheDir/$login.id_rsa.pub # the public key
+                    // If that login still exists, we'll re-use it.
+                    ctx.privKeyPath = files
+                        .filter(f => f.endsWith('.id_rsa'))[0];
+                    assert(ctx.privKeyPath.endsWith('.id_rsa'));
+                    ctx.login = path.basename(ctx.privKeyPath)
+                        .slice(0, -('.id_rsa'.length));
+                    t.comment(`found existing key for login "${ctx.login}"`);
+                    next();
+                } else {
+                    next(new VError(
+                        'unexpected number of files matching "%s": %s',
+                        pat, files.join(', ')));
+                }
+            });
+        },
+
         function ensureTheAccount(ctx, next) {
             opts.ufdsClient.getUserEx({
                 searchType: 'login',
-                value: opts.login
+                value: ctx.login
             }, function (getErr, account) {
                 if (getErr && getErr.name !== 'ResourceNotFoundError') {
                     next(new VError(getErr,
-                        'unexpected error loading account "%s"', opts.login));
-                    return;
+                        'unexpected error loading account "%s"', ctx.login));
                 } else if (account) {
                     ctx.account = account;
-                    t.comment(`already have account "${opts.login}"`);
+                    t.comment(`already have account "${ctx.login}"`);
                     next();
                 } else {
                     opts.ufdsClient.addUser({
-                        login: opts.login,
-                        email: opts.login + '@localhost',
+                        login: ctx.login,
+                        email: ctx.login + '@localhost',
                         userpassword: uuidv4(),
                         approved_for_provisioning: true
                     }, function (addErr, newAccount) {
                         if (addErr) {
                             next(new VError(addErr,
-                                'could not create account "%s"', opts.login));
+                                'could not create account "%s"', ctx.login));
                         } else {
-                            t.comment(`created account "${opts.login}"`);
+                            t.comment(`created account "${ctx.login}"`);
                             ctx.account = newAccount;
                             next();
                         }
@@ -787,12 +796,13 @@ function _ensureAccount(opts, cb) {
         },
 
         function ensureTheKey(ctx, next) {
-            ctx.privKeyPath = path.join(opts.cacheDir, opts.login + '.id_rsa');
-            if (!fs.existsSync(ctx.privKeyPath)) {
+            if (!ctx.privKeyPath) {
+                ctx.privKeyPath = path.join(opts.cacheDir,
+                    ctx.login + '.id_rsa');
                 var argv = [
                     'ssh-keygen',
                     '-t', 'rsa',
-                    '-C', opts.login,
+                    '-C', ctx.login,
                     '-b', '2048',
                     '-N', '',
                     '-f', ctx.privKeyPath
@@ -804,7 +814,7 @@ function _ensureAccount(opts, cb) {
                     if (err) {
                         next(new VError(err,
                             'failed to generate key for login "%s"',
-                            opts.login));
+                            ctx.login));
                     } else {
                         t.comment(`created new key "${ctx.privKeyPath}"`);
                         ctx.privKey = fs.readFileSync(ctx.privKeyPath, 'utf8');
@@ -830,37 +840,23 @@ function _ensureAccount(opts, cb) {
                 if (getErr && getErr.name !== 'ResourceNotFoundError') {
                     next(new VError(getErr,
                         'unexpected error checking for key on account "%s"',
-                        opts.login));
+                        ctx.login));
                 } else if (getErr) {
                     opts.ufdsClient.addKey(ctx.account, keyInfo, function (addErr) {
                         if (addErr) {
                             next(new VError(addErr,
                                 'could not add key to account "%s"',
-                                opts.login));
+                                ctx.login));
                         } else {
                             t.comment(`added key "${ctx.fp}" to account`);
                             next();
                         }
                     });
                 } else if (key.fingerprint !== ctx.fp) {
-                    // Need to replace this older key.
-                    opts.ufdsClient.deleteKey(ctx.account, key, function (delErr) {
-                        if (delErr) {
-                            next(delErr);
-                            return;
-                        }
-                        t.comment(`removed key "${key.fingerprint}" from account`);
-                        opts.ufdsClient.addKey(ctx.account, keyInfo, function (addErr) {
-                            if (addErr) {
-                                next(new VError(addErr,
-                                    'could not add key to account "%s"',
-                                    opts.login));
-                            } else {
-                                t.comment(`added key "${ctx.fp}" to account`);
-                                next();
-                            }
-                        });
-                    });
+                    next(new VError(
+                        'expected fingerprint "%s" for existing "%s" key ' +
+                            'on account "%s", got "%s"',
+                        ctx.fp, keyInfo.name, ctx.login, key.fingerprint));
                 } else {
                     next();
                 }
@@ -869,7 +865,7 @@ function _ensureAccount(opts, cb) {
 
         function buildInfo(ctx, next) {
             info = {
-                login: opts.login,
+                login: ctx.login,
                 uuid: ctx.account.uuid,
                 pubKey: ctx.pubKey,
                 privKey: ctx.privKey,
@@ -950,8 +946,8 @@ function _waitForAccountToBeReady(t, opts, cb) {
 // `metadata.SIZE == "production"`.
 //
 // The created accounts are:
-// - muskietest_account_$firstPartOfInstanceUuid
-// - muskietest_operator_$firstPartOfInstanceUuid
+// - muskietest_account_$randomHexChars
+// - muskietest_operator_$randomHexChars
 function ensureTestAccounts(t, cb) {
     var context = {
         accounts: {}
@@ -1032,60 +1028,187 @@ function ensureTestAccounts(t, cb) {
 
             // Create (or load) the 'muskietest_account_...' account.
             function ensureRegularAccount(ctx, next) {
-                // We put (part of) the instance UUID in the test account
-                // to balance between (a) not creating zillions of test accounts
-                // on re-runs and (b) not having test runs from separate muskie
-                // instances collide with each other.
-                var login = 'muskietest_account_' + ctx.instUuid.split('-')[0];
-
                 _ensureAccount({
                     t: t,
                     ufdsClient: ctx.ufdsClient,
-                    login: login,
+                    loginPrefix: 'muskietest_account_',
                     isOperator: false,
                     cacheDir: DB_DIR
                 }, function (err, info) {
                     if (err) {
                         next(err);
                     } else {
-                        t.ok(info, 'ensured regular account: login=' +
-                            info.login + ', ...');
+                        t.ok(info, 'ensured regular account "' +
+                            info.login + '"');
                         ctx.accounts.regular = info;
                         next();
                     }
                 });
             },
 
+            function ensureRegularAccountRbac(ctx, next) {
+                _ensureRbacSettings({
+                    t: t,
+                    account: ctx.accounts.regular,
+                    subusers: [
+                        {
+                            login: 'muskietest_subuser',
+                            password: 'secret123',
+                            email: ctx.accounts.regular.login +
+                                '_subuser@localhost'
+                        }
+                    ],
+                    policies: [
+                        {
+                            name: 'muskietest_policy_read',
+                            rules: [
+                                'Can getobject'
+                            ]
+                        },
+                        {
+                            name: 'muskietest_policy_write',
+                            rules: [
+                                'Can putobject',
+                                'Can putdirectory'
+                            ]
+                        },
+                        {
+                            name: 'muskietest_policy_star',
+                            rules: [
+                                'Can getobject *',
+                                'Can putobject'
+                            ]
+                        },
+                        {
+                            name: 'muskietest_policy_glob',
+                            rules: [
+                                // "/:login/stor/test-ac-dir-*" is the test dir
+                                // in which all test objects in this test file
+                                // are placed.
+                                'Can getobject /' + ctx.accounts.regular.login +
+                                    '/stor/test-ac-dir-*/globbity-*'
+                            ]
+                        }
+                    ],
+                    roles: [
+                        {
+                            name: 'muskietest_role_default',
+                            members: [
+                                {
+                                    type: 'subuser',
+                                    login: 'muskietest_subuser',
+                                    default: true
+                                }
+                            ],
+                            policies: [ { 'name': 'muskietest_policy_read' } ]
+                        },
+                        {
+                            name: 'muskietest_role_limit',
+                            members: [
+                                { type: 'subuser', login: 'muskietest_subuser' }
+                            ],
+                            policies: [ { 'name': 'muskietest_policy_read' } ]
+                        },
+                        {
+                            name: 'muskietest_role_other',
+                            policies: [{ 'name': 'muskietest_policy_read' }]
+                        },
+                        {
+                            name: 'muskietest_role_write',
+                            members: [
+                                { type: 'subuser', login: 'muskietest_subuser' }
+                            ],
+                            policies: [ { 'name': 'muskietest_policy_write' } ]
+                        },
+                        {
+                            name: 'muskietest_role_star',
+                            members: [
+                                { type: 'subuser', login: 'muskietest_subuser' }
+                            ],
+                            policies: [ { 'name': 'muskietest_policy_star' } ]
+                        },
+                        {
+                            name: 'muskietest_role_glob',
+                            members: [
+                                { type: 'subuser', login: 'muskietest_subuser' }
+                            ],
+                            policies: [ { 'name': 'muskietest_policy_glob' } ]
+                        },
+                        {
+                            name: 'muskietest_role_all',
+                            members: [
+                                { type: 'subuser', login: 'muskietest_subuser' }
+                            ],
+                            policies: [
+                                { 'name': 'muskietest_policy_read' },
+                                { 'name': 'muskietest_policy_write' }
+                            ]
+                        }
+                    ]
+                }, function (err) {
+                    t.ifError(err, 'ensured RBAC settings for account ' +
+                        ctx.accounts.regular.login);
+                    next(err);
+                });
+            },
+
             // Create (or load) the 'muskietest_operator_...' account.
             function ensureOperatorAccount(ctx, next) {
-                var login = 'muskietest_operator_' + ctx.instUuid.split('-')[0];
-
                 _ensureAccount({
                     t: t,
                     ufdsClient: ctx.ufdsClient,
-                    login: login,
+                    loginPrefix: 'muskietest_operator_',
                     isOperator: true,
                     cacheDir: DB_DIR
                 }, function (err, info) {
                     if (err) {
                         next(err);
                     } else {
-                        t.ok(info, 'ensured operator account: login=' +
-                            info.login + ', ...');
+                        t.ok(info, 'ensured operator account "' +
+                            info.login + '"');
                         ctx.accounts.operator = info;
                         next();
                     }
                 });
             },
 
+            function ensureOperatorAccountRbac(ctx, next) {
+                _ensureRbacSettings({
+                    t: t,
+                    account: ctx.accounts.operator,
+                    subusers: [],
+                    policies: [
+                        {
+                            // XXX muskietest_policy_ prefix
+                            name: 'muskietest_read',
+                            rules: [ 'can getobject', 'can listdirectory' ]
+                        }
+                    ],
+                    roles: [
+                        {
+                            name: 'muskietest_role_xacct',
+                            members: [
+                                {
+                                    type: 'account',
+                                    login: ctx.accounts.regular.login
+                                }
+                            ],
+                            policies: [
+                                { name: 'muskietest_read' }
+                            ]
+                        }
+                    ]
+                }, function (err) {
+                    t.ifError(err, 'ensured RBAC settings for account ' +
+                        ctx.accounts.operator.login);
+                    next(err);
+                });
+            },
+
             function waitForRegularAccountToBeReady(ctx, next) {
                 _waitForAccountToBeReady(t, {
                     accountInfo: ctx.accounts.regular,
-                    // Allow up to 5m10s wait (plus 10s cushion) to wait for
-                    // (a) 10s for mahi-replicator interval plus (b) 5 *minute*
-                    // muskie node-mahi client-side cache for existing cached
-                    // account info.
-                    timeout: 320
+                    timeout: 60
                 }, next);
             },
 
@@ -1137,7 +1260,6 @@ module.exports = {
     TEST_OPERATOR: TEST_OPERATOR,
 
     ensureTestAccounts: ensureTestAccounts,
-    ensureRbacSettings: ensureRbacSettings,
     mantaClientFromAccountInfo: mantaClientFromAccountInfo,
     mantaClientFromSubuserInfo: mantaClientFromSubuserInfo,
 
