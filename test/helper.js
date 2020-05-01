@@ -610,7 +610,6 @@ function ensureRbacSettings(opts, cb) {
         // This is because CloudAPI CreateRole is using *mahi* to get current
         // subuser and policy information. Mahi is a cache that can be
         // 10s (the mahi.git poll interval) out of date.
-        //
         function lamePauseForCloudapi(ctx, next) {
             if (!ctx.madeAdditions) {
                 next();
@@ -843,6 +842,25 @@ function _ensureAccount(opts, cb) {
                             next();
                         }
                     });
+                } else if (key.fingerprint !== ctx.fp) {
+                    // Need to replace this older key.
+                    opts.ufdsClient.deleteKey(ctx.account, key, function (delErr) {
+                        if (delErr) {
+                            next(delErr);
+                            return;
+                        }
+                        t.comment(`removed key "${key.fingerprint}" from account`);
+                        opts.ufdsClient.addKey(ctx.account, keyInfo, function (addErr) {
+                            if (addErr) {
+                                next(new VError(addErr,
+                                    'could not add key to account "%s"',
+                                    opts.login));
+                            } else {
+                                t.comment(`added key "${ctx.fp}" to account`);
+                                next();
+                            }
+                        });
+                    });
                 } else {
                     next();
                 }
@@ -1063,7 +1081,11 @@ function ensureTestAccounts(t, cb) {
             function waitForRegularAccountToBeReady(ctx, next) {
                 _waitForAccountToBeReady(t, {
                     accountInfo: ctx.accounts.regular,
-                    timeout: 60
+                    // Allow up to 5m10s wait (plus 10s cushion) to wait for
+                    // (a) 10s for mahi-replicator interval plus (b) 5 *minute*
+                    // muskie node-mahi client-side cache for existing cached
+                    // account info.
+                    timeout: 320
                 }, next);
             },
 
