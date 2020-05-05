@@ -120,6 +120,7 @@ release: all docs
 	    $(ROOT)/lib \
 	    $(ROOT)/node_modules \
 	    $(ROOT)/package.json \
+	    $(ROOT)/package-lock.json \
 	    $(ROOT)/sapi_manifests \
 	    $(ROOT)/smf \
 	    $(ROOT)/test \

@@ -1,7 +1,7 @@
 {
     "name": "muskie",
     "description": "Manta public-facing WebAPI",
-    "version": "2.2.2",
+    "version": "2.3.2",
     "author": "Joyent (joyent.com)",
     "private": true,
     "repository": {
@@ -12,7 +12,7 @@
         "ajv": "5.2.2",
         "ajv-keywords": "2.1.0",
         "aperture-config": "git+https://github.com/joyent/aperture-config.git#448811fa1696cd6c63d8d3391187c084b39b2e7b",
-        "artedi": "1.1.1",
+        "artedi": "2.0.2",
         "assert-plus": "1.0.0",
         "backoff": "2.5.0",
         "bunyan": "1.8.12",
