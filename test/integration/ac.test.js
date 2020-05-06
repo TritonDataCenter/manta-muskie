@@ -8,8 +8,6 @@
 
 // Test muskie access control (AC), aka RBAC.
 
-var util = require('util');
-
 var assert = require('assert-plus');
 var MemoryStream = require('stream').PassThrough;
 var once = require('once');

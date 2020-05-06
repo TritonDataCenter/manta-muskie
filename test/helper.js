@@ -20,6 +20,7 @@ var glob = require('glob');
 var manta = require('manta');
 var qlocker = require('qlocker');
 var restifyClients = require('restify-clients');
+var smartdcAuth = require('smartdc-auth');
 var sshpk = require('sshpk');
 var UFDS = require('ufds');
 var uuidv4 = require('uuid/v4');
@@ -77,21 +78,22 @@ if (process.env.MUSKIETEST_OPERATOR_KEYFILE) {
 
 ///--- Helpers
 
-function getRegularPubkey() {
-    return (fs.readFileSync(TEST_REGULAR_KEY + '.pub', 'utf8'));
-}
-
-function getRegularPrivkey() {
-    return (fs.readFileSync(TEST_REGULAR_KEY, 'utf8'));
-}
-
-function getOperatorPubkey() {
-    return (fs.readFileSync(TEST_OPERATOR_KEY + '.pub', 'utf8'));
-}
-
-function getOperatorPrivkey() {
-    return (fs.readFileSync(TEST_OPERATOR_KEY, 'utf8'));
-}
+// XXX drop these
+//function getRegularPubkey() {
+//    return (fs.readFileSync(TEST_REGULAR_KEY + '.pub', 'utf8'));
+//}
+//
+//function getRegularPrivkey() {
+//    return (fs.readFileSync(TEST_REGULAR_KEY, 'utf8'));
+//}
+//
+//function getOperatorPubkey() {
+//    return (fs.readFileSync(TEST_OPERATOR_KEY + '.pub', 'utf8'));
+//}
+//
+//function getOperatorPrivkey() {
+//    return (fs.readFileSync(TEST_OPERATOR_KEY, 'utf8'));
+//}
 
 function getKeyFingerprint(key) {
     return (sshpk.parseKey(key, 'auto').fingerprint('md5').toString());
@@ -251,41 +253,41 @@ function createStringClient() {
 //    return (client);
 //}
 
-function createOperatorClient() {
-    assert.string(process.env.MANTA_URL, 'process.env.MANTA_URL');
+//function createOperatorClient() {
+//    assert.string(process.env.MANTA_URL, 'process.env.MANTA_URL');
+//
+//    var key = getOperatorPrivkey();
+//    var keyId = getKeyFingerprint(key);
+//
+//    var log = createLogger();
+//    var client = manta.createClient({
+//        agent: false,
+//        connectTimeout: 2000,
+//        log: log,
+//        retry: false,
+//        sign: manta.privateKeySigner({
+//            key: key,
+//            keyId: keyId,
+//            log: log,
+//            user: TEST_OPERATOR
+//        }),
+//        rejectUnauthorized: false,
+//        url: process.env.MANTA_URL,
+//        user: TEST_OPERATOR
+//    });
+//
+//    return (client);
+//}
 
-    var key = getOperatorPrivkey();
-    var keyId = getKeyFingerprint(key);
-
-    var log = createLogger();
-    var client = manta.createClient({
-        agent: false,
-        connectTimeout: 2000,
-        log: log,
-        retry: false,
-        sign: manta.privateKeySigner({
-            key: key,
-            keyId: keyId,
-            log: log,
-            user: TEST_OPERATOR
-        }),
-        rejectUnauthorized: false,
-        url: process.env.MANTA_URL,
-        user: TEST_OPERATOR
-    });
-
-    return (client);
-}
-
-function checkResponse(t, res, code) {
-    t.ok(res, 'null response');
+function assertMantaRes(t, res, code) {
+    t.ok(res, 'have a response object');
     if (!res)
         return;
-    t.equal(res.statusCode, code, 'HTTP status code mismatch');
+    t.equal(res.statusCode, code, 'HTTP response status code ');
     t.ok(res.headers, 'has headers');
-    t.ok(res.headers.date, 'headers have date');
+    t.ok(res.headers.date, 'have "date" header');
     t.equal(res.headers.server, 'Manta/2', 'server header is Manta/2');
-    t.ok(res.headers['x-request-id'], 'headers have x-req-id');
+    t.ok(res.headers['x-request-id'], 'headers have x-request-id');
     t.ok(res.headers['x-server-name'], 'headers have x-server-name');
 
     if (code === 200 || code === 201 || code === 202) {
@@ -294,8 +296,9 @@ function checkResponse(t, res, code) {
         /* JSSTYLED */
         if (!/application\/x-json-stream.*/.test(ct)) {
             t.ok(res.headers['content-length'] !== undefined);
-            if (res.headers['content-length'] > 0)
+            if (res.headers['content-length'] > 0) {
                 t.ok(res.headers['content-md5']);
+            }
         }
     }
 }
@@ -326,6 +329,42 @@ function checkResponse(t, res, code) {
 //        cb(null, authz, date);
 //    });
 //}
+
+
+// Generate Manta http-signature headers for a request, using the auth info
+// from the given account info. This `accountInfo` is an object of the form
+// returned by `helper.ensureTestAccounts()`.
+//
+// Calls back with `cb(err)` or `cb(null, authz, date)` where `authz` is
+// the "Authorization" header and `date` is the "Date" header to use for the
+// signed request.
+function signReq(accountInfo, cb) {
+    assert.object(accountInfo, 'accountInfo');
+    assert.string(accountInfo.privKey, 'accountInfo.privKey');
+    assert.string(accountInfo.fp, 'accountInfo.fp');
+    assert.string(accountInfo.login, 'accountInfo.login');
+    //XXX
+
+    var keySigner = manta.privateKeySigner({
+        key: accountInfo.privKey,
+        keyId: accountInfo.fp,
+        user: accountInfo.login
+    });
+    var reqSigner = smartdcAuth.requestSigner({
+        sign: keySigner,
+        mantaSubUser: true
+    });
+    var date = reqSigner.writeDateHeader();
+
+    reqSigner.sign(function onSigned(err, authz) {
+        if (err) {
+            cb(err);
+        } else {
+            cb(null, authz, date);
+        }
+    });
+}
+
 //
 //function signUrl(opts, expires, cb) {
 //    if (typeof (opts) === 'string') {
@@ -1256,21 +1295,23 @@ function ensureTestAccounts(t, cb) {
 ///--- Exports
 
 module.exports = {
-    // XXX
+    // XXX drop this
     TEST_OPERATOR: TEST_OPERATOR,
 
+    assertMantaRes: assertMantaRes,
     ensureTestAccounts: ensureTestAccounts,
     mantaClientFromAccountInfo: mantaClientFromAccountInfo,
     mantaClientFromSubuserInfo: mantaClientFromSubuserInfo,
+    signReq: signReq,
 
-    // XXX
+    // XXX trim these
     createJsonClient: createJsonClient,
     createStringClient: createStringClient,
     createLogger: createLogger,
-    createOperatorClient: createOperatorClient,
-    getRegularPubkey: getRegularPubkey,
-    getRegularPrivkey: getRegularPrivkey,
-    getOperatorPubkey: getOperatorPubkey,
-    getOperatorPrivkey: getOperatorPrivkey,
+    //createOperatorClient: createOperatorClient,
+    //getRegularPubkey: getRegularPubkey,
+    //getRegularPrivkey: getRegularPrivkey,
+    //getOperatorPubkey: getOperatorPubkey,
+    //getOperatorPrivkey: getOperatorPrivkey,
     getKeyFingerprint: getKeyFingerprint
 };
