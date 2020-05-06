@@ -9,7 +9,6 @@
 // Test operations on directories related to *operator-only* access.
 
 var assert = require('assert-plus');
-var MemoryStream = require('stream').PassThrough;
 var test = require('tap').test;
 var uuidv4 = require('uuid/v4');
 var vasync = require('vasync');

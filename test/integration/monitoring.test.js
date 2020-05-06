@@ -23,37 +23,33 @@ var monitorUrl = 'http://localhost:8881';
 
 ///--- Tests
 
-test('monitoring', function (suite) {
-    test('kang handler running', function (t) {
-        var client = restifyClients.createJsonClient({
-            connectTimeout: 2000,
-            rejectUnauthorized: false,
-            retry: false,
-            url: monitorUrl
-        });
-        client.get('/kang/snapshot', function (err, req, res, obj) {
-            t.ifError(err, 'no error from kang endpoint');
-            t.equal(res.statusCode, 200, '200 HTTP response code from kang');
-            t.ok(obj, 'got a kang object');
-            t.end();
-        });
+test('kang handler running', function (t) {
+    var client = restifyClients.createJsonClient({
+        connectTimeout: 2000,
+        rejectUnauthorized: false,
+        retry: false,
+        url: monitorUrl
     });
-
-    test('metric handler running', function (t) {
-        var client = restifyClients.createStringClient({
-            connectTimeout: 2000,
-            rejectUnauthorized: false,
-            retry: false,
-            url: monitorUrl
-        });
-        client.get('/metrics', function (err, req, res, data) {
-            t.ifError(err, 'no error from /metrics');
-            t.equal(res.statusCode, 200,
-                '200 HTTP response code from /metrics');
-            t.ok(data, 'got data from /metrics');
-            t.end();
-        });
+    client.get('/kang/snapshot', function (err, req, res, obj) {
+        t.ifError(err, 'no error from kang endpoint');
+        t.equal(res.statusCode, 200, '200 HTTP response code from kang');
+        t.ok(obj, 'got a kang object');
+        t.end();
     });
+});
 
-    suite.end();
+test('metric handler running', function (t) {
+    var client = restifyClients.createStringClient({
+        connectTimeout: 2000,
+        rejectUnauthorized: false,
+        retry: false,
+        url: monitorUrl
+    });
+    client.get('/metrics', function (err, req, res, data) {
+        t.ifError(err, 'no error from /metrics');
+        t.equal(res.statusCode, 200,
+            '200 HTTP response code from /metrics');
+        t.ok(data, 'got data from /metrics');
+        t.end();
+    });
 });

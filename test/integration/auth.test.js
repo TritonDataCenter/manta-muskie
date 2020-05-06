@@ -48,348 +48,344 @@ function bogusSigAuthHeader(user, keyId) {
 
 ///--- Tests
 
-test('auth', function (suite) {
-    var client;
-    var dir;
-    var jsonClient = helper.createJsonClient();
-    var key;
-    var stringClient = helper.createStringClient();
-    var testAccount;
+var client;
+var dir;
+var jsonClient = helper.createJsonClient();
+var key;
+var stringClient = helper.createStringClient();
+var testAccount;
 
-    suite.test('setup: test account', function (t) {
-        helper.ensureTestAccounts(t, function (err, accounts) {
-            t.ifError(err, 'no error loading/creating test accounts');
-            t.ok(accounts.regular, 'have regular test account: ' +
-                accounts.regular.login);
-            testAccount = accounts.regular;
+test('setup: test account', function (t) {
+    helper.ensureTestAccounts(t, function (err, accounts) {
+        t.ifError(err, 'no error loading/creating test accounts');
+        t.ok(accounts.regular, 'have regular test account: ' +
+            accounts.regular.login);
+        testAccount = accounts.regular;
+        t.end();
+    });
+});
+
+test('setup: test dir and object', function (t) {
+    client = helper.mantaClientFromAccountInfo(testAccount);
+    var root = '/' + client.user + '/stor';
+    dir = root + '/test-auth-dir-' + uuidv4().split('-')[0];
+    key = dir + '/test-auth-file-' + uuidv4().split('-')[0];
+
+    client.mkdir(dir, function (err) {
+        t.ifError(err, 'no error making test dir ' + dir);
+        if (err) {
+            t.end();
+            return;
+        }
+
+        writeObject(client, key, function (writeErr) {
+            t.ifError(writeErr, 'no error writing test key ' + key);
             t.end();
         });
     });
+});
 
-    suite.test('setup: test dir and object', function (t) {
-        client = helper.mantaClientFromAccountInfo(testAccount);
-        var root = '/' + client.user + '/stor';
-        dir = root + '/test-auth-dir-' + uuidv4().split('-')[0];
-        key = dir + '/test-auth-file-' + uuidv4().split('-')[0];
-
-        client.mkdir(dir, function (err) {
-            t.ifError(err, 'no error making test dir ' + dir);
-            if (err) {
-                t.end();
-                return;
-            }
-
-            writeObject(client, key, function (writeErr) {
-                t.ifError(writeErr, 'no error writing test key ' + key);
+test('access test object', function (t) {
+    client.get(key, function (err, stream) {
+        t.ifError(err, 'no error from GetObject');
+        t.ok(stream, 'have a GetObject stream');
+        if (stream) {
+            stream.once('end', function onEnd() {
                 t.end();
             });
-        });
+            stream.resume();
+        } else {
+            t.end();
+        }
     });
+});
 
-    suite.test('access test object', function (t) {
-        client.get(key, function (err, stream) {
-            t.ifError(err, 'no error from GetObject');
-            t.ok(stream, 'have a GetObject stream');
-            if (stream) {
-                stream.once('end', function onEnd() {
-                    t.end();
-                });
-                stream.resume();
-            } else {
-                t.end();
-            }
-        });
+test('auth caller not found', function (t) {
+    var opts = {
+        path: '/poseidon/stor',
+        headers: {
+            // Bogus `login`.
+            authorization: bogusSigAuthHeader(uuidv4(), testAccount.fp)
+        }
+    };
+    jsonClient.get(opts, function (err) {
+        t.ok(err);
+        t.equal(err.statusCode, 403);
+        t.equal(err.restCode, 'AccountDoesNotExist');
+        t.ok(err.message);
+        t.end();
     });
+});
 
-    suite.test('auth caller not found', function (t) {
-        var opts = {
-            path: '/poseidon/stor',
-            headers: {
-                // Bogus `login`.
-                authorization: bogusSigAuthHeader(uuidv4(), testAccount.fp)
-            }
-        };
-        jsonClient.get(opts, function (err) {
+
+test('auth key not found', function (t) {
+    var opts = {
+        path: '/poseidon/stor',
+        headers: {
+            // Bogus `keyId`.
+            authorization: bogusSigAuthHeader(testAccount.login, uuidv4())
+        }
+    };
+    jsonClient.get(opts, function (err) {
+        t.ok(err);
+        t.equal(err.statusCode, 403);
+        t.equal(err.restCode, 'KeyDoesNotExist');
+        t.ok(err.message);
+        t.end();
+    });
+});
+
+
+test('signature invalid', function (t) {
+    var opts = {
+        path: '/poseidon/stor',
+        headers: {
+            // Bogus "signature".
+            authorization: bogusSigAuthHeader(
+                testAccount.login, testAccount.fp)
+        }
+    };
+    jsonClient.get(opts, function (err) {
+        t.ok(err);
+        t.equal(err.statusCode, 403);
+        t.equal(err.restCode, 'InvalidSignature');
+        t.ok(err.message);
+        t.end();
+    });
+});
+
+
+test('signed URL no expires', function (t) {
+    client.signURL({
+        path: key
+    }, function (signErr, path) {
+        t.ifError(signErr);
+        t.ok(path);
+
+        /* JSSTYLED */
+        path = path.replace(/&expires=\d+/, '');
+        jsonClient.get(path, function (err, _req, res, obj) {
             t.ok(err);
-            t.equal(err.statusCode, 403);
-            t.equal(err.restCode, 'AccountDoesNotExist');
-            t.ok(err.message);
+            t.equal(res.statusCode, 403);
+            t.equal(obj.code, 'InvalidQueryStringAuthentication');
+            t.ok(obj.message);
             t.end();
         });
     });
+});
 
 
-    suite.test('auth key not found', function (t) {
-        var opts = {
-            path: '/poseidon/stor',
-            headers: {
-                // Bogus `keyId`.
-                authorization: bogusSigAuthHeader(testAccount.login, uuidv4())
-            }
-        };
-        jsonClient.get(opts, function (err) {
+test('signed URL no keyid', function (t) {
+    client.signURL({
+        path: key
+    }, function (signErr, path) {
+        t.ifError(signErr);
+        t.ok(path);
+
+        /* JSSTYLED */
+        path = path.replace(/&keyId=.+&/, '&');
+        jsonClient.get(path, function (err, _req, res, obj) {
             t.ok(err);
-            t.equal(err.statusCode, 403);
-            t.equal(err.restCode, 'KeyDoesNotExist');
-            t.ok(err.message);
+            t.equal(res.statusCode, 403);
+            t.equal(obj.code, 'InvalidQueryStringAuthentication');
+            t.ok(obj.message);
             t.end();
         });
     });
+});
 
 
-    suite.test('signature invalid', function (t) {
-        var opts = {
-            path: '/poseidon/stor',
-            headers: {
-                // Bogus "signature".
-                authorization: bogusSigAuthHeader(
-                    testAccount.login, testAccount.fp)
-            }
-        };
-        jsonClient.get(opts, function (err) {
+test('signed URL no algorithm', function (t) {
+    client.signURL({
+        path: key
+    }, function (signErr, path) {
+        t.ifError(signErr);
+        t.ok(path);
+
+        /* JSSTYLED */
+        path = path.replace(/algorithm=.+&/, '&');
+        jsonClient.get(path, function (err, _req, res, obj) {
             t.ok(err);
-            t.equal(err.statusCode, 403);
-            t.equal(err.restCode, 'InvalidSignature');
-            t.ok(err.message);
+            t.equal(res.statusCode, 403);
+            t.equal(obj.code, 'InvalidQueryStringAuthentication');
+            t.ok(obj.message);
             t.end();
         });
     });
+});
 
 
-    suite.test('signed URL no expires', function (t) {
-        client.signURL({
-            path: key
-        }, function (signErr, path) {
-            t.ifError(signErr);
-            t.ok(path);
+test('signed URL no signature', function (t) {
+    client.signURL({
+        path: key
+    }, function (signErr, path) {
+        t.ifError(signErr);
+        t.ok(path);
 
-            /* JSSTYLED */
-            path = path.replace(/&expires=\d+/, '');
-            jsonClient.get(path, function (err, _req, res, obj) {
-                t.ok(err);
-                t.equal(res.statusCode, 403);
-                t.equal(obj.code, 'InvalidQueryStringAuthentication');
-                t.ok(obj.message);
-                t.end();
-            });
-        });
-    });
-
-
-    suite.test('signed URL no keyid', function (t) {
-        client.signURL({
-            path: key
-        }, function (signErr, path) {
-            t.ifError(signErr);
-            t.ok(path);
-
-            /* JSSTYLED */
-            path = path.replace(/&keyId=.+&/, '&');
-            jsonClient.get(path, function (err, _req, res, obj) {
-                t.ok(err);
-                t.equal(res.statusCode, 403);
-                t.equal(obj.code, 'InvalidQueryStringAuthentication');
-                t.ok(obj.message);
-                t.end();
-            });
-        });
-    });
-
-
-    suite.test('signed URL no algorithm', function (t) {
-        client.signURL({
-            path: key
-        }, function (signErr, path) {
-            t.ifError(signErr);
-            t.ok(path);
-
-            /* JSSTYLED */
-            path = path.replace(/algorithm=.+&/, '&');
-            jsonClient.get(path, function (err, _req, res, obj) {
-                t.ok(err);
-                t.equal(res.statusCode, 403);
-                t.equal(obj.code, 'InvalidQueryStringAuthentication');
-                t.ok(obj.message);
-                t.end();
-            });
-        });
-    });
-
-
-    suite.test('signed URL no signature', function (t) {
-        client.signURL({
-            path: key
-        }, function (signErr, path) {
-            t.ifError(signErr);
-            t.ok(path);
-
-            /* JSSTYLED */
-            path = path.replace(/&signature=.+/, '');
-            jsonClient.get(path, function (err, _req, res, obj) {
-                t.ok(err);
-                t.equal(res.statusCode, 403);
-                t.equal(obj.code, 'InvalidQueryStringAuthentication');
-                t.ok(obj.message);
-                t.end();
-            });
-        });
-    });
-
-
-    suite.test('signed URL invalid signature', function (t) {
-        client.signURL({
-            path: key
-        }, function (signErr, path) {
-            t.ifError(signErr);
-            t.ok(path);
-
-            path = path.replace(key, key + '/' + uuidv4());
-            jsonClient.get(path, function (err, _req, res, obj) {
-                t.ok(err);
-                t.equal(res.statusCode, 403);
-                t.equal(obj.code, 'InvalidSignature');
-                t.ok(obj.message);
-                t.end();
-            });
-        });
-    });
-
-
-    suite.test('signed URL expired request', function (t) {
-        client.signURL({
-            path: key,
-            expires: Math.floor(Date.now() / 1000 - 10)
-        }, function (signErr, path) {
-            t.ifError(signErr);
-            t.ok(path);
-
-            jsonClient.get(path, function (err, _req, res, obj) {
-                t.ok(err);
-                t.equal(res.statusCode, 403);
-                t.equal(obj.code, 'InvalidQueryStringAuthentication');
-                t.ok(obj.message);
-                t.end();
-            });
-        });
-    });
-
-
-    suite.test('fail to signURL for another account', function (t) {
-        var opts = {
-            method: 'POST',
-            path: '/poseidon/tokens'
-        };
-
-        client.signURL({
-            path: '/poseidon/stor'
-        }, function (signErr, path) {
-            t.ifError(signErr);
-            t.ok(path);
-
-            jsonClient.get(path, function (getErr, _req, res, obj) {
-                t.ok(getErr)
-                t.equal(res.statusCode, 403, '403 response status');
-                t.end();
-            });
-        });
-    });
-
-
-    suite.test('signed URL ok', function (t) {
-        client.signURL({
-            path: key
-        }, function (signErr, path) {
-            t.ifError(signErr);
-            t.ok(path);
-
-            jsonClient.get(path, function (err, _req, res, obj) {
-                t.ifError(err);
-                t.equal(res.statusCode, 200);
-                t.ok(obj);
-                t.end();
-            });
-        });
-    });
-
-
-    suite.test('signed URL ok, directory no trailing slash', function (t) {
-        client.signURL({
-            path: dir
-        }, function (signErr, path) {
-            t.ifError(signErr);
-            t.ok(path);
-
-            jsonClient.get(path, function (err, _req, res, obj) {
-                t.ifError(err);
-                t.equal(res.statusCode, 200);
-                t.ok(obj);
-                t.end();
-            });
-        });
-    });
-
-
-    suite.test('signed URL ok, directory trailing slash', function (t) {
-        client.signURL({
-            path: dir + '/'
-        }, function (signErr, path) {
-            t.ifError(signErr);
-            t.ok(path);
-
-            jsonClient.get(path, function (err, _req, res, obj) {
-                t.ifError(err);
-                t.equal(res.statusCode, 200);
-                t.ok(obj);
-                t.end();
-            });
-        });
-    });
-
-
-    suite.test('anonymous get 403', function (t) {
-        stringClient.get(key, function (err, _req, res) {
+        /* JSSTYLED */
+        path = path.replace(/&signature=.+/, '');
+        jsonClient.get(path, function (err, _req, res, obj) {
             t.ok(err);
+            t.equal(res.statusCode, 403);
+            t.equal(obj.code, 'InvalidQueryStringAuthentication');
+            t.ok(obj.message);
+            t.end();
+        });
+    });
+});
+
+
+test('signed URL invalid signature', function (t) {
+    client.signURL({
+        path: key
+    }, function (signErr, path) {
+        t.ifError(signErr);
+        t.ok(path);
+
+        path = path.replace(key, key + '/' + uuidv4());
+        jsonClient.get(path, function (err, _req, res, obj) {
+            t.ok(err);
+            t.equal(res.statusCode, 403);
+            t.equal(obj.code, 'InvalidSignature');
+            t.ok(obj.message);
+            t.end();
+        });
+    });
+});
+
+
+test('signed URL expired request', function (t) {
+    client.signURL({
+        path: key,
+        expires: Math.floor(Date.now() / 1000 - 10)
+    }, function (signErr, path) {
+        t.ifError(signErr);
+        t.ok(path);
+
+        jsonClient.get(path, function (err, _req, res, obj) {
+            t.ok(err);
+            t.equal(res.statusCode, 403);
+            t.equal(obj.code, 'InvalidQueryStringAuthentication');
+            t.ok(obj.message);
+            t.end();
+        });
+    });
+});
+
+
+test('fail to signURL for another account', function (t) {
+    var opts = {
+        method: 'POST',
+        path: '/poseidon/tokens'
+    };
+
+    client.signURL({
+        path: '/poseidon/stor'
+    }, function (signErr, path) {
+        t.ifError(signErr);
+        t.ok(path);
+
+        jsonClient.get(path, function (getErr, _req, res, obj) {
+            t.ok(getErr)
             t.equal(res.statusCode, 403, '403 response status');
             t.end();
         });
     });
+});
 
 
-    suite.test('access 403', function (t) {
-        writeObject(client, '/poseidon/public/agent.sh', function (err) {
-            t.ok(err);
-            if (!err) {
-                t.end();
-                return;
-            }
-            t.equal(err.name, 'AuthorizationFailedError');
-            t.ok(err.message);
-            t.end();
-        });
-    });
+test('signed URL ok', function (t) {
+    client.signURL({
+        path: key
+    }, function (signErr, path) {
+        t.ifError(signErr);
+        t.ok(path);
 
-
-    // MANTA-2214
-    suite.test('access unapproved and operator /public', function (t) {
-        client.get('/poseidon/public', function (err, stream) {
+        jsonClient.get(path, function (err, _req, res, obj) {
             t.ifError(err);
-            t.ok(stream);
-            if (stream) {
-                stream.once('end', t.end.bind(t));
-                stream.resume();
-            } else {
-                t.end();
-            }
-        });
-    });
-
-
-    suite.test('teardown', function (t) {
-        client.rmr(dir, function onRm(err) {
-            t.ifError(err, 'remove test dir ' + dir);
+            t.equal(res.statusCode, 200);
+            t.ok(obj);
             t.end();
         });
     });
+});
 
-    suite.end();
+
+test('signed URL ok, directory no trailing slash', function (t) {
+    client.signURL({
+        path: dir
+    }, function (signErr, path) {
+        t.ifError(signErr);
+        t.ok(path);
+
+        jsonClient.get(path, function (err, _req, res, obj) {
+            t.ifError(err);
+            t.equal(res.statusCode, 200);
+            t.ok(obj);
+            t.end();
+        });
+    });
+});
+
+
+test('signed URL ok, directory trailing slash', function (t) {
+    client.signURL({
+        path: dir + '/'
+    }, function (signErr, path) {
+        t.ifError(signErr);
+        t.ok(path);
+
+        jsonClient.get(path, function (err, _req, res, obj) {
+            t.ifError(err);
+            t.equal(res.statusCode, 200);
+            t.ok(obj);
+            t.end();
+        });
+    });
+});
+
+
+test('anonymous get 403', function (t) {
+    stringClient.get(key, function (err, _req, res) {
+        t.ok(err);
+        t.equal(res.statusCode, 403, '403 response status');
+        t.end();
+    });
+});
+
+
+test('access 403', function (t) {
+    writeObject(client, '/poseidon/public/agent.sh', function (err) {
+        t.ok(err);
+        if (!err) {
+            t.end();
+            return;
+        }
+        t.equal(err.name, 'AuthorizationFailedError');
+        t.ok(err.message);
+        t.end();
+    });
+});
+
+
+// MANTA-2214
+test('access unapproved and operator /public', function (t) {
+    client.get('/poseidon/public', function (err, stream) {
+        t.ifError(err);
+        t.ok(stream);
+        if (stream) {
+            stream.once('end', t.end.bind(t));
+            stream.resume();
+        } else {
+            t.end();
+        }
+    });
+});
+
+
+test('teardown', function (t) {
+    client.rmr(dir, function onRm(err) {
+        t.ifError(err, 'remove test dir ' + dir);
+        t.end();
+    });
 });
