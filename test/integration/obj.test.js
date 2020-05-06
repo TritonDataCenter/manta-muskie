@@ -10,25 +10,23 @@
 
 var crypto = require('crypto');
 
+var assert = require('assert-plus');
 var MemoryStream = require('stream').PassThrough;
-var restify = require('restify');
+var test = require('tap').test;
 var uuidv4 = require('uuid/v4');
 var vasync = require('vasync');
 
-if (require.cache[__dirname + '/helper.js'])
-    delete require.cache[__dirname + '/helper.js'];
-var helper = require('./helper.js');
+var helper = require('../helper');
 
 
 
 ///--- Globals
 
-var after = helper.after;
-var before = helper.before;
-var test = helper.test;
-
+var assertMantaRes = helper.assertMantaRes;
+var client;
+var testAccount;
+var testDir;
 var TEXT = 'The lazy brown fox \nsomething \nsomething foo';
-
 
 
 ///--- Helpers
@@ -38,7 +36,7 @@ function writeObject(client, key, opts, cb) {
         cb = opts;
         opts = {};
     }
-    var _opts = {
+    var putOpts = {
         headers: opts.headers,
         md5: crypto.createHash('md5').update(TEXT).digest('base64'),
         size: Buffer.byteLength(TEXT),
@@ -46,100 +44,102 @@ function writeObject(client, key, opts, cb) {
     };
     var stream = new MemoryStream();
 
-    client.put(key, stream, _opts, cb);
-    process.nextTick(stream.end.bind(stream, TEXT));
+    client.put(key, stream, putOpts, cb);
+    setImmediate(stream.end.bind(stream, TEXT));
 }
 
 
+function assertObjContent(opts, cb) {
+    assert.object(opts.t, 'opts.t');
+    assert.object(opts.stream, 'opts.stream');
+    assert.object(opts.res, 'opts.res');
+    assert.number(opts.code, 'opts.code');
+    assert.string(opts.text, 'opts.text');
+    assert.optionalString(opts.contentType, 'opts.contentType');
+    assert.func(cb, 'cb');
+
+    var res = opts.res;
+    var stream = opts.stream;
+    var t = opts.t;
+
+    assertMantaRes(t, res, opts.code);
+    t.ok(res.headers.etag, 'response has "etag" header');
+    t.ok(res.headers['last-modified'], 'response has "last-modified" header');
+    if (opts.contentType) {
+        t.equal(res.headers['content-type'], opts.contentType,
+            'response "content-type" is ' + opts.contentType);
+    }
+
+    stream.setEncoding('utf8');
+    var body = '';
+    stream.on('data', function (chunk) {
+        body += chunk;
+    });
+    stream.once('error', function (err) {
+        t.ifError(err);
+        cb();
+    });
+    stream.once('end', function () {
+        t.equal(body, opts.text);
+        cb();
+    });
+
+    stream.resume();
+}
+
+function putObjectAndCheckRes(t, client, key, opts, cb) {
+    if (typeof (opts) === 'function') {
+        cb = opts;
+        opts = {};
+    }
+    writeObject(client, key, opts, function (err, res) {
+        t.ifError(err);
+        assertMantaRes(t, res, 204);
+        cb(null, res.headers);
+    });
+}
 
 ///--- Tests
 
-before(function (cb) {
-    var self = this;
-
-    this.client = helper.createClient();
-    this.root = '/' + this.client.user + '/stor';
-    this.dir = this.root + '/' + uuidv4();
-    this.key = this.dir + '/' + uuidv4();
-    this.putObject = function putObject(t, opts, _cb) {
-        if (typeof (opts) === 'function') {
-            _cb = opts;
-            opts = {};
-        }
-        writeObject(self.client, self.key, opts, function (err, res) {
-            t.ifError(err);
-            t.ok(res);
-            t.checkResponse(res, 204);
-            _cb(null, res.headers);
-        });
-    };
-    this.client.mkdir(this.dir, cb);
-
-    this.checkContent = function checkContent(opts) {
-        var t = opts.t;
-        var stream = opts.stream;
-        var res = opts.res;
-        t.ok(stream);
-        t.ok(res);
-        t.checkResponse(res, opts.code);
-
-        stream.setEncoding('utf8');
-        var body = '';
-        stream.on('data', function (chunk) {
-            body += chunk;
-        });
-        stream.once('error', function (err) {
-            t.ifError(err);
-            t.end();
-        });
-        stream.once('end', function () {
-            t.equal(body, opts.text);
-            t.end();
-        });
-
-        stream.resume();
-    };
-
-    this.checkDefaultContent = function checkDefaultContent(t,
-                                                            stream,
-                                                            res) {
-        self.checkContent({
-            t: t,
-            stream: stream,
-            res: res,
-            code: 200,
-            text: TEXT
-        });
-        t.equal(res.headers['content-type'], 'text/plain');
-        t.ok(res.headers.etag);
-        t.ok(res.headers['last-modified']);
-    };
+test('setup: test account', function (t) {
+    helper.ensureTestAccounts(t, function (err, accounts) {
+        t.ifError(err, 'no error loading/creating test accounts');
+        testAccount = accounts.regular;
+        t.ok(testAccount, 'have regular test account: ' + testAccount.login);
+        t.end();
+    });
 });
 
+test('setup: test dir', function (t) {
+    client = helper.mantaClientFromAccountInfo(testAccount);
+    testDir = '/' + testAccount.login + '/stor/test-obj-' +
+        uuidv4().split('-')[0]
 
-after(function (cb) {
-    this.client.rmr(this.dir, cb.bind(null, null));
+    client.mkdir(testDir, function (err) {
+        t.ifError(err, 'no error making testDir:' + testDir);
+        t.end();
+    });
 });
 
 
 test('put object', function (t) {
+    var key = testDir + '/put-object';
     var stream = new MemoryStream();
-    var text = 'The lazy brown fox \nsomething \nsomething foo';
-    var size = Buffer.byteLength(text);
-    process.nextTick(stream.end.bind(stream, text));
+    var size = Buffer.byteLength(TEXT);
+    setImmediate(stream.end.bind(stream, TEXT));
 
-    this.client.put(this.key, stream, {size: size}, function (err, res) {
+    client.put(key, stream, {size: size}, function (err, res) {
         t.ifError(err);
-        t.checkResponse(res, 204);
+        assertMantaRes(t, res, 204);
         t.end();
     });
 });
 
 
 test('put overwrite', function (t) {
-    var self = this;
-    this.putObject(t, function (_, headers) {
-        self.putObject(t, function (__, headers2) {
+    var key = testDir + '/put-overwrite';
+    putObjectAndCheckRes(t, client, key, function (_, headers) {
+        putObjectAndCheckRes(t, client, key, function (__, headers2) {
             t.notEqual(headers.etag, headers2.etag, 'etags differ');
             t.end();
         });
@@ -148,20 +148,20 @@ test('put overwrite', function (t) {
 
 
 test('put/get zero bytes', function (t) {
-    var self = this;
+    var key = testDir + '/put-get-zero-bytes';
     var stream = new MemoryStream();
-    process.nextTick(stream.end.bind(stream));
+    setImmediate(stream.end.bind(stream));
 
-    this.client.put(this.key, stream, {size: 0}, function (err, res) {
+    client.put(key, stream, {size: 0}, function (err, res) {
         t.ifError(err);
         if (err) {
             t.end();
             return;
         }
-        t.checkResponse(res, 204);
-        self.client.get(self.key, function (err2, stream2, res2) {
+        assertMantaRes(t, res, 204);
+        client.get(key, function (err2, stream2, res2) {
             t.ifError(err2);
-            t.checkResponse(res2, 200);
+            assertMantaRes(t, res2, 200);
             t.equal(res2.headers['content-md5'], '1B2M2Y8AsgTpgAmY7PhCfg==');
             t.ok(stream2);
             if (stream2) {
@@ -176,19 +176,19 @@ test('put/get zero bytes', function (t) {
 });
 
 test('put streaming object', function (t) {
-    var self = this;
+    var key = testDir + '/put-streaming-object';
     var stream = new MemoryStream();
     var text = 'The lazy brown fox \nsomething \nsomething foo';
     var size = Buffer.byteLength(text);
 
-    process.nextTick(stream.end.bind(stream, text));
-    this.client.put(this.key, stream, function (err, res) {
+    setImmediate(stream.end.bind(stream, text));
+    client.put(key, stream, function (err, res) {
         t.ifError(err);
-        t.checkResponse(res, 204);
-        self.client.get(self.key, function (err2, stream2, res2) {
+        assertMantaRes(t, res, 204);
+        client.get(key, function (err2, stream2, res2) {
             t.ifError(err2);
-            t.checkResponse(res2, 200);
-            t.equal(res2.headers['content-length'], size);
+            assertMantaRes(t, res2, 200);
+            t.equal(Number(res2.headers['content-length']), size);
             var body = '';
             stream2.setEncoding('utf8');
             stream2.on('data', function (buf) {
@@ -205,26 +205,27 @@ test('put streaming object', function (t) {
 
 
 test('put streaming object exceed max promised size', function (t) {
+    var key = testDir + '/put-streaming-object-exceed-size';
     var stream = new MemoryStream();
     var text = 'The lazy brown fox \nsomething \nsomething foo';
 
-    process.nextTick(stream.end.bind(stream, text));
+    setImmediate(stream.end.bind(stream, text));
     var opts = {
         headers: {
             'max-content-length': 1
         }
     };
-    this.client.put(this.key, stream, opts, function (err, res) {
+    client.put(key, stream, opts, function (err, res) {
         t.ok(err);
-        t.ok(res);
         t.equal(err.name, 'MaxContentLengthExceededError');
-        t.checkResponse(res, 413);
+        assertMantaRes(t, res, 413);
         t.end();
     });
 });
 
 
 test('put object (1 copy)', function (t) {
+    var key = testDir + '/put-obj-1-copy';
     var stream = new MemoryStream();
     var text = 'The lazy brown fox \nsomething \nsomething foo';
     var size = Buffer.byteLength(text);
@@ -232,11 +233,11 @@ test('put object (1 copy)', function (t) {
         copies: 1,
         size: size
     };
-    process.nextTick(stream.end.bind(stream, text));
+    setImmediate(stream.end.bind(stream, text));
 
-    this.client.put(this.key, stream, _opts, function (err, res) {
+    client.put(key, stream, _opts, function (err, res) {
         t.ifError(err);
-        t.checkResponse(res, 204);
+        assertMantaRes(t, res, 204);
         t.end();
     });
 });
@@ -244,6 +245,7 @@ test('put object (1 copy)', function (t) {
 
 
 test('put object (3 copies)', function (t) {
+    var key = testDir + '/put-obj-3-copies';
     var stream = new MemoryStream();
     var text = 'The lazy brown fox \nsomething \nsomething foo';
     var size = Buffer.byteLength(text);
@@ -251,15 +253,15 @@ test('put object (3 copies)', function (t) {
         copies: 3,
         size: size
     };
-    process.nextTick(stream.end.bind(stream, text));
+    setImmediate(stream.end.bind(stream, text));
 
     // This fails against COAL
-    this.client.put(this.key, stream, _opts, function (err, res) {
+    client.put(key, stream, _opts, function (err, res) {
         if (err) {
             t.equal(err.name, 'NotEnoughSpaceError');
-            t.checkResponse(res, 507);
+            assertMantaRes(t, res, 507);
         } else {
-            t.checkResponse(res, 204);
+            assertMantaRes(t, res, 204);
         }
         t.end();
     });
@@ -268,6 +270,7 @@ test('put object (3 copies)', function (t) {
 
 // Default maximum is 9 copies.
 test('put object (10 copies)', function (t) {
+    var key = testDir + '/put-obj-10-copies';
     var stream = new MemoryStream();
     var text = 'The lazy brown fox \nsomething \nsomething foo';
     var size = Buffer.byteLength(text);
@@ -275,32 +278,32 @@ test('put object (10 copies)', function (t) {
         copies: 10,
         size: size
     };
-    process.nextTick(stream.end.bind(stream, text));
+    setImmediate(stream.end.bind(stream, text));
 
-    this.client.put(this.key, stream, _opts, function (err, res) {
+    client.put(key, stream, _opts, function (err, res) {
         t.ok(err);
         if (err)
             t.equal(err.name, 'InvalidDurabilityLevelError');
-        t.checkResponse(res, 400);
+        assertMantaRes(t, res, 400);
         t.end();
     });
 });
 
 
 test('chattr: m- headers', function (t) {
+    var key = testDir + '/chattr-m-headers';
     var opts = {
         headers: {
             'm-foo': 'bar',
             'm-bar': 'baz'
         }
     };
-    var self = this;
 
-    this.putObject(t, function () {
-        self.client.chattr(self.key, opts, function (err) {
+    putObjectAndCheckRes(t, client, key, function () {
+        client.chattr(key, opts, function (err) {
             t.ifError(err);
 
-            self.client.info(self.key, function (err2, info) {
+            client.info(key, function (err2, info) {
                 t.ifError(err2);
                 t.ok(info);
                 if (info) {
@@ -316,19 +319,19 @@ test('chattr: m- headers', function (t) {
 
 
 test('chattr: content-type', function (t) {
+    var key = testDir + '/chattr-content-type';
     var opts = {
         headers: {
             'content-type': 'jpg'
         }
     };
-    var self = this;
 
-    this.putObject(t, function () {
-        self.client.chattr(self.key, opts, function (err) {
+    putObjectAndCheckRes(t, client, key, function () {
+        client.chattr(key, opts, function (err) {
             t.ifError(err);
             t.ifError(err);
 
-            self.client.info(self.key, function (err2, info) {
+            client.info(key, function (err2, info) {
                 t.ifError(err2);
                 t.ok(info);
                 if (info) {
@@ -344,15 +347,15 @@ test('chattr: content-type', function (t) {
 
 
 test('chattr: bogus durability-level', function (t) {
+    var key = testDir + '/chattr-bogus-durability-level';
     var opts = {
         headers: {
             'durability-level': '4'
         }
     };
-    var self = this;
 
-    this.putObject(t, function () {
-        self.client.chattr(self.key, opts, function (err) {
+    putObjectAndCheckRes(t, client, key, function () {
+        client.chattr(key, opts, function (err) {
             t.ok(err);
             t.equal(err.name, 'InvalidUpdateError');
             t.end();
@@ -362,15 +365,15 @@ test('chattr: bogus durability-level', function (t) {
 
 
 test('chattr: bogus content-md5', function (t) {
+    var key = testDir + '/chattr-bogus-content-md5';
     var opts = {
         headers: {
             'content-md5': 'foo'
         }
     };
-    var self = this;
 
-    this.putObject(t, function () {
-        self.client.chattr(self.key, opts, function (err) {
+    putObjectAndCheckRes(t, client, key, function () {
+        client.chattr(key, opts, function (err) {
             t.ok(err);
             t.equal(err.name, 'InvalidUpdateError');
             t.end();
@@ -380,15 +383,15 @@ test('chattr: bogus content-md5', function (t) {
 
 
 test('chattr: bogus content-length', function (t) {
+    var key = testDir + '/chattr-bogus-content-length';
     var opts = {
         headers: {
             'content-length': '4'
         }
     };
-    var self = this;
 
-    this.putObject(t, function () {
-        self.client.chattr(self.key, opts, function (err) {
+    putObjectAndCheckRes(t, client, key, function () {
+        client.chattr(key, opts, function (err) {
             t.ok(err);
             t.equal(err.name, 'InvalidUpdateError');
             t.end();
@@ -398,13 +401,14 @@ test('chattr: bogus content-length', function (t) {
 
 
 test('chattr: no object', function (t) {
+    var key = testDir + '/chattr-no-object';
     var opts = {
         headers: {
             'm-foo': 'bar'
         }
     };
 
-    this.client.chattr(this.key, opts, function (err) {
+    client.chattr(key, opts, function (err) {
         t.ok(err);
         t.equal(err.name, 'ResourceNotFoundError');
         t.end();
@@ -414,17 +418,17 @@ test('chattr: no object', function (t) {
 
 
 test('MANTA-625 (custom headers)', function (t) {
+    var key = testDir + '/MANTA-625-custom-headers';
     var opts = {
         headers: {
             'm-foo': 'bar'
         }
     };
-    var self = this;
 
-    this.putObject(t, opts, function () {
-        self.client.get(self.key, function (err, stream, res) {
+    putObjectAndCheckRes(t, client, key, opts, function () {
+        client.get(key, function (err, stream, res) {
             t.ifError(err);
-            t.checkResponse(res, 200);
+            assertMantaRes(t, res, 200);
             t.equal(res.headers['m-foo'], 'bar');
             stream.once('end', t.end.bind(t));
             stream.resume();
@@ -434,15 +438,15 @@ test('MANTA-625 (custom headers)', function (t) {
 
 
 test('put if-match ok', function (t) {
-    var self = this;
-    this.putObject(t, function (_, headers) {
+    var key = testDir + '/put-if-match-ok';
+    putObjectAndCheckRes(t, client, key, function (_, headers) {
         var etag = headers.etag;
         var opts = {
             headers: {
                 'if-match': etag
             }
         };
-        self.putObject(t, opts, function (__, headers2) {
+        putObjectAndCheckRes(t, client, key, opts, function (__, headers2) {
             t.notEqual(etag, headers2.etag, 'etags differ');
             t.end();
         });
@@ -451,18 +455,17 @@ test('put if-match ok', function (t) {
 
 
 test('put if-match fail', function (t) {
-    var self = this;
-    this.putObject(t, function () {
+    var key = testDir + '/put-if-match-fail';
+    putObjectAndCheckRes(t, client, key, function () {
         var opts = {
             headers: {
                 'if-match': uuidv4()
             }
         };
-        writeObject(self.client, self.key, opts, function (err, res) {
+        writeObject(client, key, opts, function (err, res) {
             t.ok(err);
-            t.ok(res);
             t.equal(err.name, 'PreconditionFailedError');
-            t.checkResponse(res, 412);
+            assertMantaRes(t, res, 412);
             t.end();
         });
     });
@@ -470,14 +473,14 @@ test('put if-match fail', function (t) {
 
 
 test('put if-none-match ok', function (t) {
-    var self = this;
-    this.putObject(t, function (_, headers) {
+    var key = testDir + '/put-if-none-match-ok';
+    putObjectAndCheckRes(t, client, key, function (_, headers) {
         var opts = {
             headers: {
                 'if-none-match': uuidv4()
             }
         };
-        self.putObject(t, opts, function (__, headers2) {
+        putObjectAndCheckRes(t, client, key, opts, function (__, headers2) {
             t.notEqual(headers.etag, headers2.etag, 'etags differ');
             t.end();
         });
@@ -486,20 +489,19 @@ test('put if-none-match ok', function (t) {
 
 
 test('put if-none-match fail', function (t) {
+    var key = testDir + '/put-if-none-match-fail';
     var etag;
-    var self = this;
-    this.putObject(t, function (_, headers) {
+    putObjectAndCheckRes(t, client, key, function (_, headers) {
         etag = headers.etag;
         var opts = {
             headers: {
                 'if-none-match': etag
             }
         };
-        writeObject(self.client, self.key, opts, function (err, res) {
+        writeObject(client, key, opts, function (err, res) {
             t.ok(err);
-            t.ok(res);
             t.equal(err.name, 'PreconditionFailedError');
-            t.checkResponse(res, 412);
+            assertMantaRes(t, res, 412);
             t.end();
         });
     });
@@ -507,15 +509,15 @@ test('put if-none-match fail', function (t) {
 
 
 test('put unmodified-since ok', function (t) {
-    var self = this;
-    this.putObject(t, function (_, headers) {
+    var key = testDir + '/put-unmodified-since-ok';
+    putObjectAndCheckRes(t, client, key, function (_, headers) {
         var date = headers['last-modified'];
         var opts = {
             headers: {
                 'if-unmodified-since': date
             }
         };
-        self.putObject(t, opts, function (__, headers2) {
+        putObjectAndCheckRes(t, client, key, opts, function (__, headers2) {
             t.notEqual(headers.etag, headers2.etag, 'etags differ');
             t.end();
         });
@@ -524,8 +526,8 @@ test('put unmodified-since ok', function (t) {
 
 
 test('put unmodified-since fail', function (t) {
-    var self = this;
-    this.putObject(t, function (_, headers) {
+    var key = testDir + '/put-unmodified-since-fail';
+    putObjectAndCheckRes(t, client, key, function (_, headers) {
         var d = new Date(Date.parse(headers['last-modified']) - 10000);
         var old = new Date(d).toUTCString();
         var opts = {
@@ -533,11 +535,10 @@ test('put unmodified-since fail', function (t) {
                 'if-unmodified-since': old
             }
         };
-        writeObject(self.client, self.key, opts, function (err, res) {
+        writeObject(client, key, opts, function (err, res) {
             t.ok(err);
-            t.ok(res);
             t.equal(err.name, 'PreconditionFailedError');
-            t.checkResponse(res, 412);
+            assertMantaRes(t, res, 412);
             t.end();
         });
     });
@@ -545,6 +546,7 @@ test('put unmodified-since fail', function (t) {
 
 
 test('put bad content-md5', function (t) {
+    var key = testDir + '/put-bad-content-md5';
     var opts = {
         md5: 'bogus',
         size: Buffer.byteLength(TEXT),
@@ -552,38 +554,35 @@ test('put bad content-md5', function (t) {
     };
     var stream = new MemoryStream();
 
-    this.client.put(this.key, stream, opts, function (err, res) {
+    client.put(key, stream, opts, function (err, res) {
         t.ok(err);
-        t.ok(res);
         t.equal(err.name, 'BadRequestError');
-        t.checkResponse(res, 400);
+        assertMantaRes(t, res, 400);
         t.end();
     });
-    process.nextTick(stream.end.bind(stream, TEXT));
+    setImmediate(stream.end.bind(stream, TEXT));
 });
 
 
 test('put parent ENOEXIST', function (t) {
-    var k = this.root + '/' + uuidv4() + '/' + uuidv4();
-    writeObject(this.client, k, function (err, res) {
+    var key = testDir + '/no-such-parent-dir/the-obj';
+    writeObject(client, key, function (err, res) {
         t.ok(err);
-        t.ok(res);
         t.equal(err.name, 'DirectoryDoesNotExistError');
-        t.checkResponse(res, 404);
+        assertMantaRes(t, res, 404);
         t.end();
     });
 });
 
 
 test('put parent not directory', function (t) {
-    var self = this;
-    this.putObject(t, function () {
-        var k = self.key + '/' + uuidv4();
-        writeObject(self.client, k, function (err, res) {
+    var key = testDir + '/put-parent-not-directory';
+    putObjectAndCheckRes(t, client, key, function () {
+        var k = key + '/' + uuidv4();
+        writeObject(client, k, function (err, res) {
             t.ok(err);
-            t.ok(res);
             t.equal(err.name, 'ParentNotDirectoryError');
-            t.checkResponse(res, 400);
+            assertMantaRes(t, res, 400);
             t.end();
         });
     });
@@ -591,54 +590,64 @@ test('put parent not directory', function (t) {
 
 
 test('put too big', function (t) {
+    var key = testDir + '/put-too-big';
     var opts = {
         size: 1000000000000000,
         type: 'text/plain'
     };
     var stream = new MemoryStream();
 
-    this.client.put(this.key, stream, opts, function (err, res) {
+    client.put(key, stream, opts, function (err, res) {
         t.ok(err);
         t.equal(err.name, 'NotEnoughSpaceError');
-        t.checkResponse(res, 507);
+        assertMantaRes(t, res, 507);
         t.end();
     });
 });
 
 
 test('get ok', function (t) {
-    var self = this;
-    this.putObject(t, function () {
-        self.client.get(self.key, function (err, stream, res) {
+    var key = testDir + '/get-ok';
+    putObjectAndCheckRes(t, client, key, function () {
+        client.get(key, function (err, stream, res) {
             t.ifError(err);
-            self.checkDefaultContent(t, stream, res);
             t.equal('bytes', res.headers['accept-ranges']);
-            t.end();
+            assertObjContent({
+                t: t,
+                stream: stream,
+                res: res,
+                code: 200,
+                text: TEXT,
+                contentType: 'text/plain'
+            }, function () {
+                t.end();
+            });
         });
     });
 });
 
 
 test('get 404', function (t) {
-    this.client.get(this.key + 'a', function (err, stream, res) {
+    var key = testDir + '/get-404';
+    client.get(key + 'a', function (err, stream, res) {
         t.ok(err);
         t.equal(err.name, 'ResourceNotFoundError');
-        t.checkResponse(res, 404);
+        assertMantaRes(t, res, 404);
         t.end();
     });
 });
 
 
 test('get 406', function (t) {
-    var self = this;
-    this.putObject(t, function () {
+    var key = testDir + '/get-406';
+    putObjectAndCheckRes(t, client, key, function () {
         var opts = {
             accept: 'application/json'
         };
-        self.client.get(self.key, opts, function (err, stream, res) {
+        client.get(key, opts, function (err, stream, res) {
             t.ok(err);
             t.equal(err.name, 'NotAcceptableError');
-            t.checkResponse(res, 406);
+            assertMantaRes(t, res, 406);
             t.end();
         });
     });
@@ -646,16 +655,16 @@ test('get 406', function (t) {
 
 
 test('get if-match ok', function (t) {
-    var self = this;
-    this.putObject(t, function (_, headers) {
+    var key = testDir + '/get-if-match-ok';
+    putObjectAndCheckRes(t, client, key, function (_, headers) {
         var opts = {
             headers: {
                 'if-match': headers.etag
             }
         };
-        self.client.get(self.key, opts, function (err, stream, res) {
+        client.get(key, opts, function (err, stream, res) {
             t.ifError(err);
-            t.checkResponse(res, 200);
+            assertMantaRes(t, res, 200);
             t.end();
         });
     });
@@ -663,18 +672,18 @@ test('get if-match ok', function (t) {
 
 
 test('get if-match fail', function (t) {
-    var self = this;
-    this.putObject(t, function () {
+    var key = testDir + '/get-if-match-fail';
+    putObjectAndCheckRes(t, client, key, function () {
         var opts = {
             headers: {
                 'if-match': uuidv4()
             }
         };
-        self.client.get(self.key, opts, function (err, stream, res) {
+        client.get(key, opts, function (err, stream, res) {
             t.ok(err);
             t.equal(err.name, 'PreconditionFailedError');
             t.equal(stream, null);
-            t.checkResponse(res, 412);
+            assertMantaRes(t, res, 412);
             t.end();
         });
     });
@@ -682,16 +691,16 @@ test('get if-match fail', function (t) {
 
 
 test('get 304', function (t) {
-    var self = this;
-    this.putObject(t, function (_, headers) {
+    var key = testDir + '/get-304';
+    putObjectAndCheckRes(t, client, key, function (_, headers) {
         var opts = {
             headers: {
                 'if-none-match': headers.etag
             }
         };
-        self.client.get(self.key, opts, function (err, stream, res) {
+        client.get(key, opts, function (err, stream, res) {
             t.ifError(err);
-            t.checkResponse(res, 304);
+            assertMantaRes(t, res, 304);
             t.equal(stream, null);
             t.end();
         });
@@ -700,16 +709,16 @@ test('get 304', function (t) {
 
 
 test('get if-none-match ok', function (t) {
-    var self = this;
-    this.putObject(t, function () {
+    var key = testDir + '/get-if-none-match-ok';
+    putObjectAndCheckRes(t, client, key, function () {
         var opts = {
             headers: {
                 'if-none-match': uuidv4()
             }
         };
-        self.client.get(self.key, opts, function (err, stream, res) {
+        client.get(key, opts, function (err, stream, res) {
             t.ifError(err);
-            t.checkResponse(res, 200);
+            assertMantaRes(t, res, 200);
             t.end();
         });
     });
@@ -717,17 +726,17 @@ test('get if-none-match ok', function (t) {
 
 
 test('get if-modified-since ok (data)', function (t) {
-    var self = this;
-    this.putObject(t, function () {
+    var key = testDir + '/get-if-modified-since-ok-data';
+    putObjectAndCheckRes(t, client, key, function () {
         var d = new Date(1).toUTCString();
         var opts = {
             headers: {
                 'if-modified-since': d
             }
         };
-        self.client.get(self.key, opts, function (err, stream, res) {
+        client.get(key, opts, function (err, stream, res) {
             t.ifError(err);
-            t.checkResponse(res, 200);
+            assertMantaRes(t, res, 200);
             t.end();
         });
     });
@@ -735,17 +744,17 @@ test('get if-modified-since ok (data)', function (t) {
 
 
 test('get if-modified-since 304', function (t) {
-    var self = this;
-    this.putObject(t, function () {
+    var key = testDir + '/get-if-modified-since-304';
+    putObjectAndCheckRes(t, client, key, function () {
         var d = new Date(Date.now() + 10000).toUTCString();
         var opts = {
             headers: {
                 'if-modified-since': d
             }
         };
-        self.client.get(self.key, opts, function (err, stream, res) {
+        client.get(key, opts, function (err, stream, res) {
             t.ifError(err);
-            t.checkResponse(res, 304);
+            assertMantaRes(t, res, 304);
             t.end();
         });
     });
@@ -753,16 +762,16 @@ test('get if-modified-since 304', function (t) {
 
 
 test('get if-unmodified-since 200', function (t) {
-    var self = this;
-    this.putObject(t, function (_, headers) {
+    var key = testDir + '/get-if-unmodified-since-200';
+    putObjectAndCheckRes(t, client, key, function (_, headers) {
         var opts = {
             headers: {
                 'if-unmodified-since': headers['last-modified']
             }
         };
-        self.client.get(self.key, opts, function (err, stream, res) {
+        client.get(key, opts, function (err, stream, res) {
             t.ifError(err);
-            t.checkResponse(res, 200);
+            assertMantaRes(t, res, 200);
             t.end();
         });
     });
@@ -770,18 +779,18 @@ test('get if-unmodified-since 200', function (t) {
 
 
 test('get if-unmodified-since 412', function (t) {
-    var self = this;
-    this.putObject(t, function (_, headers) {
+    var key = testDir + '/get-if-unmodified-since-412';
+    putObjectAndCheckRes(t, client, key, function (_, headers) {
         var d = new Date(Date.now() - 100000).toUTCString();
         var opts = {
             headers: {
                 'if-unmodified-since': d
             }
         };
-        self.client.get(self.key, opts, function (err, stream, res) {
+        client.get(key, opts, function (err, stream, res) {
             t.ok(err);
             t.equal(err.name, 'PreconditionFailedError');
-            t.checkResponse(res, 412);
+            assertMantaRes(t, res, 412);
             t.end();
         });
     });
@@ -789,108 +798,114 @@ test('get if-unmodified-since 412', function (t) {
 
 
 test('get range', function (t) {
-    var self = this;
+    var key = testDir + '/get-range';
     var stream = new MemoryStream();
     var text = 'abcdefghijklmnopqrstuvwxyz';
     var size = Buffer.byteLength(text);
-    process.nextTick(stream.end.bind(stream, text));
+    setImmediate(stream.end.bind(stream, text));
 
-    this.client.put(this.key, stream, {size: size}, function (err, res) {
+    client.put(key, stream, {size: size}, function (err, res) {
         var opts = {
             headers: {
                 'range': 'bytes=3-8'
             }
         };
-        self.client.get(self.key, opts, function (err2, s, r) {
-            self.checkContent({
+        client.get(key, opts, function (err2, s, r) {
+            t.equal(undefined, r.headers['accept-ranges']);
+            t.equal(undefined, r.headers['content-md5']);
+            t.equal(6, Number(r.headers['content-length']));
+            t.ok(r.headers.etag);
+            t.equal('application/octet-stream',
+                    r.headers['content-type']);
+            t.equal('bytes 3-8/26', r.headers['content-range']);
+            assertObjContent({
                 t: t,
                 stream: s,
                 res: r,
                 code: 206,
                 text: 'defghi'
+            }, function () {
+                t.end();
             });
-            t.equal(undefined, r.headers['accept-ranges']);
-            t.equal(undefined, r.headers['content-md5']);
-            t.equal(6, r.headers['content-length']);
-            t.ok(r.headers.etag);
-            t.equal('application/octet-stream',
-                    r.headers['content-type']);
-            t.equal('bytes 3-8/26', r.headers['content-range']);
         });
     });
 });
 
 
 test('get range, prefix', function (t) {
-    var self = this;
+    var key = testDir + '/get-range-prefix';
     var stream = new MemoryStream();
     var text = 'abcdefghijklmnopqrstuvwxyz';
     var size = Buffer.byteLength(text);
-    process.nextTick(stream.end.bind(stream, text));
+    setImmediate(stream.end.bind(stream, text));
 
-    this.client.put(this.key, stream, {size: size}, function (err, res) {
+    client.put(key, stream, {size: size}, function (err, res) {
         var opts = {
             headers: {
                 'range': 'bytes=19-'
             }
         };
-        self.client.get(self.key, opts, function (err2, s, r) {
-            self.checkContent({
+        client.get(key, opts, function (err2, s, r) {
+            t.equal(Number(r.headers['content-length']), 7);
+            t.equal('bytes 19-25/26', r.headers['content-range']);
+            assertObjContent({
                 t: t,
                 stream: s,
                 res: r,
                 code: 206,
                 text: 'tuvwxyz'
+            }, function () {
+                t.end();
             });
-            t.equal(7, r.headers['content-length']);
-            t.equal('bytes 19-25/26', r.headers['content-range']);
         });
     });
 });
 
 
 test('get range, suffix', function (t) {
-    var self = this;
+    var key = testDir + '/get-range-suffix';
     var stream = new MemoryStream();
     var text = 'abcdefghijklmnopqrstuvwxyz';
     var size = Buffer.byteLength(text);
-    process.nextTick(stream.end.bind(stream, text));
+    setImmediate(stream.end.bind(stream, text));
 
-    this.client.put(this.key, stream, {size: size}, function (err, res) {
+    client.put(key, stream, {size: size}, function (err, res) {
         var opts = {
             headers: {
                 'range': 'bytes=-10'
             }
         };
-        self.client.get(self.key, opts, function (err2, s, r) {
-            self.checkContent({
+        client.get(key, opts, function (err2, s, r) {
+            t.equal(Number(r.headers['content-length']), 10);
+            t.equal('bytes 16-25/26', r.headers['content-range']);
+            assertObjContent({
                 t: t,
                 stream: s,
                 res: r,
                 code: 206,
                 text: 'qrstuvwxyz'
+            }, function () {
+                t.end();
             });
-            t.equal(10, r.headers['content-length']);
-            t.equal('bytes 16-25/26', r.headers['content-range']);
         });
     });
 });
 
 
 test('get range, multi-range', function (t) {
-    var self = this;
+    var key = testDir + '/get-range-multi-range';
     var stream = new MemoryStream();
     var text = 'abcdefghijklmnopqrstuvwxyz';
     var size = Buffer.byteLength(text);
-    process.nextTick(stream.end.bind(stream, text));
+    setImmediate(stream.end.bind(stream, text));
 
-    this.client.put(this.key, stream, {size: size}, function (err, res) {
+    client.put(key, stream, {size: size}, function (err, res) {
         var opts = {
             headers: {
                 'range': 'bytes=0-5,6-10'
             }
         };
-        self.client.get(self.key, opts, function (err2, s, r) {
+        client.get(key, opts, function (err2, s, r) {
             t.equal(501, r.statusCode);
             t.end();
         });
@@ -899,19 +914,19 @@ test('get range, multi-range', function (t) {
 
 
 test('get invalid range', function (t) {
-    var self = this;
+    var key = testDir + '/get-invalid-range';
     var stream = new MemoryStream();
     var text = 'abcdefghijklmnopqrstuvwxyz';
     var size = Buffer.byteLength(text);
-    process.nextTick(stream.end.bind(stream, text));
+    setImmediate(stream.end.bind(stream, text));
 
-    this.client.put(this.key, stream, {size: size}, function (err, res) {
+    client.put(key, stream, {size: size}, function (err, res) {
         var opts = {
             headers: {
                 'range': 'bytes=foo'
             }
         };
-        self.client.get(self.key, opts, function (err2, s, r) {
+        client.get(key, opts, function (err2, s, r) {
             t.equal(416, r.statusCode);
             t.equal('bytes */26', r.headers['content-range']);
             t.end();
@@ -921,19 +936,19 @@ test('get invalid range', function (t) {
 
 
 test('get range, out of bounds', function (t) {
-    var self = this;
+    var key = testDir + '/get-range-out-of-bounds';
     var stream = new MemoryStream();
     var text = 'abcdefghijklmnopqrstuvwxyz';
     var size = Buffer.byteLength(text);
-    process.nextTick(stream.end.bind(stream, text));
+    setImmediate(stream.end.bind(stream, text));
 
-    this.client.put(this.key, stream, {size: size}, function (err, res) {
+    client.put(key, stream, {size: size}, function (err, res) {
         var opts = {
             headers: {
                 'range': 'bytes=27-100'
             }
         };
-        self.client.get(self.key, opts, function (err2, s, r) {
+        client.get(key, opts, function (err2, s, r) {
             t.equal(416, r.statusCode);
             t.equal('bytes */26', r.headers['content-range']);
             t.end();
@@ -943,11 +958,11 @@ test('get range, out of bounds', function (t) {
 
 
 test('del ok', function (t) {
-    var self = this;
-    this.putObject(t, function () {
-        self.client.unlink(self.key, function (err, res) {
+    var key = testDir + '/del-ok';
+    putObjectAndCheckRes(t, client, key, function () {
+        client.unlink(key, function (err, res) {
             t.ifError(err);
-            t.checkResponse(res, 204);
+            assertMantaRes(t, res, 204);
             t.end();
         });
     });
@@ -955,27 +970,28 @@ test('del ok', function (t) {
 
 
 test('del 404', function (t) {
-    this.client.unlink(this.key + 'a', function (err, res) {
+    var key = testDir + '/del-404';
+    client.unlink(key + 'a', function (err, res) {
         t.ok(err);
         t.equal(err.name, 'ResourceNotFoundError');
-        t.checkResponse(res, 404);
+        assertMantaRes(t, res, 404);
         t.end();
     });
 });
 
 
 test('del if-match ok', function (t) {
-    var self = this;
-    this.putObject(t, function (_, headers) {
+    var key = testDir + '/del-if-match-ok';
+    putObjectAndCheckRes(t, client, key, function (_, headers) {
         var etag = headers.etag;
         var opts = {
             headers: {
                 'if-match': etag
             }
         };
-        self.client.unlink(self.key, opts, function (err, res) {
+        client.unlink(key, opts, function (err, res) {
             t.ifError(err);
-            t.checkResponse(res, 204);
+            assertMantaRes(t, res, 204);
             t.end();
         });
     });
@@ -983,17 +999,17 @@ test('del if-match ok', function (t) {
 
 
 test('del if-match fail', function (t) {
-    var self = this;
-    this.putObject(t, function () {
+    var key = testDir + '/del-if-match-fail';
+    putObjectAndCheckRes(t, client, key, function () {
         var opts = {
             headers: {
                 'if-match': uuidv4()
             }
         };
-        self.client.unlink(self.key, opts, function (err, res) {
+        client.unlink(key, opts, function (err, res) {
             t.ok(err);
             t.equal(err.name, 'PreconditionFailedError');
-            t.checkResponse(res, 412);
+            assertMantaRes(t, res, 412);
             t.end();
         });
     });
@@ -1001,16 +1017,16 @@ test('del if-match fail', function (t) {
 
 
 test('del if-none-match ok', function (t) {
-    var self = this;
-    this.putObject(t, function () {
+    var key = testDir + '/del-if-none-match-ok';
+    putObjectAndCheckRes(t, client, key, function () {
         var opts = {
             headers: {
                 'if-none-match': uuidv4()
             }
         };
-        self.client.unlink(self.key, opts, function (err, res) {
+        client.unlink(key, opts, function (err, res) {
             t.ifError(err);
-            t.checkResponse(res, 204);
+            assertMantaRes(t, res, 204);
             t.end();
         });
     });
@@ -1018,50 +1034,32 @@ test('del if-none-match ok', function (t) {
 
 
 test('del if-none-match fail', function (t) {
-    var self = this;
-    this.putObject(t, function (_, headers) {
+    var key = testDir + '/del-if-none-match-fail';
+    putObjectAndCheckRes(t, client, key, function (_, headers) {
         var opts = {
             headers: {
                 'if-none-match': headers.etag
             }
         };
-        self.client.unlink(self.key, opts, function (err, res) {
+        client.unlink(key, opts, function (err, res) {
             t.ok(err);
             t.equal(err.name, 'PreconditionFailedError');
-            t.checkResponse(res, 412);
+            assertMantaRes(t, res, 412);
             t.end();
         });
     });
 });
 
 
-test('put timeout', function (t) {
-    var opts = {
-        size: Buffer.byteLength(TEXT),
-        type: 'text/plain'
-    };
-    var stream = new MemoryStream();
-
-    this.client.put(this.key, stream, opts, function (err, res) {
-        t.ok(err);
-        t.equal(err.name, 'UploadTimeoutError');
-        t.end();
-    });
-
-    process.nextTick(function () {
-        stream.write(TEXT.substr(0, 1));
-    });
-});
-
 // content-disposition tests
 
 test('Put-Get no content-disposition', function (t) {
-    var self = this;
+    var key = testDir + '/put-get-no-content-disposition';
     var opts = {};
-    this.putObject(t, opts, function (_, headers) {
-        self.client.get(self.key, opts, function (err, stream, res) {
+    putObjectAndCheckRes(t, client, key, opts, function (_, headers) {
+        client.get(key, opts, function (err, stream, res) {
             t.ifError(err);
-            t.checkResponse(res, 200);
+            assertMantaRes(t, res, 200);
             t.ok(!('content-disposition' in res.headers),
                  'No content disposition expected');
             t.end();
@@ -1070,7 +1068,7 @@ test('Put-Get no content-disposition', function (t) {
 });
 
 test('Put-Get content-disposition', function (t) {
-    var self = this;
+    var key = testDir + '/put-get-content-disposition';
     var cd = 'attachment; filename="my-file.txt"';
     var opts = {
         headers: {
@@ -1078,10 +1076,10 @@ test('Put-Get content-disposition', function (t) {
         }
     };
 
-    this.putObject(t, opts, function (_, headers) {
-        self.client.get(self.key, opts, function (err, stream, res) {
+    putObjectAndCheckRes(t, client, key, opts, function (_, headers) {
+        client.get(key, opts, function (err, stream, res) {
             t.ifError(err);
-            t.checkResponse(res, 200);
+            assertMantaRes(t, res, 200);
             t.equal(res.headers['content-disposition'], cd,
                     'Content-Disposition should match written value');
             t.end();
@@ -1090,7 +1088,7 @@ test('Put-Get content-disposition', function (t) {
 });
 
 test('Put-Get content-disposition cleaned', function (t) {
-    var self = this;
+    var key = testDir + '/put-get-content-disposition-cleaned';
     var cd = 'attachment; filename="/root/my-file.txt"';
     var opts = {
         headers: {
@@ -1098,10 +1096,10 @@ test('Put-Get content-disposition cleaned', function (t) {
         }
     };
 
-    this.putObject(t, opts, function (_, headers) {
-        self.client.get(self.key, opts, function (err, stream, res) {
+    putObjectAndCheckRes(t, client, key, opts, function (_, headers) {
+        client.get(key, opts, function (err, stream, res) {
             t.ifError(err);
-            t.checkResponse(res, 200);
+            assertMantaRes(t, res, 200);
             t.equal(res.headers['content-disposition'],
                     'attachment; filename="my-file.txt"',
                     'Content-Disposition should be clean');
@@ -1112,35 +1110,37 @@ test('Put-Get content-disposition cleaned', function (t) {
 
 test('streaming object valid content-disposition',
      function (t) {
+    var key = testDir + '/streaming-object-valid-content-disposition';
          var stream = new MemoryStream();
          var text = 'The lazy brown fox \nsomething \nsomething foo';
 
-         process.nextTick(stream.end.bind(stream, text));
+         setImmediate(stream.end.bind(stream, text));
          var opts = {
              headers: {
                  'content-disposition': 'attachment; filename="my-file.txt"'
              }
          };
 
-         this.client.put(this.key, stream, opts, function (err, res) {
+         client.put(key, stream, opts, function (err, res) {
              t.ifError(err);
-             t.checkResponse(res, 204);
+             assertMantaRes(t, res, 204);
              t.end();
          });
      });
 
 test('streaming object invalid content-disposition',
      function (t) {
+    var key = testDir + '/streaming-object-invalid-content-disposition';
          var stream = new MemoryStream();
          var text = 'The lazy brown fox \nsomething \nsomething foo';
 
-         process.nextTick(stream.end.bind(stream, text));
+         setImmediate(stream.end.bind(stream, text));
          var opts = {
              headers: {
                  'content-disposition': 'attachment;'
              }
          };
-         this.client.put(this.key, stream, opts, function (err, res) {
+         client.put(key, stream, opts, function (err, res) {
              t.equal(res.statusCode, 400, 'Expected 400');
              t.equal(err.name, 'BadRequestError', 'Expected a BadRequestError');
              t.end();
@@ -1148,6 +1148,7 @@ test('streaming object invalid content-disposition',
      });
 
 test('chattr: valid content-disposition', function (t) {
+    var key = testDir + '/chattr-valid-content-disposition';
     var cd = 'attachment; filename="my-file.txt"';
     var opts = {
         headers: {
@@ -1155,13 +1156,12 @@ test('chattr: valid content-disposition', function (t) {
         }
     };
 
-    var self = this;
 
-    this.putObject(t, function () {
-        self.client.chattr(self.key, opts, function (err) {
+    putObjectAndCheckRes(t, client, key, function () {
+        client.chattr(key, opts, function (err) {
             t.ifError(err);
 
-            self.client.info(self.key, function (err2, info) {
+            client.info(key, function (err2, info) {
                 t.ifError(err2);
                 t.ok(info);
                 if (info) {
@@ -1177,15 +1177,15 @@ test('chattr: valid content-disposition', function (t) {
 
 test('chattr invalid content-disposition',
      function (t) {
+    var key = testDir + '/chattr-invalid-content-disposition';
          var opts = {
              headers: {
                  'content-disposition': 'attachment;'
              }
          };
-         var self = this;
 
-         this.putObject(t, function () {
-             self.client.chattr(self.key, opts, function (err, res) {
+         putObjectAndCheckRes(t, client, key, function () {
+             client.chattr(key, opts, function (err, res) {
                  t.equal(res.statusCode, 400, 'Expected 400');
                  t.equal(err.name, 'BadRequestError',
                          'Expected a BadRequestError');
@@ -1201,19 +1201,19 @@ test('chattr invalid content-disposition',
  * and server returns valid content-type on read of the same object.
  */
 test('MANTA-4133 (non-existent content-type)', function (t) {
-    var self = this;
+    var key = testDir + '/MANTA-4133-non-existent-content-type';
     var opts = {
         headers: {
             'content-type': 'argle/'
         }
     };
 
-    writeObject(self.client, self.key, opts, function (err, res) {
+    writeObject(client, key, opts, function (err, res) {
         t.ifError(err);
-        t.checkResponse(res, 204);
-        self.client.info(self.key, function (err2, stream, res2) {
+        assertMantaRes(t, res, 204);
+        client.info(key, function (err2, stream, res2) {
             t.ifError(err2);
-            t.checkResponse(res2, 200);
+            assertMantaRes(t, res2, 200);
             t.equal(res2.headers['content-type'], 'application/octet-stream');
             t.end();
         });
@@ -1225,7 +1225,7 @@ test('MANTA-4133 (non-existent content-type)', function (t) {
  * and server returns valid content-type on read of the same object.
  */
 test('MANTA-4133 (verify valid json content-type)', function (t) {
-    var self = this;
+    var key = testDir + '/MANTA-4133-verify-valid-json-content-type';
 
     var opts = {
         headers: {
@@ -1233,12 +1233,12 @@ test('MANTA-4133 (verify valid json content-type)', function (t) {
         }
     };
 
-    writeObject(self.client, self.key, opts, function (err, res) {
+    writeObject(client, key, opts, function (err, res) {
         t.ifError(err);
-        t.checkResponse(res, 204);
-        self.client.get(self.key, function (err2, stream, res2) {
+        assertMantaRes(t, res, 204);
+        client.get(key, function (err2, stream, res2) {
             t.ifError(err2);
-            t.checkResponse(res2, 200);
+            assertMantaRes(t, res2, 200);
             t.equal(res2.headers['content-type'], 'application/json');
             t.end();
         });
@@ -1250,19 +1250,19 @@ test('MANTA-4133 (verify valid json content-type)', function (t) {
  * and server returns valid content-type on read of the same object.
  */
 test('MANTA-4133 (malformed content-type)', function (t) {
-    var self = this;
+    var key = testDir + '/MANTA-4133-malformed-content-type';
     var opts = {
         headers: {
             'content-type': '/*'
         }
     };
 
-    writeObject(self.client, self.key, opts, function (err, res) {
+    writeObject(client, key, opts, function (err, res) {
         t.ifError(err);
-        t.checkResponse(res, 204);
-        self.client.info(self.key, function (err2, stream, res2) {
+        assertMantaRes(t, res, 204);
+        client.info(key, function (err2, stream, res2) {
             t.ifError(err2);
-            t.checkResponse(res2, 200);
+            assertMantaRes(t, res2, 200);
             t.equal(res2.headers['content-type'], 'application/octet-stream');
             t.end();
         });
@@ -1277,19 +1277,19 @@ test('MANTA-4133 (malformed content-type)', function (t) {
  * The server returns 'text/plain' with the response as before.
  */
 test('MANTA-4133 (empty content-type)', function (t) {
-    var self = this;
+    var key = testDir + '/MANTA-4133-empty-content-type';
     var opts = {
         headers: {
             'content-type': ''
         }
     };
 
-    writeObject(self.client, self.key, opts, function (err, res) {
+    writeObject(client, key, opts, function (err, res) {
         t.ifError(err);
-        t.checkResponse(res, 204);
-        self.client.info(self.key, function (err2, stream, res2) {
+        assertMantaRes(t, res, 204);
+        client.info(key, function (err2, stream, res2) {
             t.ifError(err2);
-            t.checkResponse(res2, 200);
+            assertMantaRes(t, res2, 200);
             t.equal(res2.headers['content-type'], 'text/plain');
             t.end();
         });
@@ -1301,7 +1301,7 @@ test('MANTA-4133 (empty content-type)', function (t) {
  * and server returns valid content-type on read of the same object.
  */
 test('MANTA-4133 (verify valid plain text content-type)', function (t) {
-    var self = this;
+    var key = testDir + '/MANTA-4133-verify-valid-plain-text-content-type';
 
     var opts = {
         headers: {
@@ -1309,12 +1309,12 @@ test('MANTA-4133 (verify valid plain text content-type)', function (t) {
         }
     };
 
-    writeObject(self.client, self.key, opts, function (err, res) {
+    writeObject(client, key, opts, function (err, res) {
         t.ifError(err);
-        t.checkResponse(res, 204);
-        self.client.info(self.key, function (err2, stream, res2) {
+        assertMantaRes(t, res, 204);
+        client.info(key, function (err2, stream, res2) {
             t.ifError(err2);
-            t.checkResponse(res2, 200);
+            assertMantaRes(t, res2, 200);
             t.equal(res2.headers['content-type'], 'text/plain');
             t.end();
         });
@@ -1326,7 +1326,7 @@ test('MANTA-4133 (verify valid plain text content-type)', function (t) {
  * and server returns valid content-type on read of the same object.
  */
 test('MANTA-4133 (verify non-existent utf-8 content-type)', function (t) {
-    var self = this;
+    var key = testDir + '/MANTA-4133-verify-non-existent-utf-8-content-type';
     var encoded = '%EC%95%88%EB%85%95%ED%95%98%EC%84%B8%EC%9A%94';
     var ct_utf8 = unescape(encoded);
 
@@ -1336,12 +1336,12 @@ test('MANTA-4133 (verify non-existent utf-8 content-type)', function (t) {
         }
     };
 
-    writeObject(self.client, self.key, opts, function (err, res) {
+    writeObject(client, key, opts, function (err, res) {
         t.ifError(err);
-        t.checkResponse(res, 204);
-        self.client.info(self.key, function (err2, stream, res2) {
+        assertMantaRes(t, res, 204);
+        client.info(key, function (err2, stream, res2) {
             t.ifError(err2);
-            t.checkResponse(res2, 200);
+            assertMantaRes(t, res2, 200);
             t.equal(res2.headers['content-type'], 'application/octet-stream');
             t.end();
         });
@@ -1353,7 +1353,7 @@ test('MANTA-4133 (verify non-existent utf-8 content-type)', function (t) {
  * and server returns the content-type on read of the same object.
  */
 test('MANTA-4133 (verify a conforming content-type)', function (t) {
-    var self = this;
+    var key = testDir + '/MANTA-4133-verify-a-conforming-content-type';
 
     var opts = {
         headers: {
@@ -1361,14 +1361,21 @@ test('MANTA-4133 (verify a conforming content-type)', function (t) {
         }
     };
 
-    writeObject(self.client, self.key, opts, function (err, res) {
+    writeObject(client, key, opts, function (err, res) {
         t.ifError(err);
-        t.checkResponse(res, 204);
-        self.client.info(self.key, function (err2, stream, res2) {
+        assertMantaRes(t, res, 204);
+        client.info(key, function (err2, stream, res2) {
             t.ifError(err2);
-            t.checkResponse(res2, 200);
+            assertMantaRes(t, res2, 200);
             t.equal(res2.headers['content-type'], 'audio/mpeg');
             t.end();
         });
+    });
+});
+
+test('teardown', function (t) {
+    client.rmr(testDir, function onRm(err) {
+        t.ifError(err, 'remove testDir: ' + testDir);
+        t.end();
     });
 });
