@@ -14,26 +14,13 @@ var uuidv4 = require('uuid/v4');
 var vasync = require('vasync');
 var VError = require('verror');
 
-// XXX
-//var testHelper = require('../helper.js');
 var helper = require('../helper.js');
-
-var ifErr = helper.ifErr;
 
 var enableMPU = Boolean(require('../../etc/config.json').enableMPU);
 var testOpts = {
     skip: !enableMPU && 'MPU is not enabled (enableMPU in config)'
 };
 
-// XXX
-//before(function (cb) {
-//    helper.initMPUTester.call(this, cb);
-//});
-//
-//
-//after(function (cb) {
-//    helper.cleanupMPUTester.call(this, cb);
-//});
 
 test('mpu abort', testOpts, function (suite) {
     var client;
