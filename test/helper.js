@@ -17,6 +17,7 @@ var assert = require('assert-plus');
 var bunyan = require('bunyan');
 var forkExecWait = require('forkexec').forkExecWait;
 var glob = require('glob');
+var jsprim = require('jsprim');
 var manta = require('manta');
 var qlocker = require('qlocker');
 var restifyClients = require('restify-clients');
@@ -1292,6 +1293,45 @@ function ensureTestAccounts(t, cb) {
     });
 }
 
+function ifErr(t, err, desc) {
+    t.ifError(err, desc);
+    if (err) {
+        t.deepEqual(err.body, {}, desc + ': error body');
+        return (true);
+    }
+
+    return (false);
+}
+
+
+
+// Return the MPU upload path for a given upload ID.
+// Optionally also append a part number, if given.
+function mpuUploadPath(accountLogin, uploadId, partNum) {
+    assert.string(accountLogin, 'accountLogin');
+    assert.uuid(uploadId, 'uploadId');
+    assert.optionalFinite(partNum, 'partNum');
+
+    var c;
+    var len;
+    var p;
+    var prefix;
+
+    var c = uploadId.charAt(uploadId.length - 1);
+    var len = jsprim.parseInteger(c, { base: 16 });
+    assert(!isNaN(len) && len >=1 && len <= 4, 'invalid prefix length: ' + len);
+    var prefix = uploadId.substring(0, len);
+    p = '/' + accountLogin + '/uploads/' + prefix + '/' + uploadId;
+
+    if (typeof (partNum) === 'number') {
+        p += '/' + partNum;
+    }
+
+    return (p);
+}
+
+
+
 ///--- Exports
 
 module.exports = {
@@ -1313,5 +1353,8 @@ module.exports = {
     //getRegularPrivkey: getRegularPrivkey,
     //getOperatorPubkey: getOperatorPubkey,
     //getOperatorPrivkey: getOperatorPrivkey,
-    getKeyFingerprint: getKeyFingerprint
+    getKeyFingerprint: getKeyFingerprint,
+
+    ifErr: ifErr,
+    mpuUploadPath: mpuUploadPath
 };
