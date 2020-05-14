@@ -9,7 +9,6 @@
  */
 
 var test = require('tap').test;
-var path = require('path');
 var uuidv4 = require('uuid/v4');
 var vasync = require('vasync');
 var VError = require('verror');

@@ -18,8 +18,6 @@ var VError = require('verror');
 var helper = require('../helper.js');
 
 
-var ifErr = helper.ifErr;
-
 var enableMPU = Boolean(require('../../etc/config.json').enableMPU);
 var testOpts = {
     skip: !enableMPU && 'MPU is not enabled (enableMPU in config)'
