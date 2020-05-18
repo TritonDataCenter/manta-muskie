@@ -13,7 +13,7 @@
 pipeline {
 
     agent {
-        label joyCommonLabels(image_ver: '19.4.0') + ' && jenkins_agent:2.5'
+        label "!platform:true && image_ver:19.4.0 && pkgsrc_arch:x86_64 && pi:20181206T011455Z && jenkins_agent:2.5.0 && virt:bhyve"
     }
 
     options {
