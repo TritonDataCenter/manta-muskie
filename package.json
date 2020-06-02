@@ -1,7 +1,7 @@
 {
     "name": "muskie",
     "description": "Manta public-facing WebAPI",
-    "version": "2.3.3",
+    "version": "2.4.3",
     "author": "Joyent (joyent.com)",
     "private": true,
     "repository": {
@@ -19,7 +19,7 @@
         "cmdln": "4.3.0",
         "content-disposition": "0.5.3",
         "content-type": "1.0.4",
-        "cueball": "2.10.0",
+        "cueball": "2.2.9",
         "dashdash": "1.14.1",
         "deep-equal": "0.0.0",
         "dtrace-provider": "0.8.8",
