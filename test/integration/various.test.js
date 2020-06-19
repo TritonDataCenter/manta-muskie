@@ -196,10 +196,6 @@ test('MANTA-1072 conditional', function (t) {
             if (++j === 3) {
                 if (++runs < 10) {
                     setImmediate(run, res.headers['etag']);
-                    // XXX
-                    //function () {
-                    //    run(res.headers['etag']);
-                    //});
                 } else {
                     t.ok(sawError, 'saw ConcurrentRequestError or ' +
                         'PreconditionFailedError at least once');

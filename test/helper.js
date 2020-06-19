@@ -305,33 +305,6 @@ function assertMantaRes(t, res, code) {
 }
 
 
-// XXX can we use a manta client for this? Should be able to.
-//function signRequest(opts, cb) {
-//    var key = opts.key || getRegularPrivkey();
-//
-//    var sign = manta.privateKeySigner({
-//        key: key,
-//        keyId: opts.keyId || process.env.MANTA_KEY_ID,
-//        user: opts.user || process.env.MANTA_USER
-//    });
-//
-//    var rs = smartdc_auth.requestSigner({
-//        sign: sign,
-//        mantaSubUser: true
-//    });
-//
-//    var date = rs.writeDateHeader();
-//
-//    rs.sign(function gotSignature(err, authz) {
-//        if (err) {
-//            cb(err);
-//            return;
-//        }
-//        cb(null, authz, date);
-//    });
-//}
-
-
 // Generate Manta http-signature headers for a request, using the auth info
 // from the given account info. This `accountInfo` is an object of the form
 // returned by `helper.ensureTestAccounts()`.
@@ -344,7 +317,6 @@ function signReq(accountInfo, cb) {
     assert.string(accountInfo.privKey, 'accountInfo.privKey');
     assert.string(accountInfo.fp, 'accountInfo.fp');
     assert.string(accountInfo.login, 'accountInfo.login');
-    //XXX
 
     var keySigner = manta.privateKeySigner({
         key: accountInfo.privKey,
@@ -365,50 +337,6 @@ function signReq(accountInfo, cb) {
         }
     });
 }
-
-//
-//function signUrl(opts, expires, cb) {
-//    if (typeof (opts) === 'string') {
-//        opts = { path: opts };
-//    }
-//    if (typeof (expires) === 'function') {
-//        cb = expires;
-//        expires = Date.now() + (1000 * 300);
-//    }
-//    var key = getRegularPrivkey();
-//    var keyId = process.env.MANTA_KEY_ID;
-//    var url = process.env.MANTA_URL || 'http://localhost:8080';
-//    var user = process.env.MANTA_USER;
-//    var subuser = process.env.MANTA_SUBUSER;
-//
-//    if (opts.client) {
-//        user = opts.client.user;
-//        subuser = opts.client.subuser;
-//    }
-//
-//    manta.signUrl({
-//        algorithm: 'rsa-sha256',
-//        expires: expires,
-//        host: require('url').parse(url).host,
-//        keyId: keyId,
-//        method: opts.method || 'GET',
-//        path: opts.path,
-//        role: opts.role,
-//        query: opts.query,
-//        'role-tag': opts['role-tag'],
-//        sign: manta.privateKeySigner({
-//            algorithm: 'rsa-sha256',
-//            key: key,
-//            keyId: keyId,
-//            log: createLogger(),
-//            user: user,
-//            subuser: subuser
-//        }),
-//        user: user,
-//        subuser: subuser
-//    }, cb);
-//}
-
 
 // Ensure the RBAC settings (subusers, policies, roles) on the given account
 // are set as given.

@@ -38,7 +38,7 @@
 #
 
 TOP=$(cd $(dirname $0)/../; pwd)
-PATH=/opt/smartdc/muskie/build/node/bin:$PATH
+PATH=$TOP/build/node/bin:$PATH
 
 [[ -n "$TEST_JOBS" ]] || TEST_JOBS=10
 
@@ -51,5 +51,5 @@ PATH=/opt/smartdc/muskie/build/node/bin:$PATH
 [[ -n "$TAP_TIMEOUT" ]] || TAP_TIMEOUT=300
 export TAP_TIMEOUT
 
-#XXX $TOP/node_modules/.bin/tap test/**.test.js  # once mpu tests moved over
-$TOP/node_modules/.bin/tap -j $TEST_JOBS -o $TOP/test.tap $TOP/test/{unit,integration}/*.test.js
+cd $TOP
+./node_modules/.bin/tap -j $TEST_JOBS -o ./test.tap ./test/{unit,integration}/*.test.js
