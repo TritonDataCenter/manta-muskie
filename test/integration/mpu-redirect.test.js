@@ -42,7 +42,6 @@ test('mpu redirect', testOpts, function (suite) {
     });
 
     suite.test('setup: client and test dir', function (t) {
-        jsonClient = helper.createJsonClient();
         client = helper.mantaClientFromAccountInfo(testAccount);
         testDir = '/' + client.user + '/stor/test-mpu-redirect-' +
             uuidv4().split('-')[0];

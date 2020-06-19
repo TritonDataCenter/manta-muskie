@@ -42,9 +42,9 @@ PATH=/opt/smartdc/muskie/build/node/bin:$PATH
 
 [[ -n "$TEST_JOBS" ]] || TEST_JOBS=10
 
-# Default the current high value because:
+# Set the default test timeout to something *large* because:
 # - Test account/RBAC setup ('helper.ensureTestAccounts' and, especially,
-#   'helper.ensureRbacSettings) can take a while to complete on a first
+#   'helper.ensureRbacSettings') can take a while to complete on a first
 #   run because they are waiting for caches to update account info.
 # - Some tests (e.g. various.test.js) take longer than 2 minutes, at least when
 #   run in parallel under COAL.

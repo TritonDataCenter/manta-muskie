@@ -284,7 +284,7 @@ function assertMantaRes(t, res, code) {
     t.ok(res, 'have a response object');
     if (!res)
         return;
-    t.equal(res.statusCode, code, 'HTTP response status code ');
+    t.equal(res.statusCode, code, 'HTTP response status code is ' + code);
     t.ok(res.headers, 'has headers');
     t.ok(res.headers.date, 'have "date" header');
     t.equal(res.headers.server, 'Manta/2', 'server header is Manta/2');
@@ -1293,6 +1293,8 @@ function ensureTestAccounts(t, cb) {
     });
 }
 
+
+// XXX if little usage of this, then drop it
 function ifErr(t, err, desc) {
     t.ifError(err, desc);
     if (err) {
@@ -1355,6 +1357,7 @@ module.exports = {
     //getOperatorPrivkey: getOperatorPrivkey,
     getKeyFingerprint: getKeyFingerprint,
 
+    // XXX can drop ifErr?
     ifErr: ifErr,
     mpuUploadPath: mpuUploadPath
 };
