@@ -15,13 +15,10 @@ guidelines, issues, and general documentation, visit the main
 [Manta](http://github.com/joyent/manta) project page.
 
 manta-muskie holds the source code for the Manta WebAPI, otherwise known as
-"the front door".  It is analogous to CloudAPI for SDC.  See the restdown
-docs for API information, but effectively this is where you go to call
-PUT/GET/DEL on your stuff.
+"the front door". API documentation is in [docs/index.md](./docs/index.md). Some
+design documentation (possibly quite dated) is in
+[docs/internal](./docs/internal). Developer notes are in this README.
 
-API documentation is in [docs/index.md](./docs/index.md).  Some design
-documentation (possibly quite dated) is in [docs/internal](./docs/internal).
-Developer notes are in this README.
 
 ## Active Branches
 
@@ -48,9 +45,15 @@ Tests are divided into:
 2. Integration tests (test/integration/*.test.js). These must be run from
    a deployed muskie instance.
 
+Each test file must be written to run independently. This allows running
+tests in parallel and being able to understand what a test is doing without
+assumed external setup steps.
+
+
 To run unit tests in a git clone:
 
     make test-unit
+
 
 To run all tests on a (non-production) muskie (aka "webapi") instance:
 
@@ -58,8 +61,11 @@ To run all tests on a (non-production) muskie (aka "webapi") instance:
     manta-login webapi      # login to a webapi instance
     /opt/smartdc/muskie/test/runtests
 
-See the comment in [runtests](./test/runtests) for various use cases for running
-the tests.
+"Runtests" by default shows a compact results summary. Full TAP output is
+written to "/opt/smartdc/muskie/test.tap". See the comment in
+[runtests](./test/runtests) for various use cases for running the tests -- e.g.
+running individual test files, forcing TAP output.
+
 
 To run the muskie test suite in the internal Joyent "nightly-2" DC run:
 
@@ -68,33 +74,44 @@ To run the muskie test suite in the internal Joyent "nightly-2" DC run:
         CMD:        stage-test-manta-muskie
 
 
-If you are changing node.js code only, you may benefit from the "./tools/rsync-to"
-script to copy local dev changes to a deployed muskie on the headnode of a development
-Manta (then re-run the test suite):
+### Cleaning up after tests
+
+Many of the integration tests require actual user accounts with which to test.
+The code to handle this is in "test/helper.js#ensureTestAccounts" -- the
+account logins are prefixed with "muskietest_", account data is cached in
+"/var/db/muskietest".
+
+For faster re-runs of the test suite, these accounts are *not* deleted after a
+test run. Generally this should be fine (the muskie integration tests shouldn't
+be run in a *production* datacenter). However, if necessary, you can delete
+the muskie test accounts fully by:
+
+1. Copying the "test/sdc-useradm-rm.sh" tool to "/var/tmp" in the global zone;
+   and
+
+2. Running the following from the headnode global zone:
+
+        function reset_muskie_test_accounts {
+            sdc-useradm search muskietest_ -H -o login | while read login; do
+                I_REALLY_WANT_TO_SDC_USERADM_RM=1 /var/tmp/sdc-useradm-rm.sh $login
+            done
+            manta-oneach -s authcache 'svcadm restart mahi'
+            manta-oneach -s webapi 'svcadm restart svc:/manta/application/muskie:muskie-*'
+        }
+        reset_muskie_test_accounts
+
+### Dev Cycle
+
+If you are changing node.js code only, you may benefit from the
+"./tools/rsync-to" script to copy local dev changes to a deployed muskie on the
+headnode of a development Manta (then re-run the test suite):
 
     vi ...                      # make a code change
     ./tools/rsync-to HEADNODE   # where HEADNODE is an ssh name to the dev headnode
 
-
-## Deploying a Muskie Image
-
-If you're changing anything about the way muskie is deployed, configured, or
-started, you should definitely test creating a muskie image and deploying that
-into your Manta.  This is always a good idea anyway.  To run tests against an
-image, your configuration will be a bit different.  Your `MANTA_URL` will be the
-manta network IP of a muskie instance, with a port number of a muskie process
-inside a muskie zone (8081).  Your `SDC_URL` will be the external network IP of
-the cloudapi0 zone.  You can find both of these IPs with the commands:
-
-    $ vmadm get <webapi_zone_uuid> | json -a nics | json -a nic_tag ip
-    $ vmadm lookup -j alias=cloudapi0 | json -a nics | json -a ip
-
-There are various documents about deploying/updating a muskie image in
-Manta. If you're doing this for the first time, and not sure what to
-do, I had success with `make buildimage` which leaves you with an
-image and manifest in `./bits`. You can then import this image and
-follow this guide to upgrading manta components:
-https://github.com/joyent/manta/blob/master/docs/operator-guide/maintenance.md#upgrading-manta-components
+For larger changes, refer to [the Operator
+Guide](https://github.com/joyent/manta/blob/master/docs/operator-guide/maintenance.md#upgrading-manta-components)
+for upgrading a webapi instance in a Manta setup.
 
 
 ## Metrics
