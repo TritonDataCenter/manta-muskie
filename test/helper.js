@@ -39,62 +39,11 @@ var auth = require('../lib/auth');
 
 ///--- Globals
 
-// XXX can we drop these?
-http.globalAgent.maxSockets = 50;
-https.globalAgent.maxSockets = 50;
-
 const DB_DIR = '/var/db/muskietest';
 const ACCOUNTS_LOCK_FILE = path.join(DB_DIR, 'accounts.lock');
 
 
-/*
- * We need a regular (non-operator) account for some tests.  The regular
- * Manta client environment variables (MANTA_USER, MANTA_KEY_ID) are used
- * for this account.  Allow the private key to be stored at a location
- * other than the default "$HOME/.ssh/id_rsa" file:
- */
-var TEST_REGULAR_KEY = process.env.MUSKIETEST_REGULAR_KEYFILE ||
-        (process.env.HOME + '/.ssh/id_rsa');
-
-/*
- * We need an operator account for some tests, so we use poseidon, unless an
- * alternate one is provided.
- */
-var TEST_OPERATOR = process.env.MUSKIETEST_OPERATOR_USER || 'poseidon';
-var TEST_OPERATOR_KEY;
-
-// If MUSKIETEST_OPERATOR_KEYFILE is set, make sure file exists.
-if (process.env.MUSKIETEST_OPERATOR_KEYFILE) {
-    if (fs.existsSync(process.env.MUSKIETEST_OPERATOR_KEYFILE)) {
-        TEST_OPERATOR_KEY = process.env.MUSKIETEST_OPERATOR_KEYFILE;
-    } else {
-        console.error('MUSKIETEST_OPERATOR_KEYFILE %s does not exist!',
-                      process.env.MUSKIETEST_OPERATOR_KEYFILE);
-        process.exit(1);
-    }
-} else {
-    TEST_OPERATOR_KEY = (process.env.HOME + '/.ssh/id_rsa_poseidon');
-}
-
-
 ///--- Helpers
-
-// XXX drop these
-//function getRegularPubkey() {
-//    return (fs.readFileSync(TEST_REGULAR_KEY + '.pub', 'utf8'));
-//}
-//
-//function getRegularPrivkey() {
-//    return (fs.readFileSync(TEST_REGULAR_KEY, 'utf8'));
-//}
-//
-//function getOperatorPubkey() {
-//    return (fs.readFileSync(TEST_OPERATOR_KEY + '.pub', 'utf8'));
-//}
-//
-//function getOperatorPrivkey() {
-//    return (fs.readFileSync(TEST_OPERATOR_KEY, 'utf8'));
-//}
 
 function getKeyFingerprint(key) {
     return (sshpk.parseKey(key, 'auto').fingerprint('md5').toString());
@@ -206,79 +155,6 @@ function createStringClient() {
     return (client);
 }
 
-
-// XXX
-//function createSDCClient() {
-//    assert.string(process.env.SDC_URL, 'process.env.SDC_URL');
-//    assert.string(process.env.SDC_ACCOUNT, 'process.env.SDC_ACCOUNT');
-//    assert.string(process.env.SDC_KEY_ID, 'process.env.SDC_KEY_ID');
-//
-//    var key = getRegularPrivkey();
-//    var log = createLogger();
-//    var client = smartdc.createClient({
-//        log: log,
-//        sign: smartdc.privateKeySigner({
-//            key: key,
-//            keyId: process.env.SDC_KEY_ID,
-//            user: process.env.SDC_ACCOUNT
-//        }),
-//        rejectUnauthorized: false,
-//        user: process.env.SDC_ACCOUNT,
-//        url: process.env.SDC_URL
-//    });
-//
-//    return (client);
-//}
-//
-//function createOperatorSDCClient() {
-//    assert.string(process.env.SDC_URL, 'process.env.SDC_URL');
-//
-//    var key = getOperatorPrivkey();
-//    var keyId = getKeyFingerprint(key);
-//
-//    var log = createLogger();
-//    var client = smartdc.createClient({
-//        log: log,
-//        sign: smartdc.privateKeySigner({
-//            key: key,
-//            keyId: keyId,
-//            log: log,
-//            user: TEST_OPERATOR
-//        }),
-//        rejectUnauthorized: false,
-//        version: '9.0.0',
-//        url: process.env.SDC_URL,
-//        user: TEST_OPERATOR
-//    });
-//
-//    return (client);
-//}
-
-//function createOperatorClient() {
-//    assert.string(process.env.MANTA_URL, 'process.env.MANTA_URL');
-//
-//    var key = getOperatorPrivkey();
-//    var keyId = getKeyFingerprint(key);
-//
-//    var log = createLogger();
-//    var client = manta.createClient({
-//        agent: false,
-//        connectTimeout: 2000,
-//        log: log,
-//        retry: false,
-//        sign: manta.privateKeySigner({
-//            key: key,
-//            keyId: keyId,
-//            log: log,
-//            user: TEST_OPERATOR
-//        }),
-//        rejectUnauthorized: false,
-//        url: process.env.MANTA_URL,
-//        user: TEST_OPERATOR
-//    });
-//
-//    return (client);
-//}
 
 function assertMantaRes(t, res, code) {
     t.ok(res, 'have a response object');
@@ -1147,8 +1023,7 @@ function ensureTestAccounts(t, cb) {
                     subusers: [],
                     policies: [
                         {
-                            // XXX muskietest_policy_ prefix
-                            name: 'muskietest_read',
+                            name: 'muskietest_policy_read',
                             rules: [ 'can getobject', 'can listdirectory' ]
                         }
                     ],
@@ -1162,7 +1037,7 @@ function ensureTestAccounts(t, cb) {
                                 }
                             ],
                             policies: [
-                                { name: 'muskietest_read' }
+                                { name: 'muskietest_policy_read' }
                             ]
                         }
                     ]
@@ -1185,11 +1060,7 @@ function ensureTestAccounts(t, cb) {
                     accountInfo: ctx.accounts.operator,
                     timeout: 60
                 }, next);
-            },
-
-            // XXX test with concurrent tests
-            // XXX docs in README on side-effects of testing (creating the user)
-            // XXX tooling to cleanly delete the test user
+            }
         ]
     }, function finish(err) {
         if (err === true) {
@@ -1222,19 +1093,6 @@ function ensureTestAccounts(t, cb) {
 }
 
 
-// XXX if little usage of this, then drop it
-function ifErr(t, err, desc) {
-    t.ifError(err, desc);
-    if (err) {
-        t.deepEqual(err.body, {}, desc + ': error body');
-        return (true);
-    }
-
-    return (false);
-}
-
-
-
 // Return the MPU upload path for a given upload ID.
 // Optionally also append a part number, if given.
 function mpuUploadPath(accountLogin, uploadId, partNum) {
@@ -1265,27 +1123,16 @@ function mpuUploadPath(accountLogin, uploadId, partNum) {
 ///--- Exports
 
 module.exports = {
-    // XXX drop this
-    TEST_OPERATOR: TEST_OPERATOR,
-
     assertMantaRes: assertMantaRes,
     ensureTestAccounts: ensureTestAccounts,
     mantaClientFromAccountInfo: mantaClientFromAccountInfo,
     mantaClientFromSubuserInfo: mantaClientFromSubuserInfo,
     signReq: signReq,
 
-    // XXX trim these
     createJsonClient: createJsonClient,
     createStringClient: createStringClient,
     createLogger: createLogger,
-    //createOperatorClient: createOperatorClient,
-    //getRegularPubkey: getRegularPubkey,
-    //getRegularPrivkey: getRegularPrivkey,
-    //getOperatorPubkey: getOperatorPubkey,
-    //getOperatorPrivkey: getOperatorPrivkey,
     getKeyFingerprint: getKeyFingerprint,
 
-    // XXX can drop ifErr?
-    ifErr: ifErr,
     mpuUploadPath: mpuUploadPath
 };

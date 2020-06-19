@@ -200,7 +200,8 @@ test('mpu abort', testOpts, function (suite) {
         client.signRequest({
             headers: postOpts.headers
         }, function (signErr) {
-            if (helper.ifErr(t, signErr, 'sign request')) {
+            t.ifError(signErr, 'expect no error in signRequest');
+            if (signErr) {
                 t.end();
                 return;
             }

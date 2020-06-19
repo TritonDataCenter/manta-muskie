@@ -18,7 +18,6 @@ var helper = require('../helper');
 ///--- Globals
 
 var assertMantaRes = helper.assertMantaRes;
-var ifErr = helper.ifErr;
 var mpuUploadPath = helper.mpuUploadPath;
 
 var enableMPU = Boolean(require('../../etc/config.json').enableMPU);
@@ -61,7 +60,8 @@ test('mpu get', testOpts, function (suite) {
         client.signRequest({
             headers: options.headers
         }, function (err) {
-            if (ifErr(t, err, 'sign request')) {
+            t.ifError(err, 'expect no error in signRequest');
+            if (err) {
                 t.end();
                 return;
             }
