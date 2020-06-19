@@ -284,7 +284,9 @@ function _ensureRbacSettings(opts, cb) {
                     }
                 });
 
-                var wantSubuserLogins = opts.subusers.map(s => s.login);
+                //var wantSubuserLogins = opts.subusers.map(s => s.login);
+                var wantSubuserLogins = opts.subusers.map(
+                    function(s) { return s.login});
                 currSubusers.forEach(function (s) {
                     if (wantSubuserLogins.indexOf(s.login) === -1) {
                         ctx.subusersToDelete.push(s);

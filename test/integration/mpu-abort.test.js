@@ -26,6 +26,7 @@ test('mpu abort', testOpts, function (suite) {
     var jsonClient;
     var testAccount;
     var testDir;
+    var testOperAccount;
 
     suite.test('setup: test account', function (t) {
         helper.ensureTestAccounts(t, function (err, accounts) {

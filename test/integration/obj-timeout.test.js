@@ -43,7 +43,7 @@ test('setup: test account', function (t) {
 test('setup: test dir', function (t) {
     client = helper.mantaClientFromAccountInfo(testAccount);
     testDir = '/' + testAccount.login + '/stor/test-obj-timeout-' +
-        uuidv4().split('-')[0]
+        uuidv4().split('-')[0];
 
     client.mkdir(testDir, function (err) {
         t.ifError(err, 'no error making testDir:' + testDir);

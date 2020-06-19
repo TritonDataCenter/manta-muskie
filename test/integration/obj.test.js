@@ -31,7 +31,7 @@ var TEXT = 'The lazy brown fox \nsomething \nsomething foo';
 
 ///--- Helpers
 
-function writeObject(client, key, opts, cb) {
+function writeObject(client_, key_, opts, cb) {
     if (typeof (opts) === 'function') {
         cb = opts;
         opts = {};
@@ -44,7 +44,7 @@ function writeObject(client, key, opts, cb) {
     };
     var stream = new MemoryStream();
 
-    client.put(key, stream, putOpts, cb);
+    client_.put(key_, stream, putOpts, cb);
     setImmediate(stream.end.bind(stream, TEXT));
 }
 
@@ -87,12 +87,12 @@ function assertObjContent(opts, cb) {
     stream.resume();
 }
 
-function putObjectAndCheckRes(t, client, key, opts, cb) {
+function putObjectAndCheckRes(t, client_, key, opts, cb) {
     if (typeof (opts) === 'function') {
         cb = opts;
         opts = {};
     }
-    writeObject(client, key, opts, function (err, res) {
+    writeObject(client_, key, opts, function (err, res) {
         t.ifError(err);
         assertMantaRes(t, res, 204);
         cb(null, res.headers);
@@ -113,7 +113,7 @@ test('setup: test account', function (t) {
 test('setup: test dir', function (t) {
     client = helper.mantaClientFromAccountInfo(testAccount);
     testDir = '/' + testAccount.login + '/stor/test-obj-' +
-        uuidv4().split('-')[0]
+        uuidv4().split('-')[0];
 
     client.mkdir(testDir, function (err) {
         t.ifError(err, 'no error making testDir:' + testDir);

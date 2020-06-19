@@ -136,7 +136,7 @@ test('mpu del', testOpts, function (suite) {
                         helper.assertMantaRes(t, res, 204);
                         next();
                     });
-                },
+                }
             ]
         }, function (err) {
             t.ifError(err, 'expected no error in pipeline');
@@ -249,7 +249,7 @@ test('mpu del', testOpts, function (suite) {
                         helper.assertMantaRes(t, res, 204);
                         next();
                     });
-                },
+                }
             ]
         }, function (err) {
             t.ifError(err, 'expected no error in pipeline');
@@ -259,4 +259,3 @@ test('mpu del', testOpts, function (suite) {
 
     suite.end();
 });
-

@@ -29,7 +29,7 @@ var TEXT = 'The lazy brown fox \nsomething \nsomething foo';
 
 ///--- Helpers
 
-function writeObject(client, key, opts, cb) {
+function writeObject(client_, key_, opts, cb) {
     if (typeof (opts) === 'function') {
         cb = opts;
         opts = {};
@@ -42,7 +42,7 @@ function writeObject(client, key, opts, cb) {
     };
     var stream = new MemoryStream();
 
-    client.put(key, stream, _opts, cb);
+    client_.put(key_, stream, _opts, cb);
     process.nextTick(stream.end.bind(stream, TEXT));
 }
 

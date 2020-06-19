@@ -27,8 +27,9 @@ var testOpts = {
 ///--- Tests
 
 test('mpu other', testOpts, function (suite) {
-    var testAccount;
     var client;
+    var testAccount;
+    var testOperAccount;
 
     suite.test('setup: test account', function (t) {
         helper.ensureTestAccounts(t, function (err, accounts) {
