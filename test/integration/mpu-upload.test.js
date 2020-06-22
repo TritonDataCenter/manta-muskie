@@ -38,7 +38,8 @@ test('mpu upload', testOpts, function (suite) {
         helper.ensureTestAccounts(t, function (err, accounts) {
             t.ifError(err, 'no error loading/creating test accounts');
             testAccount = accounts.regular;
-            t.ok(testAccount, 'have regular test account: ' + testAccount.login);
+            t.ok(testAccount, 'have regular test account: ' +
+                testAccount.login);
             t.end();
         });
     });

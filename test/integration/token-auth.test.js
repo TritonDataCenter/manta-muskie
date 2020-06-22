@@ -107,7 +107,7 @@ test('create and auth with operator token', function (t) {
     var muskieConfig = JSON.parse(
         fs.readFileSync('/opt/smartdc/muskie/etc/config.json'));
     t.ok(muskieConfig.authToken.key,
-        'have "authToken.key" in muskie config file')
+        'have "authToken.key" in muskie config file');
 
     auth.createAuthToken(tokenOpts, muskieConfig.authToken,
                          function (err, token) {
@@ -118,13 +118,13 @@ test('create and auth with operator token', function (t) {
         }
 
         var opts = {
-            path: `/${testOperatorAccount.login}/stor`,
+            path: '/' + testOperatorAccount.login + '/stor',
             headers: {
                 authorization: 'Token ' + token
             }
         };
-        stringClient.get(opts, function (err, _req, res) {
-            t.ifError(err, 'no error authenticating with created token');
+        stringClient.get(opts, function (getErr, _req, res) {
+            t.ifError(getErr, 'no error authenticating with created token');
             t.equal(res.statusCode, 200, '200 status code');
             t.end();
         });
@@ -133,15 +133,12 @@ test('create and auth with operator token', function (t) {
 
 
 test('create auth token, signURL with method', function (t) {
-    var opts = {
-    };
-
     client.signURL({
         method: 'POST',
-        path: `/${testAccount.login}/tokens`
+        path: '/' + testAccount.login + '/tokens'
     }, function (signErr, path) {
         t.ifError(signErr);
-        t.ok(path)
+        t.ok(path);
 
         jsonClient.post(path, null, function (postErr, _req, res, obj) {
             t.ifError(postErr);

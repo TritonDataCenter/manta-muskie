@@ -35,7 +35,8 @@ test('mpu other', testOpts, function (suite) {
         helper.ensureTestAccounts(t, function (err, accounts) {
             t.ifError(err, 'no error loading/creating test accounts');
             testAccount = accounts.regular;
-            t.ok(testAccount, 'have regular test account: ' + testAccount.login);
+            t.ok(testAccount, 'have regular test account: ' +
+                testAccount.login);
             testOperAccount = accounts.operator;
             t.ok(testOperAccount,
                 'have operator test account: ' + testOperAccount.login);

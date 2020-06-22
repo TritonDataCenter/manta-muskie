@@ -45,7 +45,6 @@ function computePartsMD5(parts) {
 ///--- Tests
 
 test('mpu commit', testOpts, function (suite) {
-    var jsonClient;
     var testAccount;
     var testDir;
     var client;
@@ -54,13 +53,13 @@ test('mpu commit', testOpts, function (suite) {
         helper.ensureTestAccounts(t, function (err, accounts) {
             t.ifError(err, 'no error loading/creating test accounts');
             testAccount = accounts.regular;
-            t.ok(testAccount, 'have regular test account: ' + testAccount.login);
+            t.ok(testAccount, 'have regular test account: ' +
+                testAccount.login);
             t.end();
         });
     });
 
     suite.test('setup: client and test dir', function (t) {
-        jsonClient = helper.createJsonClient();
         client = helper.mantaClientFromAccountInfo(testAccount);
         testDir = '/' + client.user + '/stor/test-mpu-commit-' +
             uuidv4().split('-')[0];
@@ -173,7 +172,8 @@ test('mpu commit', testOpts, function (suite) {
                         account: client.user,
                         partsDirectory: ctx.upload.partsDirectory
                     }, function (err) {
-                        t.ok(err, 'expected fail on commitUpload with dupe parts etags');
+                        t.ok(err, 'expected fail on commitUpload with ' +
+                            'dupe parts etags');
                         t.ok(VError.hasCauseWithName(err,
                             'MultipartUploadInvalidArgumentError'),
                             'err is MultipartUploadInvalidArgumentError');
@@ -281,7 +281,8 @@ test('mpu commit', testOpts, function (suite) {
         });
     });
 
-    suite.test('commit content-length does not match create header', function (t) {
+    suite.test('commit content-length does not match create header',
+    function (t) {
         var wrongContentLen = 6;
         var data = 'The lazy brown fox \nsomething \nsomething foo';
         assert(Buffer.byteLength(data) !== wrongContentLen);
@@ -309,7 +310,8 @@ test('mpu commit', testOpts, function (suite) {
                         t.ok(err, 'expected fail in commitUpload (0 parts)');
                         t.ok(VError.hasCauseWithName(err,
                             'MultipartUploadInvalidArgumentError'),
-                            'err is MultipartUploadInvalidArgumentError: ' + err);
+                            'err is MultipartUploadInvalidArgumentError: ' +
+                                err);
                         next();
                     });
                 },
@@ -340,7 +342,8 @@ test('mpu commit', testOpts, function (suite) {
                         t.ok(err, 'expected fail in commitUpload (1 part)');
                         t.ok(VError.hasCauseWithName(err,
                             'MultipartUploadInvalidArgumentError'),
-                            'err is MultipartUploadInvalidArgumentError: ' + err);
+                            'err is MultipartUploadInvalidArgumentError: ' +
+                                err);
                         next();
                     });
                 },
@@ -361,10 +364,10 @@ test('mpu commit', testOpts, function (suite) {
         });
     });
 
-    suite.test('commit content-md5 does not match create header: 0 parts', function (t) {
+    suite.test('commit content-md5 does not match create header: 0 parts',
+    function (t) {
         var wrongContentMd5 = crypto.createHash('md5')
             .update('not the data').digest('base64');
-        var data = 'The lazy brown fox \nsomething \nsomething foo';
         var p = testDir + '/commit-and-create-content-md5-do-not-match-0-parts';
 
         vasync.pipeline({
@@ -389,7 +392,8 @@ test('mpu commit', testOpts, function (suite) {
                         t.ok(err, 'expected fail in commitUpload (0 parts)');
                         t.ok(VError.hasCauseWithName(err,
                             'MultipartUploadInvalidArgumentError'),
-                            'err is MultipartUploadInvalidArgumentError: ' + err);
+                            'err is MultipartUploadInvalidArgumentError: ' +
+                                err);
                         next();
                     });
                 }
@@ -407,7 +411,8 @@ test('mpu commit', testOpts, function (suite) {
         });
     });
 
-    suite.test('commit content-md5 does not match create header: 1 part', function (t) {
+    suite.test('commit content-md5 does not match create header: 1 part',
+    function (t) {
         var wrongContentMd5 = crypto.createHash('md5')
             .update('not the data').digest('base64');
         var data = 'The lazy brown fox \nsomething \nsomething foo';
@@ -453,7 +458,8 @@ test('mpu commit', testOpts, function (suite) {
                         t.ok(err, 'expected fail in commitUpload (1 part)');
                         t.ok(VError.hasCauseWithName(err,
                             'MultipartUploadInvalidArgumentError'),
-                            'err is MultipartUploadInvalidArgumentError: ' + err);
+                            'err is MultipartUploadInvalidArgumentError: ' +
+                                err);
                         next();
                     });
                 }
@@ -465,7 +471,8 @@ test('mpu commit', testOpts, function (suite) {
     });
 
 
-    suite.test('commit upload: non-final part less than min part size', function (t) {
+    suite.test('commit upload: non-final part less than min part size',
+    function (t) {
         var data = 'This is my part';
         var p = testDir + '/non-final-part-less-than-min-part-size';
 
@@ -495,7 +502,8 @@ test('mpu commit', testOpts, function (suite) {
                                 partsDirectory: ctx.upload.partsDirectory
                             }, function (err, res) {
                                 t.ifError(err,
-                                    'expected success on uploadPart ' + partNum);
+                                    'expected success on uploadPart ' +
+                                        partNum);
                                 ctx.partEtags.push(res.headers.etag);
                                 nextPart(err);
                             });
@@ -517,7 +525,8 @@ test('mpu commit', testOpts, function (suite) {
                         t.ok(err, 'expected fail in commitUpload');
                         t.ok(VError.hasCauseWithName(err,
                             'MultipartUploadInvalidArgumentError'),
-                            'err is MultipartUploadInvalidArgumentError: ' + err);
+                            'err is MultipartUploadInvalidArgumentError: ' +
+                                err);
                         next();
                     });
                 }
@@ -621,7 +630,8 @@ test('mpu commit', testOpts, function (suite) {
                             client.createUpload(p, {
                                 account: client.user
                             }, function (err, upload) {
-                                t.ifError(err, 'expected success on createUpload');
+                                t.ifError(err,
+                                    'expected success on createUpload');
                                 ctx.upload = upload;
                                 next(err);
                             });
@@ -634,7 +644,8 @@ test('mpu commit', testOpts, function (suite) {
                                 account: client.user,
                                 partsDirectory: ctx.upload.partsDirectory
                             }, function (err, res) {
-                                t.ifError(err, 'expected success on uploadPart');
+                                t.ifError(err,
+                                    'expected success on uploadPart');
                                 ctx.part0Etag = res.headers.etag;
                                 next(err);
                             });
@@ -648,7 +659,10 @@ test('mpu commit', testOpts, function (suite) {
                             var partEtags = c.partEtags;
                             if (partEtags) {
                                 partEtags = partEtags
-                                    .map(e => e.replace('ETAG', ctx.part0Etag));
+                                    .map(function (e) {
+                                        // JSSTYLED
+                                        return e.replace('ETAG', ctx.part0Etag);
+                                    });
                             }
 
                             client.commitUpload(ctx.upload.id, partEtags, {
@@ -660,6 +674,7 @@ test('mpu commit', testOpts, function (suite) {
                                     JSON.stringify(partEtags));
                                 t.ok(VError.hasCauseWithName(err,
                                     'MultipartUploadInvalidArgumentError'),
+                                    // JSSTYLED
                                     'err is MultipartUploadInvalidArgumentError: ' + err);
                                 next();
                             });
@@ -670,7 +685,8 @@ test('mpu commit', testOpts, function (suite) {
                                 account: client.user,
                                 partsDirectory: ctx.upload.partsDirectory
                             }, function (err) {
-                                t.ifError(err, 'expected success from abortUpload');
+                                t.ifError(err,
+                                    'expected success from abortUpload');
                                 next();
                             });
                         }
@@ -734,7 +750,8 @@ test('mpu commit', testOpts, function (suite) {
                         t.ok(err, 'expected fail on commitUpload');
                         t.ok(VError.hasCauseWithName(err,
                             'MultipartUploadInvalidArgumentError'),
-                            'err is MultipartUploadInvalidArgumentError: ' + err);
+                            'err is MultipartUploadInvalidArgumentError: ' +
+                                err);
                         next();
                     });
                 }

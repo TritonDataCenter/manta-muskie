@@ -23,7 +23,7 @@ var helper = require('../helper');
 
 ///--- Helpers
 
-function writeObject(client, key, cb) {
+function writeObject(client_, key_, cb) {
     cb = once(cb);
     var input = new MemoryStream();
     var msg = JSON.stringify({hello: 'world'});
@@ -31,7 +31,7 @@ function writeObject(client, key, cb) {
         type: 'application/json',
         size: Buffer.byteLength(msg)
     };
-    var output = client.createWriteStream(key, opts);
+    var output = client_.createWriteStream(key_, opts);
     output.once('close', cb.bind(null, null));
     output.once('error', cb);
     input.pipe(output);
@@ -40,9 +40,10 @@ function writeObject(client, key, cb) {
 
 
 function bogusSigAuthHeader(user, keyId) {
-    // "Failing" because we don't generate a valid "signature" value.
-    return `Signature keyId="/${user}/keys/${keyId}",` +
-        `algorithm="rsa-sha256",signature="${uuidv4()}"`;
+    // "Bogus" because we don't generate a valid "signature" value.
+    // JSSTYLED
+    return util.format('Signature keyId="/%s/keys/%s",algorithm="rsa-sha256",signature="%s"',
+        user, keyId, uuidv4());
 }
 
 
@@ -274,11 +275,6 @@ test('signed URL expired request', function (t) {
 
 
 test('fail to signURL for another account', function (t) {
-    var opts = {
-        method: 'POST',
-        path: '/poseidon/tokens'
-    };
-
     client.signURL({
         path: '/poseidon/stor'
     }, function (signErr, path) {
@@ -286,7 +282,7 @@ test('fail to signURL for another account', function (t) {
         t.ok(path);
 
         jsonClient.get(path, function (getErr, _req, res, obj) {
-            t.ok(getErr)
+            t.ok(getErr);
             t.equal(res.statusCode, 403, '403 response status');
             t.end();
         });

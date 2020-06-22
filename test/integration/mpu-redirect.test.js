@@ -36,7 +36,8 @@ test('mpu redirect', testOpts, function (suite) {
         helper.ensureTestAccounts(t, function (err, accounts) {
             t.ifError(err, 'no error loading/creating test accounts');
             testAccount = accounts.regular;
-            t.ok(testAccount, 'have regular test account: ' + testAccount.login);
+            t.ok(testAccount, 'have regular test account: ' +
+                testAccount.login);
             t.end();
         });
     });
@@ -65,7 +66,8 @@ test('mpu redirect', testOpts, function (suite) {
                         t.ifError(err, 'expected success on createUpload');
 
                         ctx.upload = upload;
-                        ctx.redirPath = `/${client.user}/uploads/${upload.id}`;
+                        ctx.redirPath = '/' + client.user + '/uploads/' +
+                            upload.id;
                         ctx.uploadPath = helper.mpuUploadPath(
                             client.user, upload.id);
 
@@ -153,7 +155,8 @@ test('mpu redirect', testOpts, function (suite) {
                         t.ifError(err, 'expected success on uploadPart');
 
                         ctx.partEtags = [res.headers.etag];
-                        ctx.redirPath = `/${client.user}/uploads/${ctx.upload.id}/${partNum}`;
+                        ctx.redirPath = '/' + client.user + '/uploads/' +
+                            ctx.upload.id + '/' + partNum;
                         ctx.uploadPath = helper.mpuUploadPath(
                             client.user, ctx.upload.id, partNum);
 

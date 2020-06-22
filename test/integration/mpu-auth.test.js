@@ -26,7 +26,6 @@ var testOpts = {
 
 test('mpu auth', testOpts, function (suite) {
     var client;
-    var jsonClient;
     var subuserClient;
     var testAccount;
     var testDir;
@@ -35,7 +34,8 @@ test('mpu auth', testOpts, function (suite) {
         helper.ensureTestAccounts(t, function (err, accounts) {
             t.ifError(err, 'no error loading/creating test accounts');
             testAccount = accounts.regular;
-            t.ok(testAccount, 'have regular test account: ' + testAccount.login);
+            t.ok(testAccount, 'have regular test account: ' +
+                testAccount.login);
             t.end();
         });
     });
@@ -43,7 +43,6 @@ test('mpu auth', testOpts, function (suite) {
     suite.test('setup: client and test dir', function (t) {
         subuserClient = helper.mantaClientFromSubuserInfo(testAccount,
             'muskietest_subuser');
-        jsonClient = helper.createJsonClient();
         client = helper.mantaClientFromAccountInfo(testAccount);
         testDir = '/' + client.user + '/stor/test-mpu-auth-' +
             uuidv4().split('-')[0];
@@ -71,7 +70,8 @@ test('mpu auth', testOpts, function (suite) {
     });
 
     // Get, upload, abort, commit.
-    suite.test('subusers disallowed: get, upload, abort, commit, redirect', function (t) {
+    suite.test('subusers disallowed: get, upload, abort, commit, redirect',
+    function (t) {
         var p = testDir + '/subusers-disallowed-get-upload-abort-commit';
         var context = {};
 
@@ -109,7 +109,10 @@ test('mpu auth', testOpts, function (suite) {
                         account: client.user,
                         partsDirectory: ctx.upload.partsDirectory,
                         // Generic client.put options.
-                        md5: crypto.createHash('md5').update(data).digest('base64'),
+                        md5: crypto
+                            .createHash('md5')
+                            .update(data)
+                            .digest('base64'),
                         size: Buffer.byteLength(data),
                         type: 'text/plain'
                     }, function (err) {
@@ -152,9 +155,11 @@ test('mpu auth', testOpts, function (suite) {
                 },
 
                 function subuserRedirect(ctx, next) {
-                    var redirUrl = `/${client.user}/uploads/${ctx.upload.id}`;
+                    var redirUrl = '/' + client.user + '/uploads/' +
+                        ctx.upload.id;
                     subuserClient.get(redirUrl, function (err) {
-                        t.ok(err, 'expect error on subuser GET /:login/uploads/:id');
+                        t.ok(err,
+                            'expect error on subuser GET /:login/uploads/:id');
                         t.ok(VError.hasCauseWithName(err,
                             'AuthorizationFailedError'),
                             'err is AuthorizationFailedError: ' + err);
@@ -163,9 +168,11 @@ test('mpu auth', testOpts, function (suite) {
                 },
 
                 function subuserRedirectPartNum(ctx, next) {
-                    var redirUrl = `/${client.user}/uploads/${ctx.upload.id}/0`;
+                    var redirUrl = '/' + client.user + '/uploads/' +
+                        ctx.upload.id + '/0';
                     subuserClient.get(redirUrl, function (err) {
-                        t.ok(err, 'expect error on subuser GET /:login/uploads/:id/:partNum');
+                        t.ok(err, 'expect error on subuser ' +
+                            'GET /:login/uploads/:id/:partNum');
                         t.ok(VError.hasCauseWithName(err,
                             'AuthorizationFailedError'),
                             'err is AuthorizationFailedError: ' + err);
@@ -183,7 +190,8 @@ test('mpu auth', testOpts, function (suite) {
                     account: client.user,
                     partsDirectory: context.upload.partsDirectory
                 }, function (abortErr) {
-                    t.ifError(abortErr, 'expected no error cleaning up test upload');
+                    t.ifError(abortErr,
+                        'expected no error cleaning up test upload');
                     t.end();
                 });
             } else {

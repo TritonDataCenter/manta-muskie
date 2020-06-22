@@ -8,6 +8,7 @@
  * Copyright 2020 Joyent, Inc.
  */
 
+var format = require('util');
 var fs = require('fs');
 var http = require('http');
 var https = require('https');
@@ -284,9 +285,8 @@ function _ensureRbacSettings(opts, cb) {
                     }
                 });
 
-                //var wantSubuserLogins = opts.subusers.map(s => s.login);
                 var wantSubuserLogins = opts.subusers.map(
-                    function(s) { return s.login});
+                    function (s) { return s.login; });
                 currSubusers.forEach(function (s) {
                     if (wantSubuserLogins.indexOf(s.login) === -1) {
                         ctx.subusersToDelete.push(s);
@@ -318,8 +318,8 @@ function _ensureRbacSettings(opts, cb) {
                     assert.string(subuser.password, 'subuser.password');
                     assert.string(subuser.email, 'subuser.email');
 
-                    t.comment(`creating subuser ` +
-                        `${opts.account.login}/${subuser.login}`);
+                    t.comment(format('creating subuser %s/%s',
+                        opts.account.login, subuser.login));
                     ctx.smartdcClient.createUser(subuser, function (err, s) {
                         if (err) {
                             nextSubuser(err);
@@ -349,8 +349,8 @@ function _ensureRbacSettings(opts, cb) {
                                 // Some unexpected error.
                                 nextSubuser(err);
                             } else if (err) {
-                                t.comment(`adding key to subuser ` +
-                                    `${opts.account.login}/${subuser.login}`);
+                                t.comment(format('adding key to subuser %s/%s',
+                                    opts.account.login, subuser.login));
                                 ctx.smartdcClient.uploadUserKey(
                                     opts.account.login,
                                     subuser.id,
@@ -358,18 +358,18 @@ function _ensureRbacSettings(opts, cb) {
                                         name: 'muskietest_key',
                                         key: opts.account.pubKey
                                     },
-                                    function (err, key) {
-                                        nextSubuser(err);
-                                    }
-                                );
+                                    function (uploadErr, _key) {
+                                        nextSubuser(uploadErr);
+                                    });
                             } else {
                                 // Already have the key.
-                                t.comment(`key is already on subuser ` +
-                                    `${opts.account.login}/${subuser.login}`);
+                                t.comment(format(
+                                    'key is already on subuser %s/%s',
+                                    opts.account.login,
+                                    subuser.login));
                                 nextSubuser();
                             }
-                        }
-                    );
+                        });
                 }
             }, function finish(err) {
                 next(err);
@@ -377,7 +377,8 @@ function _ensureRbacSettings(opts, cb) {
         },
 
         function getCurrPolicies(ctx, next) {
-            ctx.smartdcClient.listPolicies(opts.account.login, function (err, currPolicies) {
+            ctx.smartdcClient.listPolicies(opts.account.login,
+                                           function (err, currPolicies) {
                 if (err) {
                     next(err);
                     return;
@@ -395,11 +396,12 @@ function _ensureRbacSettings(opts, cb) {
                     if (currPolicyFromName[p.name] === undefined) {
                         ctx.policiesToCreate.push(p);
                     } else {
-                        t.comment(`already have policy ${p.name}`);
+                        t.comment('already have policy ' + p.name);
                     }
                 });
 
-                var wantPolicyNames = opts.policies.map(p => p.name);
+                var wantPolicyNames = opts.policies.map(
+                    function (p) { return p.name; });
                 currPolicies.forEach(function (p) {
                     if (wantPolicyNames.indexOf(p.name) === -1) {
                         ctx.policiesToDelete.push(p);
@@ -430,7 +432,7 @@ function _ensureRbacSettings(opts, cb) {
                     assert.string(policy.name, 'policy.name');
                     assert.arrayOfString(policy.rules, 'policy.rules');
 
-                    t.comment(`creating policy ${policy.name}`);
+                    t.comment('creating policy ' + policy.name);
                     ctx.smartdcClient.createPolicy(policy, function (err) {
                         ctx.madeAdditions = true;
                         nextPolicy(err);
@@ -455,14 +457,15 @@ function _ensureRbacSettings(opts, cb) {
             }
 
             const MAHI_POLL_INTERVAL_S = 10;
-            t.comment(`waiting ${MAHI_POLL_INTERVAL_S}s for mahi to sync ` +
-                `subuser and policy additions so CloudAPI CreateRole does ` +
-                `not choke`);
+            t.comment('waiting ' + MAHI_POLL_INTERVAL_S + ' for mahi to sync ' +
+                'subuser and policy additions so CloudAPI CreateRole does ' +
+                'not choke');
             setTimeout(next, MAHI_POLL_INTERVAL_S * 1000);
         },
 
         function getCurrRoles(ctx, next) {
-            ctx.smartdcClient.listRoles(opts.account.login, function (err, currRoles) {
+            ctx.smartdcClient.listRoles(opts.account.login,
+                                        function (err, currRoles) {
                 if (err) {
                     next(err);
                     return;
@@ -480,11 +483,12 @@ function _ensureRbacSettings(opts, cb) {
                     if (currRoleFromName[r.name] === undefined) {
                         ctx.rolesToCreate.push(r);
                     } else {
-                        t.comment(`already have role ${r.name}`);
+                        t.comment('already have role ' + r.name);
                     }
                 });
 
-                var wantRoleNames = opts.roles.map(r => r.name);
+                var wantRoleNames = opts.roles.map(
+                    function (r) { return r.name; });
                 currRoles.forEach(function (r) {
                     if (wantRoleNames.indexOf(r.name) === -1) {
                         ctx.rolesToDelete.push(r);
@@ -519,7 +523,7 @@ function _ensureRbacSettings(opts, cb) {
                     assert.optionalArray(role.policies,
                         'role.policies');
 
-                    t.comment(`creating role ${role.name}`); +
+                    t.comment('creating role ' + role.name);
                     ctx.smartdcClient.createRole(role, function (err) {
                         ctx.madeRoleAdditions = true;
                         nextRole(err);
@@ -541,11 +545,11 @@ function _ensureRbacSettings(opts, cb) {
             }
 
             const MAHI_POLL_INTERVAL_S = 10;
-            t.comment(`waiting ${MAHI_POLL_INTERVAL_S}s for authcache ` +
-                `to sync role additions so Muskie auth is up to date`);
+            t.comment('waiting ' + MAHI_POLL_INTERVAL_S + 's for authcache ' +
+                'to sync role additions so Muskie auth is up to date');
             setTimeout(next, MAHI_POLL_INTERVAL_S * 1000);
         }
-    ]}, function finish(err) {
+    ]}, function finishAll(err) {
         if (context.smartdcClient) {
             context.smartdcClient.client.close();
         }
@@ -586,11 +590,13 @@ function _ensureAccount(opts, cb) {
                     //      $cacheDir/$login.id_rsa.pub # the public key
                     // If that login still exists, we'll re-use it.
                     ctx.privKeyPath = files
-                        .filter(f => f.endsWith('.id_rsa'))[0];
+                        .filter(
+                            function (f) { return f.endsWith('.id_rsa'); })[0];
                     assert(ctx.privKeyPath.endsWith('.id_rsa'));
                     ctx.login = path.basename(ctx.privKeyPath)
                         .slice(0, -('.id_rsa'.length));
-                    t.comment(`found existing key for login "${ctx.login}"`);
+                    t.comment('found existing key for login "' +
+                        ctx.login + '"');
                     next();
                 } else {
                     next(new VError(
@@ -610,7 +616,7 @@ function _ensureAccount(opts, cb) {
                         'unexpected error loading account "%s"', ctx.login));
                 } else if (account) {
                     ctx.account = account;
-                    t.comment(`already have account "${ctx.login}"`);
+                    t.comment('already have account "' + ctx.login + '"');
                     next();
                 } else {
                     opts.ufdsClient.addUser({
@@ -623,7 +629,7 @@ function _ensureAccount(opts, cb) {
                             next(new VError(addErr,
                                 'could not create account "%s"', ctx.login));
                         } else {
-                            t.comment(`created account "${ctx.login}"`);
+                            t.comment('created account "' + ctx.login + '"');
                             ctx.account = newAccount;
                             next();
                         }
@@ -656,13 +662,13 @@ function _ensureAccount(opts, cb) {
                 forkExecWait({
                     argv: argv,
                     includeStderr: true
-                }, function (err, info) {
+                }, function (err, _info) {
                     if (err) {
                         next(new VError(err,
                             'failed to generate key for login "%s"',
                             ctx.login));
                     } else {
-                        t.comment(`created new key "${ctx.privKeyPath}"`);
+                        t.comment('created new key "' + ctx.privKeyPath + '"');
                         ctx.privKey = fs.readFileSync(ctx.privKeyPath, 'utf8');
                         ctx.pubKey = fs.readFileSync(ctx.privKeyPath + '.pub',
                             'utf8');
@@ -682,19 +688,21 @@ function _ensureAccount(opts, cb) {
                 name: 'muskietest_key'
             };
             ctx.fp = getKeyFingerprint(ctx.pubKey);
-            opts.ufdsClient.getKey(ctx.account, keyInfo.name, function (getErr, key) {
+            opts.ufdsClient.getKey(ctx.account, keyInfo.name,
+                                   function (getErr, key) {
                 if (getErr && getErr.name !== 'ResourceNotFoundError') {
                     next(new VError(getErr,
                         'unexpected error checking for key on account "%s"',
                         ctx.login));
                 } else if (getErr) {
-                    opts.ufdsClient.addKey(ctx.account, keyInfo, function (addErr) {
+                    opts.ufdsClient.addKey(ctx.account, keyInfo,
+                                           function (addErr) {
                         if (addErr) {
                             next(new VError(addErr,
                                 'could not add key to account "%s"',
                                 ctx.login));
                         } else {
-                            t.comment(`added key "${ctx.fp}" to account`);
+                            t.comment('added key "' + ctx.fp + '" to account');
                             next();
                         }
                     });
@@ -745,7 +753,7 @@ function _waitForAccountToBeReady(t, opts, cb) {
     // Currently we wait forever here, relying on test timeouts.
     vasync.whilst(
         function notYetWorking() {
-            return !!lastErr;
+            return (!!lastErr);
         },
         function pingAttempt(attemptCb) {
             if ((Date.now() - start) / 1000 > opts.timeout) {
@@ -761,8 +769,10 @@ function _waitForAccountToBeReady(t, opts, cb) {
                     // MantaClient.info callback is crazy this way.
                     res = info;
                 }
-                t.comment(`[${new Date().toISOString()}] ` +
-                    `HEAD ${p} -> ${res ? res.statusCode : '<no response>'}`);
+                t.comment(format('[%s] HEAD %s -> %s',
+                    new Date().toISOString(),
+                    p,
+                    res ? res.statusCode : '<no response>'));
                 lastErr = err;
                 if (err) {
                     // Short delay before the next attempt.
@@ -775,8 +785,7 @@ function _waitForAccountToBeReady(t, opts, cb) {
         function done(err) {
             client.close();
             cb(err);
-        }
-    )
+        });
 }
 
 
@@ -839,8 +848,8 @@ function ensureTestAccounts(t, cb) {
             },
             function getLock(ctx, next) {
                 qlocker.lock(ACCOUNTS_LOCK_FILE, function (err, unlockFn) {
-                    t.comment(`[${new Date().toISOString()}] ` +
-                        `acquired test accounts lock`);
+                    t.comment(format('[%s] acquired test accounts lock',
+                        new Date().toISOString()));
                     ctx.unlockFn = unlockFn;
                     next(err);
                 });
@@ -957,7 +966,7 @@ function ensureTestAccounts(t, cb) {
                         },
                         {
                             name: 'muskietest_role_other',
-                            policies: [{ 'name': 'muskietest_policy_read' }]
+                            policies: [ { 'name': 'muskietest_policy_read' } ]
                         },
                         {
                             name: 'muskietest_role_write',
@@ -1074,8 +1083,8 @@ function ensureTestAccounts(t, cb) {
         vasync.pipeline({funcs: [
             function cleanupLock(_, next) {
                 if (context.unlockFn) {
-                    t.comment(`[${new Date().toISOString()}] ` +
-                        `releasing test accounts lock`);
+                    t.comment(format('[%s] releasing test accounts lock',
+                        new Date().toISOString()));
                     context.unlockFn(next);
                 } else {
                     next();
@@ -1086,7 +1095,7 @@ function ensureTestAccounts(t, cb) {
                     context.ufdsClient.close();
                 }
                 next();
-            },
+            }
         ]}, function (cleanupErr) {
             t.ifError(cleanupErr, 'no error cleaning up ensureTestAccounts');
             cb(err, context.accounts);
@@ -1107,10 +1116,11 @@ function mpuUploadPath(accountLogin, uploadId, partNum) {
     var p;
     var prefix;
 
-    var c = uploadId.charAt(uploadId.length - 1);
-    var len = jsprim.parseInteger(c, { base: 16 });
-    assert(!isNaN(len) && len >=1 && len <= 4, 'invalid prefix length: ' + len);
-    var prefix = uploadId.substring(0, len);
+    c = uploadId.charAt(uploadId.length - 1);
+    len = jsprim.parseInteger(c, { base: 16 });
+    assert(!isNaN(len) && len >= 1 && len <= 4,
+        'invalid prefix length: ' + len);
+    prefix = uploadId.substring(0, len);
     p = '/' + accountLogin + '/uploads/' + prefix + '/' + uploadId;
 
     if (typeof (partNum) === 'number') {

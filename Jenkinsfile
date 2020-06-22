@@ -36,7 +36,7 @@ pipeline {
     stages {
         stage('check') {
             steps{
-                sh('echo XXX skip for now make check')
+                sh('make check')
             }
         }
         // avoid bundling devDependencies

@@ -38,7 +38,8 @@ test('mpu del', testOpts, function (suite) {
         helper.ensureTestAccounts(t, function (err, accounts) {
             t.ifError(err, 'no error loading/creating test accounts');
             testAccount = accounts.regular;
-            t.ok(testAccount, 'have regular test account: ' + testAccount.login);
+            t.ok(testAccount, 'have regular test account: ' +
+                testAccount.login);
             testOperAccount = accounts.operator;
             t.ok(testOperAccount, 'have operator test account: ' +
                 testOperAccount.login);
@@ -101,8 +102,8 @@ test('mpu del', testOpts, function (suite) {
                             allowMpuDeletes: false
                         }
                     }, function (err, res) {
-                        t.ok(err,
-                            'operator cannot delete it with allowMpuDeletes=false');
+                        t.ok(err, 'operator cannot delete it with ' +
+                            'allowMpuDeletes=false');
                         t.ok(VError.hasCauseWithName(err,
                             'UnprocessableEntityError'),
                             'err is UnprocessableEntityError: ' + err);
@@ -214,8 +215,8 @@ test('mpu del', testOpts, function (suite) {
                             allowMpuDeletes: false
                         }
                     }, function (err, res) {
-                        t.ok(err,
-                            'operator cannot delete it with allowMpuDeletes=false');
+                        t.ok(err, 'operator cannot delete it with ' +
+                            'allowMpuDeletes=false');
                         t.ok(VError.hasCauseWithName(err,
                             'UnprocessableEntityError'),
                             'err is UnprocessableEntityError: ' + err);

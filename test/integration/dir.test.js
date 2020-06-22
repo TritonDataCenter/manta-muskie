@@ -25,7 +25,7 @@ var assertMantaRes = helper.assertMantaRes;
 
 ///--- Helpers
 
-function writeObject(client, key, opts, cb) {
+function writeObject(client_, key, opts, cb) {
     assert.string(key, 'key');
 
     if (typeof (opts) === 'function') {
@@ -42,11 +42,11 @@ function writeObject(client, key, opts, cb) {
         size: size
     };
 
-    client.put(key, stream, putOpts, cb);
+    client_.put(key, stream, putOpts, cb);
     process.nextTick(stream.end.bind(stream, text));
 }
 
-function writeStreamingObject(client, key, opts, cb) {
+function writeStreamingObject(client_, key, opts, cb) {
     if (typeof (opts) === 'function') {
         cb = opts;
         opts = {};
@@ -60,7 +60,7 @@ function writeStreamingObject(client, key, opts, cb) {
     };
 
     process.nextTick(stream.end.bind(stream, text));
-    client.put(key, stream, putOpts, function (err, res) {
+    client_.put(key, stream, putOpts, function (err, res) {
         if (err) {
             cb(err);
         } else if (res.statusCode != 204) {
@@ -91,7 +91,7 @@ test('setup: test accounts', function (t) {
 test('setup: test dir', function (t) {
     client = helper.mantaClientFromAccountInfo(testAccount);
     testDir = '/' + testAccount.login +
-        '/stor/test-dir-dir-' + uuidv4().split('-')[0]
+        '/stor/test-dir-dir-' + uuidv4().split('-')[0];
 
     client.mkdir(testDir, function (err) {
         t.ifError(err, 'no error making testDir:' + testDir);
@@ -639,7 +639,9 @@ test('ls escapes marker', function (t) {
             res.once('end', function (httpRes) {
                 assertMantaRes(t, httpRes, 200);
                 t.equal(2, objs.length);
-                t.deepEqual(objs.map(o => o.name).sort(), [escapeyName, 'zzz']);
+                t.deepEqual(
+                    objs.map(function (o) { return o.name; }).sort(),
+                    [escapeyName, 'zzz']);
                 t.end();
             });
         });

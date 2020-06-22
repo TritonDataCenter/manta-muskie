@@ -80,7 +80,8 @@ function accountWriteSubuserSignAnonGet(opts, cb) {
                     'role-tag': opts.writeRoleTag
                 }
             }, function (err) {
-                t.comment(`wrote "${opts.path}" role-tag=${opts.writeRoleTag}`);
+                t.comment('wrote "' + opts.path + '" role-tag=' +
+                    opts.writeRoleTag);
                 next(err);
             });
         },
@@ -93,7 +94,7 @@ function accountWriteSubuserSignAnonGet(opts, cb) {
             }
             opts.signClient.signURL(signOpts, function (err, s) {
                 signedUrl = s;
-                t.comment(`signed URL: ${signedUrl}`);
+                t.comment('signed URL: ' + signedUrl);
                 next(err);
             });
         }
@@ -106,13 +107,13 @@ function accountWriteSubuserSignAnonGet(opts, cb) {
                 path: signedUrl
             };
             if (opts.getHeaders) {
-                getOpts.headers = opts.getHeaders
+                getOpts.headers = opts.getHeaders;
             }
-            t.comment(`GETing signed URL: getOpts=${JSON.stringify(getOpts)}`);
-            stringClient.get(getOpts, function (err, req, res, body) {
+            t.comment('GETing signed URL: getOpts=' + JSON.stringify(getOpts));
+            stringClient.get(getOpts, function (getErr, req, res, body) {
                 cb(null, {
                     signedUrl: signedUrl,
-                    err: err,
+                    err: getErr,
                     req: req,
                     res: res,
                     body: body
@@ -151,7 +152,7 @@ test('setup: test dir', function (t) {
     subuserClient = helper.mantaClientFromSubuserInfo(testAccount,
         'muskietest_subuser');
     operClient = helper.mantaClientFromAccountInfo(testOperAccount);
-    var marker = uuidv4().split('-')[0]
+    var marker = uuidv4().split('-')[0];
     testDir = '/' + testAccount.login +
         '/stor/test-ac-dir-' + marker;
     testOperDir = '/' + testOperAccount.login +
@@ -159,8 +160,8 @@ test('setup: test dir', function (t) {
 
     client.mkdir(testDir, function (err) {
         t.ifError(err, 'no error making testDir:' + testDir);
-        operClient.mkdir(testOperDir, function (err) {
-            t.ifError(err, 'no error making testOperDir: ' + testOperDir);
+        operClient.mkdir(testOperDir, function (operErr) {
+            t.ifError(operErr, 'no error making testOperDir: ' + testOperDir);
             t.end();
         });
     });
@@ -168,7 +169,7 @@ test('setup: test dir', function (t) {
 
 
 test('get obj with default role', function (t) {
-    var path = `${testDir}/obj-with-default-role`;
+    var path = testDir + '/obj-with-default-role';
 
     writeObject({
         client: client,
@@ -191,7 +192,7 @@ test('get obj with default role', function (t) {
 });
 
 test('get obj without needed role', function (t) {
-    var path = `${testDir}/obj-without-needed-role`;
+    var path = testDir + '/obj-without-needed-role';
     writeObject({
         client: client,
         path: path,
@@ -216,7 +217,7 @@ test('get obj without needed role', function (t) {
 });
 
 test('get obj using needed role', function (t) {
-    var path = `${testDir}/obj-with-needed-role`;
+    var path = testDir + '/obj-with-needed-role';
     writeObject({
         client: client,
         path: path,
@@ -242,7 +243,7 @@ test('get obj using needed role', function (t) {
 });
 
 test('get obj using multiple roles', function (t) {
-    var path = `${testDir}/obj-with-using-multiple-roles`;
+    var path = testDir + '/obj-with-using-multiple-roles';
     writeObject({
         client: client,
         path: path,
@@ -268,7 +269,7 @@ test('get obj using multiple roles', function (t) {
 });
 
 test('get obj using wrong role', function (t) {
-    var path = `${testDir}/obj-with-using-wrong-role`;
+    var path = testDir + '/obj-with-using-wrong-role';
     writeObject({
         client: client,
         path: path,
@@ -297,7 +298,7 @@ test('get obj using wrong role', function (t) {
 });
 
 test('get obj using "*" roles', function (t) {
-    var path = `${testDir}/obj-with-using-star-roles`;
+    var path = testDir + '/obj-with-using-star-roles';
     writeObject({
         client: client,
         path: path,
@@ -324,7 +325,7 @@ test('get obj using "*" roles', function (t) {
 
 
 test('get obj using bad role', function (t) {
-    var path = `${testDir}/obj-with-using-bad-role`;
+    var path = testDir + '/obj-with-using-bad-role';
     writeObject({
         client: client,
         path: path,
@@ -353,7 +354,7 @@ test('get obj using bad role', function (t) {
 });
 
 test('get dir using bad role, cross-account', function (t) {
-    var path = `/${testOperAccount.login}/stor`;
+    var path = '/' + testOperAccount.login + '/stor';
     subuserClient.get(path, {
         headers: {
             role: 'muskietest_role_other'
@@ -368,7 +369,7 @@ test('get dir using bad role, cross-account', function (t) {
 });
 
 test('mchmod/chattr an obj', function (t) {
-    var path = `${testDir}/obj-to-mchmod`;
+    var path = testDir + '/obj-to-mchmod';
     writeObject({
         client: client,
         path: path,
@@ -404,7 +405,7 @@ test('mchmod/chattr an obj', function (t) {
 });
 
 test('mchmod/chattr to a bad role fails', function (t) {
-    var path = `${testDir}/obj-to-mchmod-to-bad-role`;
+    var path = testDir + '/obj-to-mchmod-to-bad-role';
     writeObject({
         client: client,
         path: path,
@@ -435,7 +436,7 @@ test('mchmod/chattr to a bad role fails', function (t) {
 
 
 test('subuser create obj fails on parent dir check', function (t) {
-    var path = `${testDir}/obj-for-subuser-to-create`;
+    var path = testDir + '/obj-for-subuser-to-create';
     writeObject({
         client: subuserClient,
         path: path,
@@ -452,7 +453,7 @@ test('subuser create obj fails on parent dir check', function (t) {
 });
 
 test('subuser create obj fails on parent dir check', function (t) {
-    var path = `${testDir}/obj-for-subuser-to-create`;
+    var path = testDir + '/obj-for-subuser-to-create';
     writeObject({
         client: subuserClient,
         path: path,
@@ -469,7 +470,7 @@ test('subuser create obj fails on parent dir check', function (t) {
 });
 
 test('subuser create dir fails on parent dir check', function (t) {
-    var path = `${testDir}/obj-for-subuser-to-create`;
+    var path = testDir + '/obj-for-subuser-to-create';
     subuserClient.mkdir(path, {
         headers: {
             'role-tag': 'muskietest_role_write'
@@ -488,7 +489,7 @@ test('subuser create dir fails on parent dir check', function (t) {
 // However, since this requires an additional lookup, we're just returning
 // 404s for now.
 test('get nonexistent object 404', function (t) {
-    var path = `${testDir}/no-such-obj`;
+    var path = testDir + '/no-such-obj';
     client.get(path, function (err) {
         t.ok(err);
         if (err) {
@@ -501,7 +502,7 @@ test('get nonexistent object 404', function (t) {
 test('signed URL uses default roles', function (t) {
     accountWriteSubuserSignAnonGet({
         t: t,
-        path: `${testDir}/obj-to-sign`,
+        path: testDir + '/obj-to-sign',
         writeClient: client,
         writeRoleTag: 'muskietest_role_default',
         signClient: subuserClient
@@ -519,7 +520,7 @@ test('signed URL uses default roles', function (t) {
 test('signed URL ignores role headers', function (t) {
     accountWriteSubuserSignAnonGet({
         t: t,
-        path: `${testDir}/obj-to-sign`,
+        path: testDir + '/obj-to-sign',
         writeClient: client,
         writeRoleTag: 'muskietest_role_limit',
         signClient: subuserClient,
@@ -554,7 +555,7 @@ test('signed URL ignores role headers', function (t) {
 test('signed URL with included role', function (t) {
     accountWriteSubuserSignAnonGet({
         t: t,
-        path: `${testDir}/obj-to-sign`,
+        path: testDir + '/obj-to-sign',
         writeClient: client,
         writeRoleTag: 'muskietest_role_limit',
         signClient: subuserClient,
@@ -573,7 +574,7 @@ test('signed URL with included role', function (t) {
 test('signed URL with included wrong role', function (t) {
     accountWriteSubuserSignAnonGet({
         t: t,
-        path: `${testDir}/obj-to-sign`,
+        path: testDir + '/obj-to-sign',
         writeClient: client,
         writeRoleTag: 'muskietest_role_default',
         signClient: subuserClient,
@@ -606,7 +607,7 @@ test('signed URL with included wrong role', function (t) {
 test('signed URL with included invalid role', function (t) {
     accountWriteSubuserSignAnonGet({
         t: t,
-        path: `${testDir}/obj-to-sign`,
+        path: testDir + '/obj-to-sign',
         writeClient: client,
         writeRoleTag: 'muskietest_role_default',
         signClient: subuserClient,
@@ -639,7 +640,7 @@ test('signed URL with included invalid role', function (t) {
 // Tests for scenarios around rules with the "*"" or "all" aperture
 // resource (support added with MANTA-3962).
 test('all-resource rules, untagged', function (t) {
-    var path = `${testDir}/obj-for-star-rules-untagged`;
+    var path = testDir + '/obj-for-star-rules-untagged';
     var role = 'muskietest_role_star';
 
     vasync.pipeline({funcs: [
@@ -698,7 +699,7 @@ test('all-resource rules, untagged', function (t) {
 
 
 test('all-resource rules, tagged', function (t) {
-    var path = `${testDir}/obj-for-star-rules-tagged`;
+    var path = testDir + '/obj-for-star-rules-tagged';
     var role = 'muskietest_role_star';
 
     vasync.pipeline({funcs: [
@@ -751,7 +752,7 @@ test('all-resource rules, tagged', function (t) {
 // Tests for scenarios around rules with explicit resource strings (support
 // added with MANTA-4284).
 test('explicit resource rules', function (t) {
-    var path = `${testDir}/globbity-obj-1`;
+    var path = testDir + '/globbity-obj-1';
     var role = 'muskietest_role_glob';
 
     vasync.pipeline({funcs: [
@@ -793,7 +794,7 @@ test('explicit resource rules', function (t) {
 });
 
 test('explicit resource rules, denied', function (t) {
-    var path = `${testDir}/does-not-match-globbity-pattern`;
+    var path = testDir + 'ndoes-not-match-globbity-pattern';
     var role = 'muskietest_role_glob';
 
     vasync.pipeline({funcs: [
@@ -858,7 +859,7 @@ test('cross-account role access, denied', function (t) {
 });
 
 test('cross-account role access', function (t) {
-    var path = `${testOperDir}/obj-for-xacct-access`;
+    var path = testOperDir + '/obj-for-xacct-access';
     vasync.pipeline({funcs: [
         function writeObjWithoutRoleTag(_, next) {
             writeObject({
@@ -893,8 +894,8 @@ test('cross-account role access', function (t) {
 });
 
 test('created object gets parent dir roles', function (t) {
-    var dir = `${testDir}/dir-with-roles`;
-    var path = `${dir}/obj-inside-dir-with-roles`;
+    var dir = testDir + '/dir-with-roles';
+    var path = dir + '/obj-inside-dir-with-roles';
 
     vasync.pipeline({funcs: [
         function makeDir(_, next) {
@@ -923,12 +924,14 @@ test('created object gets parent dir roles', function (t) {
             client.info(path, function (err, info) {
                 t.ifError(err, 'expected client.info to work');
                 if (!err) {
+                    // JSSTYLED
                     var roleTags = info.headers['role-tag'].split(/,/);
                     t.ok(roleTags.indexOf('muskietest_role_write') !== -1,
-                        'have "muskietest_role_write" role-tag from parent dir');
+                        'have "muskietest_role_write" role-tag from ' +
+                            'parent dir');
                     next();
                 }
-            })
+            });
         }
     ]}, function finish(err) {
         t.ifError(err);
@@ -948,8 +951,8 @@ test('created object gets parent dir roles', function (t) {
 test('teardown', function (t) {
     client.rmr(testDir, function onRm(err) {
         t.ifError(err, 'remove testDir: ' + testDir);
-        operClient.rmr(testOperDir, function onRm(err) {
-            t.ifError(err, 'remove testOperDir: ' + testOperDir);
+        operClient.rmr(testOperDir, function onOperRm(operErr) {
+            t.ifError(operErr, 'remove testOperDir: ' + testOperDir);
             t.end();
         });
     });

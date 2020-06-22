@@ -29,7 +29,9 @@ var operClient;
 var storDir;
 var stringClient;
 var testAccount;
+var testDir;
 var testOperAccount;
+var testOperDir;
 
 test('setup: test accounts', function (t) {
     helper.ensureTestAccounts(t, function (err, accounts) {
@@ -48,15 +50,15 @@ test('setup: test dir', function (t) {
     operClient = helper.mantaClientFromAccountInfo(testOperAccount);
     storDir = '/' + testAccount.login + '/stor';
     stringClient = helper.createStringClient();
-    var marker = uuidv4().split('-')[0]
+    var marker = uuidv4().split('-')[0];
     testDir = '/' + testAccount.login + '/stor/test-dir-operator-' + marker;
     testOperDir = '/' + testOperAccount.login +
         '/stor/test-dir-operator-' + marker;
 
     client.mkdir(testDir, function (err) {
         t.ifError(err, 'no error making testDir:' + testDir);
-        operClient.mkdir(testOperDir, function (err) {
-            t.ifError(err, 'no error making testOperDir: ' + testOperDir);
+        operClient.mkdir(testOperDir, function (operErr) {
+            t.ifError(operErr, 'no error making testOperDir: ' + testOperDir);
             t.end();
         });
     });
@@ -165,7 +167,7 @@ test('regular account cannot ls with sort=none', function (t) {
                 t.equal(errBody.code, 'QueryParameterForbidden');
             } catch (parseErr) {
                 t.ok(false, 'expected GET body to be JSON error info, ' +
-                    'got: ' + getResult.body);
+                    'got: ' + err.body);
             }
 
             t.end();
@@ -202,7 +204,7 @@ test('regular account cannot ls with skip_owner_check=true', function (t) {
                 t.equal(errBody.code, 'QueryParameterForbidden');
             } catch (parseErr) {
                 t.ok(false, 'expected GET body to be JSON error info, ' +
-                    'got: ' + getResult.body);
+                    'got: ' + err.body);
             }
 
             t.end();
@@ -240,7 +242,7 @@ test('regular account cannot ls with no sort and no owner check', function (t) {
                 t.equal(errBody.code, 'QueryParameterForbidden');
             } catch (parseErr) {
                 t.ok(false, 'expected GET body to be JSON error info, ' +
-                    'got: ' + getResult.body);
+                    'got: ' + err.body);
             }
 
             t.end();
@@ -280,9 +282,9 @@ test('ls with operator-only params works', function (t) {
                     //    {"name":"dir-0","type":"directory","mtime":"202..."}
                     // down to a sorted list of "name"s.
                     var listedNames = body.split(/\n/g)
-                        .filter(line => line.trim())
-                        .map(line => JSON.parse(line))
-                        .map(dirent => dirent.name)
+                        .filter(function (line) { return line.trim(); })
+                        .map(function (line) { return JSON.parse(line); })
+                        .map(function (dirent) { return dirent.name; })
                         .sort();
 
                     t.deepEqual(listedNames, dirNames,
@@ -309,7 +311,7 @@ test('ls with operator-only params works', function (t) {
                     operClient.mkdir(subdir + '/' + dirName, nextDir);
                 }
             }, function (err) {
-                t.comment(`setup ${subdir} with a number of subdirs`);
+                t.comment('setup ' + subdir + ' with a number of subdirs');
                 next(err);
             });
         },
@@ -321,7 +323,7 @@ test('ls with operator-only params works', function (t) {
         },
         function checkLsWithSortAndSkipOwnerCheck(_, next) {
             checkLs({sort: 'none', skip_owner_check: 'true'}, next);
-        },
+        }
     ]}, function (err) {
         t.ifError(err, 'expected no error running the pipeline');
         t.end();
@@ -331,8 +333,8 @@ test('ls with operator-only params works', function (t) {
 test('teardown', function (t) {
     client.rmr(testDir, function onRm(err) {
         t.ifError(err, 'remove testDir: ' + testDir);
-        operClient.rmr(testOperDir, function onRm(err) {
-            t.ifError(err, 'remove testOperDir: ' + testOperDir);
+        operClient.rmr(testOperDir, function onOperRm(operErr) {
+            t.ifError(operErr, 'remove testOperDir: ' + testOperDir);
             t.end();
         });
     });
