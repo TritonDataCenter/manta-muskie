@@ -8,7 +8,7 @@
  * Copyright 2020 Joyent, Inc.
  */
 
-var format = require('util');
+var format = require('util').format;
 var fs = require('fs');
 var http = require('http');
 var https = require('https');
