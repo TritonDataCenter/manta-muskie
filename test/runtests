@@ -1,0 +1,55 @@
+#!/bin/bash
+
+#
+# The following will run all muskie tests inside a deployed muskie (aka
+# "webapi") instance:
+#
+#       ./test/runtests
+#       # OR:  ./node_modules/.bin/tap -j10 test/**.test.js
+#
+#
+# 'runtests' is just a super-light shim around calling the 'tap' runner with
+# some defaults. See <https://node-tap.org/docs/cli/> for a number of 'TAP_*'
+# environment variables that can be used to tweak how tests are run. Some common
+# use cases are:
+#
+# - Force TAP format output:
+#
+#       TAP=1 ./test/runtests
+#       # OR:  TAP=1 ./node_modules/.bin/tap test/**.test.js
+#
+# - Run a single test file. The nice thing about 'node-tap'-based tests is that
+#   they run independently without any special code-loading environment.
+#
+#       ./node_modules/.bin/tap test/integration/foo.test.js
+#       # OR:  node test/integration/foo.test.js
+#
+# - Run the test files one at a time (serially). By default we run test in
+#   parallel (another benefit of node-tap's design).
+#
+#       TEST_JOBS=1 ./test/runtests
+#       # OR:  ./node_modules/.bin/tap -j1 test/**.test.js
+#
+# - Set a different test timeout.
+#
+#       TAP_TIMEOUT=120 ./test/runtests
+#       # OR:  TAP_TIMEOUT=120 ./node_modules/.bin/tap test/**.test.js
+#       # OR no timeout:  ./node_modules/.bin/tap -T test/**.test.js
+#
+
+TOP=$(cd $(dirname $0)/../; pwd)
+PATH=$TOP/build/node/bin:$PATH
+
+[[ -n "$TEST_JOBS" ]] || TEST_JOBS=10
+
+# Set the default test timeout to something *large* because:
+# - Test account/RBAC setup ('helper.ensureTestAccounts' and, especially,
+#   'helper.ensureRbacSettings') can take a while to complete on a first
+#   run because they are waiting for caches to update account info.
+# - Some tests (e.g. various.test.js) take longer than 2 minutes, at least when
+#   run in parallel under COAL.
+[[ -n "$TAP_TIMEOUT" ]] || TAP_TIMEOUT=300
+export TAP_TIMEOUT
+
+cd $TOP
+./node_modules/.bin/tap -j $TEST_JOBS -o ./test.tap ./test/{unit,integration}/*.test.js
