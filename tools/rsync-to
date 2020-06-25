@@ -31,7 +31,7 @@ set -o pipefail
 TOP=$(cd $(dirname $0)/../; pwd)
 ALIAS=webapi
 SERVICE_PREFIX=/opt/smartdc/muskie
-SMF_FMRI=svc:/manta/application/muskie:muskie-8081
+FMRI_ALL=svc:/manta/application/muskie:muskie-*
 SSH_OPTS="-q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 HEADNODE=root@$1
 INSTS=
@@ -64,8 +64,10 @@ for inst in $INSTS; do
     rsync -av ${TOP}/ \
         $HEADNODE:/zones/$inst/root${SERVICE_PREFIX} \
         $rsyncOpts \
+        --exclude .git/ \
         --exclude /boot/ \
         --exclude /build/ \
+        --exclude /deps/ \
         --exclude /docs/ \
         --exclude /src/ \
         --exclude /env.sh \
@@ -76,11 +78,11 @@ for inst in $INSTS; do
         $HEADNODE:/zones/$inst/root/opt/smartdc/boot/ \
         $rsyncOpts
 
-    state=$(ssh $SSH_OPTS ${HEADNODE} svcs -z ${inst} -H -o state $SMF_FMRI)
-    if [[ "$state" == "maintenance" ]]; then
-        ssh $SSH_OPTS ${HEADNODE} svcadm -z ${inst} clear $SMF_FMRI
+    states=$(ssh $SSH_OPTS ${HEADNODE} svcs -z ${inst} -H -o state $FMRI_ALL)
+    if echo "$states" | grep "maintenance" >/dev/null; then
+        ssh $SSH_OPTS ${HEADNODE} svcadm -z ${inst} clear $FMRI_ALL
     else
-        ssh $SSH_OPTS ${HEADNODE} svcadm -z ${inst} restart $SMF_FMRI
+        ssh $SSH_OPTS ${HEADNODE} svcadm -z ${inst} restart $FMRI_ALL
     fi
 done
 

@@ -5,14 +5,17 @@
  */
 
 /*
- * Copyright (c) 2019, Joyent, Inc.
+ * Copyright 2020 Joyent, Inc.
  */
 
+var assert = require('assert-plus');
 var bunyan = require('bunyan');
-var mod_picker = require('../lib/picker.js');
 var fs = require('fs');
 var path = require('path');
-var assert = require('assert-plus');
+var test = require('tap').test;
+
+var mod_picker = require('../../lib/picker.js');
+
 
 ///--- Constants
 
@@ -22,7 +25,7 @@ var DEF_MAX_PERCENT_UTIL = 90;
 var DEF_MAX_OPERATOR_PERCENT_UTIL = 92;
 
 
-///--- Tests
+///--- Helpers
 
 /**
  * Sum values in array
@@ -113,8 +116,10 @@ function probablyNormal(kvs) {
     return ((outliers.length / values.length) < (1 - THREE_SIGMA));
 }
 
-exports.pickerTest = function (t) {
-    // report vars (see report below)
+
+///--- Tests
+
+test('picker', function (t) {
     var min = Infinity;
     var max = 0;
     var total = 0;
@@ -123,16 +128,14 @@ exports.pickerTest = function (t) {
     var hosts = {};
 
     // Test iterations. Pulled from old lib/picker.js test, see
-    // blame/history on that file
+    // blame/history on that file.
     var N = 10000;
 
-    // read sub/mock/fake moray results
-    var fname = 'picker.records.json';
-    var file = path.join(__dirname, '..', 'test', fname);
-    var morayValuesJSON = fs.readFileSync(file, 'utf8');
-    var morayValues = JSON.parse(morayValuesJSON);
+    // Load test data.
+    var morayValues = JSON.parse(
+        fs.readFileSync(path.resolve(__dirname, 'picker.records.json')));
 
-    // make a picker
+    // Make a picker.
     var picker = mod_picker.createClient({
         log: require('bunyan').createLogger({
             level: process.env.LOG_LEVEL || 'info',
@@ -143,11 +146,11 @@ exports.pickerTest = function (t) {
         maxUtilizationPct: DEF_MAX_PERCENT_UTIL,
         maxOperatorUtilizationPct: DEF_MAX_OPERATOR_PERCENT_UTIL,
         multiDC: true,
-        // i.e. don't connect to moray
+        // I.e. don't connect to moray.
         standalone: true
     });
 
-    // set up the picker with the fake moray data
+    // Set up the picker with the fake moray data.
     mod_picker.sortAndStoreDcs.call(picker, morayValues, morayValues);
 
     // do it
@@ -180,11 +183,11 @@ exports.pickerTest = function (t) {
         picker.close();
         t.ok(hostsNormal, 'Hosts selection appears normally distributed');
         t.ok(dcsNormal, 'DC selection appears normally distributed');
-        t.done();
+        t.end();
     }
 
     // the actual test code, yes, it runs iterations
-    function select() {
+    function select(_t) {
         var start = new Date().getTime();
         picker.choose({}, function onChosen(err, sharks) {
             assert.ifError(err);
@@ -216,5 +219,4 @@ exports.pickerTest = function (t) {
             setImmediate((++runs < N ? select : report), t);
         });
     }
-
-};
+});

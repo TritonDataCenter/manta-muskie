@@ -439,10 +439,16 @@ You cannot change "critical" headers:
     x-server-name: 00aa9214-0855-474d-92b5-8f713495b8d7
     Connection: keep-alive
 
+
 ## GetObject (GET /:login/stor/[:directory]/:object)
 
 Retrieves an object from the service.  On success an HTTP `200` is returned along with
 your content and metadata (HTTP headers).
+
+If the content-type on the object to retrieved is invalid (e.g. "/image/jpeg",
+"this-is-wrong"), then it will be treated as "application/octet-stream" for
+content negotiation (i.e. for matching against the "Accept" header).
+
 
 ### Sample Request
 
@@ -643,7 +649,7 @@ except the last one. This size is validated when CommitMultipartUpload is
 called.  UploadPart operations will succeed even if the part is under the
 minimum size.
 
-Any part number between 0 and 9999 is valid, but committing a multipart upload
+Any part number between 0 and 799 is valid, but committing a multipart upload
 requires consecutive parts starting from part 0.  See
 [CommitMultipartUpload](#CommitMultipartUpload) for details.
 

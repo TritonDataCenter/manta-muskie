@@ -39,6 +39,10 @@ NODE_PREBUILT_VERSION	:= v6.17.1
 #  minimal-64-lts 19.4.0
 NODE_PREBUILT_IMAGE     = 5417ab20-3156-11ea-8b19-2b66f5e7a439
 
+TEST_JOBS ?= 10
+TEST_TIMEOUT_S ?= 1200
+TEST_FILTER ?= .*
+
 ENGBLD_USE_BUILDIMAGE	= true
 ENGBLD_REQUIRE		:= $(shell git submodule update --init deps/eng)
 include ./deps/eng/tools/mk/Makefile.defs
@@ -74,33 +78,27 @@ endif
 #
 # Repo-specific targets
 #
-check:: python2-symlink
 
 .PHONY: all
 all: $(SMF_MANIFESTS) $(STAMP_NODE_MODULES) manta-scripts
+
+check:: python2-symlink
 
 .PHONY: manta-scripts
 manta-scripts: deps/manta-scripts/.git
 	mkdir -p $(BUILD)/scripts
 	cp deps/manta-scripts/*.sh $(BUILD)/scripts
 
-.PHONY: test
-test: $(STAMP_NODE_MODULES)
-	PATH=$(ROOT)/$(NODE_INSTALL)/bin:$(PATH) \
-	    $(NODE) ./node_modules/.bin/nodeunit --reporter=tap \
-	    test/*.test.js test/mpu/*.test.js
+.PHONY: test-unit
+test-unit: $(STAMP_NODE_MODULES) | $(TAP_EXEC)
+	./node_modules/.bin/tap -j10 -o test.tap test/unit/*.test.js
 
-#
-# This target can be used to invoke "acsetup.js", a program which configures
-# access control in the current Manta account in preparation for running the
-# Muskie test suite.  The most common invocations will include:
-#
-#	make test-ac-setup
-#	make test-ac-teardown
-#
-.PHONY: test-ac-%
-test-ac-%: $(STAMP_NODE_MODULES)
-	PATH=$(ROOT)/$(NODE_INSTALL)/bin:$(PATH) $(NODE) test/acsetup.js $*
+.PHONY: test
+test:
+	@echo "To run all tests, run the following from /opt/smartdc/muskie on a webapi VM:"
+	@echo ""
+	@echo "    ./test/runtests"
+	@exit 1
 
 .PHONY: release
 release: all docs
@@ -119,6 +117,7 @@ release: all docs
 	    $(ROOT)/lib \
 	    $(ROOT)/node_modules \
 	    $(ROOT)/package.json \
+	    $(ROOT)/package-lock.json \
 	    $(ROOT)/sapi_manifests \
 	    $(ROOT)/smf \
 	    $(ROOT)/test \

@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Joyent, Inc.
+ * Copyright 2020 Joyent, Inc.
  */
 
 /*
@@ -8,22 +8,14 @@
 
 var forkExecWait = require('forkexec').forkExecWait;
 var path = require('path');
+var test = require('tap').test;
 
-var BINDIR = path.resolve(__dirname, '../bin');
-var MPICKER = path.resolve(BINDIR, 'mpicker');
+var MPICKER = path.resolve(__dirname, '../../bin/mpicker');
 
-
-// ---- helper functions
-
-function test(name, testfunc) {
-    module.exports[name] = testfunc;
-}
 
 // ---- tests
 
-/*
- * Verify command can be invoked without error
- */
+// Verify command can be invoked without error.
 test('mpicker -h', function (t) {
     var argv = [
         MPICKER,
@@ -35,12 +27,12 @@ test('mpicker -h', function (t) {
     forkExecWait({
         argv: argv
     }, function (err, info) {
-        t.ifError(err, err);
+        t.ifError(err, 'invoked "mpicker -h" without error');
 
         t.equal(info.stderr, '', 'no stderr');
         t.equal(info.stdout.lastIndexOf(usagePhrase, 0), 0,
-            'stdout from mpicker');
+            'stdout from mpicker includes expected usage phrase');
 
-        t.done();
+        t.end();
     });
 });

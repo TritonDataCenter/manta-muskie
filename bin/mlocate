@@ -7,7 +7,7 @@
  */
 
 /*
- * Copyright (c) 2014, Joyent, Inc.
+ * Copyright 2020 Joyent, Inc.
  */
 
 var fs = require('fs');
@@ -17,7 +17,7 @@ var assert = require('assert-plus');
 var bunyan = require('bunyan');
 var dashdash = require('dashdash');
 var libmanta = require('libmanta');
-var libuuid = require('libuuid');
+var uuidv4 = require('uuid/v4');
 var mahi = require('mahi');
 var manta = require('manta');
 var once = require('once');
@@ -181,7 +181,7 @@ function configure() {
 
                 var opts = {
                     key: key,
-                    requestId: libuuid.create()
+                    requestId: uuidv4()
                 };
                 moray.getMetadata(opts, function (err2, md, rawMd) {
                     if (err2) {
