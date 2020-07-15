@@ -261,7 +261,7 @@ function clientsConnected(appName, cfg, clients) {
     + 'starting muskie servers');
 
     server1 = app.createServer(cfg, clients, 'ssl');
-    server1.on('error', function (errOrReq, _res, _err, cb) {
+    server1.on('error', function onSslServerErr(errOrReq, _res, _err, cb) {
         // HACK to ignore unintended server "error" events due to a subtle
         // bug in restify. http://restify.com/docs/server-api/#errors supports
         // a feature where you can do this:
@@ -292,7 +292,7 @@ function clientsConnected(appName, cfg, clients) {
     });
 
     server2 = app.createServer(cfg, clients, 'insecure');
-    server2.on('error', function (errOrReq, _res, _err, cb) {
+    server2.on('error', function onInsecureServerErr(errOrReq, _res, _err, cb) {
         // HACK to ignore unintended server "error" events due to a subtle
         // bug in restify. See comment above for `server1`.
         if (cb !== undefined) {
