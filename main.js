@@ -261,8 +261,30 @@ function clientsConnected(appName, cfg, clients) {
     + 'starting muskie servers');
 
     server1 = app.createServer(cfg, clients, 'ssl');
-    server1.on('error', function (err) {
-        log.fatal(err, 'server (secure) error');
+    server1.on('error', function (errOrReq, _res, _err, cb) {
+        // HACK to ignore unintended server "error" events due to a subtle
+        // bug in restify. http://restify.com/docs/server-api/#errors supports
+        // a feature where you can do this:
+        //      server.on('<error name>', function (req, res, err, cb) {...});
+        // to get an event for particular error cases. That "<error name>"
+        // is match against `err.name` from any Error returned from a
+        // restify handler, e.g.:
+        //      next(new MyWeirdCaseError(...));
+        //
+        // The subtle bug is that if `err.name === "error"`, then restify will
+        // emit an event named "error", which is typically a special case
+        // for any EventEmitter:
+        //      emitter.on('error', function (err) {...});
+        //
+        // The intent here is to handle actual "error" events that indicate
+        // a severe issue with the server, not to handle some particular
+        // handler Error class. So if we get the latter (i.e. the subtle bug),
+        // then just ignore it.
+        if (cb !== undefined) {
+            cb();
+            return;
+        }
+        log.fatal({err: errOrReq}, 'server (secure) error');
         process.exit(1);
     });
     server1.listen(cfg.port, function () {
@@ -270,8 +292,14 @@ function clientsConnected(appName, cfg, clients) {
     });
 
     server2 = app.createServer(cfg, clients, 'insecure');
-    server2.on('error', function (err) {
-        log.fatal(err, 'server (clear) error');
+    server2.on('error', function (errOrReq, _res, _err, cb) {
+        // HACK to ignore unintended server "error" events due to a subtle
+        // bug in restify. See comment above for `server1`.
+        if (cb !== undefined) {
+            cb();
+            return;
+        }
+        log.fatal({err: errOrReq}, 'server (clear) error');
         process.exit(1);
     });
     server2.listen(cfg.insecurePort, function () {
