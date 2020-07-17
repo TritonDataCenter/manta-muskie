@@ -322,10 +322,13 @@ function createStorinfoClient(cfg, clients, barrier) {
         standalone: false
     };
 
-    clients.storinfo = storinfo.createClient(opts);
+    var storinfo = storinfo.createClient(opts);
 
-    clients.storinfo.once('topology', function () {
+    storinfo.once('topology', function () {
         opts.log.info('first poll completed');
+        // Intentionally only assign `clients.storinfo` after it is intialized
+        // so its presence can be used to test if init is complete.
+        client.storinfo = storinfo;
         barrier.done('createStorinfoClient');
     });
 }
