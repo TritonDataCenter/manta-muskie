@@ -176,6 +176,26 @@
   },
   {{/MPU_ENABLE}}
 
+  "storinfo": {
+    {{#WEBAPI_USE_PICKER}}
+    "usePicker": true,
+    {{/WEBAPI_USE_PICKER}}
+    "pollInterval": 30000,
+    "url": "http://storinfo.{{DOMAIN_NAME}}",
+    "cueballOpts": {
+      "spares": 4,
+      "maximum": 10,
+      "recovery": {
+        "default": {
+          "timeout": 2000,
+          "retries": 5,
+          "delay": 250,
+          "maxDelay": 1000
+        }
+      },
+      "resolvers": ["nameservice.{{DOMAIN_NAME}}"]
+    }
+  },
   "storage": {
     "lag": 60000,
     "multiDC": {{MUSKIE_MULTI_DC}}{{#MUSKIE_DEFAULT_MAX_STREAMING_SIZE_MB}},

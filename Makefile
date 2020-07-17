@@ -128,6 +128,8 @@ release: all docs
 	    $(RELSTAGEDIR)/root/opt/smartdc/$(NAME)/boot
 	ln -s /opt/smartdc/$(NAME)/boot/setup.sh \
 	    $(RELSTAGEDIR)/root/opt/smartdc/boot/setup.sh
+	ln -s ../node_modules/storinfo/bin/mchoose \
+		$(RELSTAGEDIR)/root/opt/smartdc/$(NAME)/bin/mchoose
 	chmod 755 $(RELSTAGEDIR)/root/opt/smartdc/$(NAME)/boot/setup.sh
 	cd $(RELSTAGEDIR) && $(TAR) -I pigz -cf $(ROOT)/$(RELEASE_TARBALL) root site
 	@rm -rf $(RELSTAGEDIR)

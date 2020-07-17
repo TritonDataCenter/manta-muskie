@@ -25,6 +25,7 @@ var libmanta = require('libmanta');
 var mahi = require('mahi');
 var once = require('once');
 var restify = require('restify');
+var storinfo = require('storinfo');
 var vasync = require('vasync');
 
 var app = require('./lib');
@@ -309,6 +310,25 @@ function clientsConnected(appName, cfg, clients) {
     app.startKangServer();
 }
 
+function createStorinfoClient(cfg, clients, barrier) {
+    var opts = {
+        log: cfg.log.child({component: 'storinfo'}, true),
+        url: cfg.storinfo.url,
+        pollInterval: cfg.storinfo.pollInterval,
+        cueballOpts: cfg.storinfo.cueballOpts,
+        defaultMaxStreamingSizeMB: cfg.storage.defaultMaxStreamingSizeMB,
+        maxUtilizationPct: cfg.storage.maxUtilizationPct,
+        multiDC: cfg.storage.multiDC,
+        standalone: false
+    };
+
+    clients.storinfo = storinfo.createClient(opts);
+
+    clients.storinfo.once('topology', function () {
+        opts.log.info('first poll completed');
+        barrier.done('createStorinfoClient');
+    });
+}
 
 ///--- Mainline
 
@@ -351,6 +371,24 @@ function clientsConnected(appName, cfg, clients) {
 
     clients.agent = new cueball.HttpAgent(cfg.cueballHttpAgent);
     clients.mahi = createAuthCacheClient(cfg.auth, clients.agent);
+
+    // Establish other client connections needed for writes and jobs requests.
+
+    /*
+     * The default behavior is to use the Storinfo service for querying storage
+     * node utilization information.  This can be overriden via a SAPI tunable,
+     * in which case we fall back to using the legacy, builtin picker
+     * component.
+     */
+    if (cfg.storinfo.usePicker) {
+        cfg.log.info('Using builtin Picker component');
+        createPickerClient(cfg.storage, cfg.log,
+            onPickerConnect.bind(null, clients));
+    } else {
+        cfg.log.info('Using Storinfo service');
+        barrier.start('createStorinfoClient');
+        createStorinfoClient(cfg, clients, barrier);
+    }
 
     barrier.start('createMorayClient');
     createMorayClient(cfg, onMorayConnect.bind(null, clients, barrier));

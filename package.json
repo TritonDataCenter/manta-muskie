@@ -39,6 +39,7 @@
         "restify": "6.4.0",
         "restify-errors": "^5.0.0",
         "sshpk": "1.16.1",
+        "storinfo": "1.0.1",
         "tab": "1.0.0",
         "uuid": "3.4.0",
         "vasync": "^2.2.0",
