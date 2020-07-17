@@ -310,7 +310,7 @@ function clientsConnected(appName, cfg, clients) {
     app.startKangServer();
 }
 
-function createStorinfoClient(cfg, clients, barrier) {
+function createStorinfoClient(cfg, clients) {
     var opts = {
         log: cfg.log.child({component: 'storinfo'}, true),
         url: cfg.storinfo.url,
@@ -329,7 +329,6 @@ function createStorinfoClient(cfg, clients, barrier) {
         // Intentionally only assign `clients.storinfo` after it is intialized
         // so its presence can be used to test if init is complete.
         clients.storinfo = siClient;
-        barrier.done('createStorinfoClient');
     });
 }
 
@@ -389,16 +388,13 @@ function createStorinfoClient(cfg, clients, barrier) {
             onPickerConnect.bind(null, clients));
     } else {
         cfg.log.info('Using Storinfo service');
-        barrier.start('createStorinfoClient');
-        createStorinfoClient(cfg, clients, barrier);
+        createStorinfoClient(cfg, clients);
     }
 
     barrier.start('createMorayClient');
     createMorayClient(cfg, onMorayConnect.bind(null, clients, barrier));
 
     // Establish other client connections needed for write requests.
-    createPickerClient(cfg.storage, cfg.log,
-        onPickerConnect.bind(null, clients));
     clients.sharkAgent = createCueballSharkAgent(cfg.sharkConfig);
     clients.keyapi = createKeyAPIClient(cfg);
 
