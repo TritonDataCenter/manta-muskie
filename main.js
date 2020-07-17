@@ -324,7 +324,7 @@ function createStorinfoClient(cfg, clients) {
 
     var siClient = storinfo.createClient(opts);
 
-    siClient.once('topology', function () {
+    siClient.once('topology', function onTopology() {
         opts.log.info('first poll completed');
         // Intentionally only assign `clients.storinfo` after it is intialized
         // so its presence can be used to test if init is complete.
