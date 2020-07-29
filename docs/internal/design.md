@@ -33,11 +33,25 @@ object traffic, and [mako](https://github.com/joyent/mako) for writing objects.
 
 ## Storage Picker
 
-One additional dependency in muskie is on a Moray shard (by convention the same
-one that marlin uses), to store the storage node `statvfs` information.  Muskie
-periodically refreshes this and *always* selects storage nodes from the local
-cache on writes, as opposed to hitting Moray directly for this purpose.  This is
-purely in-memory so all muskie *processes* have a cached copy.
+One additional dependency in muskie is on the Moray shard that maintains
+the storage node `statvfs` information.  There are two options for muskie to
+query this information:
+
+- use the built-in picker that periodically refreshes the data from moray and
+  selects storage nodes from the local cache on writes (this is purely in-memory
+  so all muskie *processes* have a cached copy)
+
+- use the [Storinfo](https://github.com/joyent/manta-storinfo) service which
+  works in a similar way as picker to avoid hitting Moray directly for every
+  object write
+
+By default, Muskie is configured to use Storinfo. If the service is not in the
+Manta deployment and you wish to eliminate the dependency on it, you can
+switch to use the local picker by updating SAPI metadata:
+
+    $ sdc-sapi /services/$(sdc-sapi /services?name=webapi | json -Ha uuid) \
+        -X PUT -d '{"action": "update", "metadata": {"WEBAPI_USE_PICKER": true}}'
+
 
 # Monitoring
 
