@@ -24,9 +24,17 @@ frontend http_trusted
         bind *:80
         default_backend trusted_servers
 
+        # Protect against CVE-2021-40346
+        http-request  deny if { req.hdr_cnt(content-length) gt 1 }
+        http-response deny if { res.hdr_cnt(content-length) gt 1 }
+
 frontend http_insecure
         bind *:81
         default_backend insecure_servers
+
+        # Protect against CVE-2021-40346
+        http-request  deny if { req.hdr_cnt(content-length) gt 1 }
+        http-response deny if { res.hdr_cnt(content-length) gt 1 }
 
 backend trusted_servers
 @@MUSKIE_INSTANCES@@
