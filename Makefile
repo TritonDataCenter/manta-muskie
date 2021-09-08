@@ -5,7 +5,7 @@
 #
 
 #
-# Copyright 2020 Joyent, Inc.
+# Copyright 2021 Joyent, Inc.
 #
 
 #
@@ -68,7 +68,7 @@ RELSTAGEDIR :=		/tmp/$(NAME)-$(STAMP)
 BASE_IMAGE_UUID = 59ba2e5e-976f-4e09-8aac-a4a7ef0395f5
 BUILDIMAGE_NAME = mantav2-webapi
 BUILDIMAGE_DESC	= Manta webapi
-BUILDIMAGE_PKGSRC = haproxy-2.0.13
+BUILDIMAGE_PKGSRC = haproxy-2.0.25
 AGENTS		= amon config registrar
 
 ifeq ($(shell uname -s),SunOS)
