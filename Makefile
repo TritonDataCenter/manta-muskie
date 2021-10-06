@@ -58,7 +58,7 @@ RELSTAGEDIR :=		/tmp/$(NAME)-$(STAMP)
 BASE_IMAGE_UUID = 59ba2e5e-976f-4e09-8aac-a4a7ef0395f5
 BUILDIMAGE_NAME = mantav1-webapi
 BUILDIMAGE_DESC	= Manta webapi
-BUILDIMAGE_PKGSRC = haproxy-1.6.2
+BUILDIMAGE_PKGSRC = haproxy-2.0.25
 AGENTS		= amon config registrar
 
 ifeq ($(shell uname -s),SunOS)
