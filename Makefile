@@ -61,7 +61,7 @@ BUILDIMAGE_PKGSRC = haproxy-1.6.2
 AGENTS		= amon config registrar
 
 ifeq ($(shell uname -s),SunOS)
-    esport PATH:=$(TOP)/build/agent-python:$(PATH)
+    export PATH:=$(TOP)/build/agent-python:$(PATH)
 endif
 
 #
