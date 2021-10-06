@@ -40,6 +40,7 @@ NODE_PREBUILT_VERSION	:= v6.17.1
 NODE_PREBUILT_IMAGE     = 5417ab20-3156-11ea-8b19-2b66f5e7a439
 
 ENGBLD_USE_BUILDIMAGE	= true
+ENGBLD_CHECK_COPYRIGHT_ARGS = -b mantav1
 ENGBLD_REQUIRE		:= $(shell git submodule update --init deps/eng)
 include ./deps/eng/tools/mk/Makefile.defs
 TOP ?= $(error Unable to access eng.git submodule Makefiles.)
