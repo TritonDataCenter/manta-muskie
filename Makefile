@@ -138,11 +138,11 @@ publish: release
 #
 .PHONY: python2-symlink
 python2-symlink:
-  mkdir -p $(TOP)/build/agent-python
-  if [ -f /opt/local/bin/python2 ]; then \
-      rm -f $(TOP)/build/agent-python/python; \
-      ln -s /opt/local/bin/python2 $(TOP)/build/agent-python/python; \
-  fi
+	mkdir -p $(TOP)/build/agent-python
+	if [ -f /opt/local/bin/python2 ]; then \
+	  rm -f $(TOP)/build/agent-python/python; \
+	  ln -s /opt/local/bin/python2 $(TOP)/build/agent-python/python; \
+	fi
 
 include ./deps/eng/tools/mk/Makefile.deps
 include ./deps/eng/tools/mk/Makefile.node_prebuilt.targ
