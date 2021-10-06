@@ -478,7 +478,7 @@ test('put if-none-match ok', function (t) {
             }
         };
         self.putObject(t, opts, function (__, headers2) {
-            t.notEqual(etag !== headers2.etag, 'etags differ');
+            t.notEqual(headers.etag !== headers2.etag, 'etags differ');
             t.end();
         });
     });
@@ -516,7 +516,7 @@ test('put unmodified-since ok', function (t) {
             }
         };
         self.putObject(t, opts, function (__, headers2) {
-            t.notEqual(etag !== headers2.etag, 'etags differ');
+            t.notEqual(headers.etag !== headers2.etag, 'etags differ');
             t.end();
         });
     });
