@@ -268,7 +268,7 @@ function checkResponse(t, res, code) {
     t.ok(res.headers['x-server-name'], 'headers have x-server-name');
 
     if (code === 200 || code === 201 || code === 202) {
-        t.ok(res.headers['content-type']);
+        t.ok(res.headers['content-type'], 'headers have content-type');
         var ct = res.headers['content-type'];
         /* JSSTYLED */
         if (!/application\/x-json-stream.*/.test(ct)) {

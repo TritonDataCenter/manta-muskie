@@ -1,9 +1,9 @@
-@Library('jenkins-joylib@v1.0.3') _
+@Library('jenkins-joylib@v1.0.8') _
 
 pipeline {
 
     agent {
-        label joyCommonLabels(image_ver: '15.4.1')
+        label joyCommonLabels(image_ver: '19.4.0')
     }
 
     options {
