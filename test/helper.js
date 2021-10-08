@@ -18,7 +18,7 @@ var bunyan = require('bunyan');
 var fs = require('fs');
 var manta = require('manta');
 var once = require('once');
-var restifyClients = require('restify-clients');
+var restify = require('restify');
 var smartdc = require('smartdc');
 var smartdc_auth = require('smartdc-auth');
 var sshpk = require('sshpk');
@@ -106,7 +106,7 @@ function createLogger(name, stream) {
         name: name || process.argv[1],
         stream: stream || process.stdout,
         src: true,
-        serializers: restifyClients.bunyan.serializers
+        serializers: restify.bunyan.serializers
     });
     return (log);
 }
@@ -162,7 +162,7 @@ function createUserClient(login) {
 
 function createJsonClient() {
     var log = createLogger();
-    var client = restifyClients.createClient({
+    var client = restify.createClient({
         agent: false,
         connectTimeout: 250,
         log: log,
@@ -178,7 +178,7 @@ function createJsonClient() {
 
 function createRawClient() {
     var log = createLogger();
-    var client = restifyClients.createClient({
+    var client = restify.createClient({
         agent: false,
         connectTimeout: 250,
         log: log,

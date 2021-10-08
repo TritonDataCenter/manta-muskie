@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright 2021 Joyent, Inc.
+ * Copyright (c) 2017, Joyent, Inc.
  */
 
 var MemoryStream = require('stream').PassThrough;
@@ -795,71 +795,68 @@ test('ls 404', function (t) {
 });
 
 
-//
-// The following tests should be uncommented once MANTA-5171 is addressed.
-//
-//test('operator can ls with no sort', function (t) {
-//    testParamsAllowed(t, true, true, this.root, {
-//        sort: 'none'
-//    });
-//});
+test('operator can ls with no sort', function (t) {
+    testParamsAllowed(t, true, true, this.root, {
+        sort: 'none'
+    });
+});
 
 
-//test('operator can ls with no owner check', function (t) {
-//    testParamsAllowed(t, true, true, this.root, {
-//        skip_owner_check: 'true'
-//    });
-//});
+test('operator can ls with no owner check', function (t) {
+    testParamsAllowed(t, true, true, this.root, {
+        skip_owner_check: 'true'
+    });
+});
 
 
-//test('operator can ls with sort and no owner check', function (t) {
-//    testParamsAllowed(t, true, true, this.root, {
-//        sort: 'none',
-//        skip_owner_check: 'true'
-//    });
-//});
+test('operator can ls with sort and no owner check', function (t) {
+    testParamsAllowed(t, true, true, this.root, {
+        sort: 'none',
+        skip_owner_check: 'true'
+    });
+});
 
 
-//test('regular user cannot ls with no sort', function (t) {
-//    testParamsAllowed(t, false, false, this.root, {
-//        sort: 'none'
-//    });
-//});
+test('regular user cannot ls with no sort', function (t) {
+    testParamsAllowed(t, false, false, this.root, {
+        sort: 'none'
+    });
+});
 
 
-//test('regular user cannot ls with no owner check', function (t) {
-//    testParamsAllowed(t, false, false, this.root, {
-//        skip_owner_check: 'true'
-//    });
-//});
+test('regular user cannot ls with no owner check', function (t) {
+    testParamsAllowed(t, false, false, this.root, {
+        skip_owner_check: 'true'
+    });
+});
 
 
-//test('regular user cannot ls with no sort and no owner check', function (t) {
-//    testParamsAllowed(t, false, false, this.root, {
-//        sort: 'none',
-//        skip_owner_check: 'true'
-//    });
-//});
+test('regular user cannot ls with no sort and no owner check', function (t) {
+    testParamsAllowed(t, false, false, this.root, {
+        sort: 'none',
+        skip_owner_check: 'true'
+    });
+});
 
-//test('ls with no sort returns accurate list of results', function (t) {
-//    testListWithParams.bind(this)(t, {
-//        sort: 'none'
-//    });
-//});
+test('ls with no sort returns accurate list of results', function (t) {
+    testListWithParams.bind(this)(t, {
+        sort: 'none'
+    });
+});
 
-//test('ls with no owner check returns accurate list of results', function (t) {
-//    testListWithParams.bind(this)(t, {
-//        skip_owner_check: 'true'
-//    });
-//});
+test('ls with no owner check returns accurate list of results', function (t) {
+    testListWithParams.bind(this)(t, {
+        skip_owner_check: 'true'
+    });
+});
 
-//test('ls with no sort and no owner check returns accurate list of results',
-//    function (t) {
-//    testListWithParams.bind(this)(t, {
-//        sort: 'none',
-//        skip_owner_check: 'true'
-//    });
-//});
+test('ls with no sort and no owner check returns accurate list of results',
+    function (t) {
+    testListWithParams.bind(this)(t, {
+        sort: 'none',
+        skip_owner_check: 'true'
+    });
+});
 
 test('rmdir', function (t) {
     this.client.unlink(this.dir, function (err, res) {

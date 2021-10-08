@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright 2021 Joyent, Inc.
+ * Copyright (c) 2017, Joyent, Inc.
  */
 
 var manta = require('manta');
@@ -131,7 +131,7 @@ test('redirect upload: POST /:account/uploads/:id', function (t) {
         var options = {
             headers: {
                 'content-type': 'application/json',
-                'accept': 'application/json'
+                'expect': 'application/json'
             },
             path: self.redirectPath()
         };
@@ -279,7 +279,7 @@ test('redirect upload: POST /:account/uploads/:id/:partNum', function (t) {
         var options = {
             headers: {
                 'content-type': 'application/json',
-                'accept': 'application/json'
+                'expect': 'application/json'
             },
             path: self.redirectPath(pn)
         };

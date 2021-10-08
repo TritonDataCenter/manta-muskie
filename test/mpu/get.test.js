@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright 2021 Joyent, Inc.
+ * Copyright (c) 2017, Joyent, Inc.
  */
 
 var path = require('path');
@@ -46,7 +46,7 @@ test('get upload: non-uuid id', function (t) {
     var options = {
         headers: {
             'content-type': 'application/json',
-            'accept': 'application/json'
+            'expect': 'application/json'
         }
     };
 

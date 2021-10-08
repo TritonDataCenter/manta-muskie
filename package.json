@@ -1,7 +1,7 @@
 {
     "name": "muskie",
     "description": "Manta public-facing WebAPI",
-    "version": "1.1.0",
+    "version": "1.0.2",
     "author": "Joyent (joyent.com)",
     "private": true,
     "repository": {
@@ -38,9 +38,7 @@
         "moray": "3.4.1",
         "moray-filter": "1.0.0",
         "once": "1.4.0",
-        "restify": "6.4.0",
-        "restify-clients": "2.6.7",
-        "restify-errors": "^5.0.0",
+        "restify": "4.3.4",
         "sshpk": "1.16.1",
         "tab": "1.0.0",
         "vasync": "^1.5.0",

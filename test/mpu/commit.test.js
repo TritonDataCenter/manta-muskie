@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright 2021 Joyent, Inc.
+ * Copyright 2019 Joyent, Inc.
  */
 
 var MemoryStream = require('stream').PassThrough;
@@ -782,7 +782,7 @@ test('commit upload: non-uuid id', function (t) {
     var options = {
         headers: {
             'content-type': 'application/json',
-            'accept': 'application/json'
+            'expect': 'application/json'
         },
         path: '/' + this.client.user + '/uploads/f/' + bogus + '/' + action
     };
