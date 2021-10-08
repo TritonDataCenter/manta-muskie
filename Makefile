@@ -45,10 +45,17 @@ ENGBLD_REQUIRE		:= $(shell git submodule update --init deps/eng)
 include ./deps/eng/tools/mk/Makefile.defs
 TOP ?= $(error Unable to access eng.git submodule Makefiles.)
 
-include ./deps/eng/tools/mk/Makefile.node_prebuilt.defs
-include ./deps/eng/tools/mk/Makefile.agent_prebuilt.defs
 include ./deps/eng/tools/mk/Makefile.node_modules.defs
-include ./deps/eng/tools/mk/Makefile.smf.defs
+ifeq ($(shell uname -s),SunOS)
+	include ./deps/eng/tools/mk/Makefile.node_prebuilt.defs
+	include ./deps/eng/tools/mk/Makefile.agent_prebuilt.defs
+	include ./deps/eng/tools/mk/Makefile.smf.defs
+else
+	NPM=npm
+	NODE=node
+	NPM_EXEC=$(shell which npm)
+	NODE_EXEC=$(shell which node)
+endif
 
 RELEASE_TARBALL :=	$(NAME)-pkg-$(STAMP).tar.gz
 ROOT :=			$(shell pwd)
@@ -71,7 +78,25 @@ endif
 check:: python2-symlink
 
 .PHONY: all
-all: $(SMF_MANIFESTS) $(STAMP_NODE_MODULES) manta-scripts
+all: $(SMF_MANIFESTS) restify_semver_hack manta-scripts
+
+#
+# This hack fixes a small bug with the semver handling in restify 4.3.4
+# that we use in muskie. In order for piranha running on nodev6 to properly
+# auth against manta, manta also needs to be on nodev6. This was orignally done
+# with mantav2, but mantav1 having been abandoned it was never brought forward
+# from nodev0.10 until much later. Updating mantav1 to nodev6 was fairly easy
+# and straightforwared, but a few routes were broken due to this semver bug.
+# Mantav2 fixed this by fixing the dependency then updating restify to 6.4.
+# Unfortunately things are not so easy with mantav1. An attempt was made at
+# moving mantav1 to restify 6.4 which broke a lot of things.
+# The effort involved to move to restify 6 far outweighs the benefit at this
+# time. To make the best of a bad situation, we've elected to patch semver
+# after node_modules are installed. It's dirty and it's terrible. But it works.
+# See https://github.com/restify/node-restify/pull/1381 for the original fix.
+.PHONY: restify_semver_hack
+restify_semver_hack: $(STAMP_NODE_MODULES)
+	patch -p1 < patches/001-restify-semver.patch
 
 .PHONY: manta-scripts
 manta-scripts: deps/manta-scripts/.git

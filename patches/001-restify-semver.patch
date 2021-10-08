@@ -1,0 +1,11 @@
+--- a/node_modules/restify/lib/router.js
++++ b/node_modules/restify/lib/router.js
+@@ -490,7 +490,7 @@
+                 var v = semver.maxSatisfying(k, req.version());
+ 
+                 if (v) {
+-                    if (!r || semver.gt(v, maxV)) {
++                    if (!r || !maxV || semver.gt(v, maxV)) {
+                         r = c.r;
+                         params = c.p;
+                         maxV = v;
