@@ -5,14 +5,14 @@
  */
 
 /*
- * Copyright (c) 2014, Joyent, Inc.
+ * Copyright 2021 Joyent, Inc.
  */
 
 var util = require('util');
 
 var MemoryStream = require('stream').PassThrough;
 var once = require('once');
-var restify = require('restify');
+var restifyClients = require('restify-clients');
 var vasync = require('vasync');
 var uuid = require('node-uuid');
 var crypto = require('crypto');
@@ -97,7 +97,7 @@ function getHttpAuthToken(opts, cb) {
         return;
     }
 
-    var SSOclient = restify.createJsonClient({
+    var SSOclient = restifyClients.createJsonClient({
         url: ssoUrl,
         rejectUnauthorized: false
     });

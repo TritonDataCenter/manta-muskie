@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2018, Joyent, Inc.
+ * Copyright 2021 Joyent, Inc.
  */
 
 var assert = require('assert-plus');
@@ -214,7 +214,7 @@ function createUploadHelper(p, h, client, cb) {
     var opts = {
         headers: {
             'content-type': 'application/json',
-            'expect': 'application/json'
+            'accept': 'application/json'
         },
         path: self.uploadsRoot
     };
