@@ -176,6 +176,10 @@
   },
   {{/MPU_ENABLE}}
 
+  {{#WEBAPI_USE_COMPRESSION}}
+  "gzipResponse": true,
+  {{/WEBAPI_USE_COMPRESSION}}
+
   "storinfo": {
     {{#WEBAPI_USE_PICKER}}
     "usePicker": true,
