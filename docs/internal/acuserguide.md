@@ -6,7 +6,10 @@
 
 <!--
     Copyright 2020 Joyent, Inc.
+    Copyright 2022 MNX Cloud, Inc.
 -->
+
+<!-- markdownlint-disable no-duplicate-heading -->
 
 # Access Control User Guide
 
@@ -49,7 +52,8 @@ the request are evaluated against any relevant rules. If any of the rules grant
 access, the request is authorized. The Aperture evaluation engine is used to
 authorize requests.
 
-> ###### Example: Rule Components
+> ### Example: Rule Components
+>
 > A company has traffic logs from their website stored in Manta. They want
 > to give access to read their traffic logs to a contractor specializing in
 > search engine optimization.
@@ -61,7 +65,8 @@ Access control lists (ACLs) are one form of access control where rules are
 stored with resources (like in a UNIX file system). ACLs describe which
 identities can access the resource they are attached to.
 
-> ###### Example: ACLs
+> ### Example: ACLs
+>
 > In the same scenario, the company can use ACLs by specifying rules on the
 > traffic logs that say the contractor can access them.
 
@@ -137,32 +142,32 @@ policies, users and roles.
           |
           +-- Rules
 
-> ###### Example: Adding a user
+> #### Example: Adding a user
 >
 >     $ TODO cloudapi add a user
 
 <!-- -->
 
-> ###### Example: Adding a role
+> #### Example: Adding a role
 >
 >     $ TODO cloudapi add a role
 
 <!-- -->
 
-> ###### Example: Adding a policy
+> #### Example: Adding a policy
 >
 >     $ TODO cloudapi add a policy
 >     $ TODO cloudapi add a rule to policy
 
 <!-- -->
 
-> ###### Example: Adding a policy to a role
+> #### Example: Adding a policy to a role
 >
 >     $ TODO cloudapi add a policy to role
 
 <!-- -->
 
-> ###### Example: Add a user to a role
+> #### Example: Add a user to a role
 >
 >     $ TODO cloudapi add user to role
 
@@ -198,7 +203,7 @@ like any other user.
 Note: Everything under ~~/public is accessible to anyone, regardless of role
 tags or other context.
 
-> ###### Example: Allowing public reads on a Manta object
+> ##### Example: Allowing public reads on a Manta object
 >
 > First, create a user named "anonymous".
 >
@@ -219,7 +224,6 @@ tags or other context.
 >
 >       $ mchmod +public-read ~~/stor/shared.txt
 
-
 #### Default Roles
 
 Users may choose which roles they want to assume and be active for a request.
@@ -236,7 +240,7 @@ can make requests normally without worrying about accidentally doing
 potentially dangerous operations (like `mrm -rf ~~/stor`), but still have the
 ability to assume the administrator role if needed.
 
-> ###### Example: The administrator role and default roles
+> ##### Example: The administrator role and default roles
 >
 >     $ mrm ~~/stor/do-not-delete.txt
 >     mrm: AuthorizationFailedError: example/fred is not allowed to access /example/stor/do-not-delete.txt
@@ -262,7 +266,7 @@ the `mchmod` command.
 Note that you can tag resources with roles that you do not have access to, and
 this can result in you locking yourself out of access to an object.
 
-> ###### Example: mchmod
+> #### Example: mchmod
 >
 > Add `role1` to `file.txt`
 >
@@ -331,7 +335,7 @@ Policies:
 
 | Name | Rules |
 | --- | --- |
-| **read** | `Can getobject ` |
+| **read** | `Can getobject` |
 | **write** | `Can putobject` |
 
     TODO cloudapi create user "george"
@@ -483,12 +487,12 @@ Policies:
 Then, whenever somebody wants to submit a suggestion, he or she can write it in
 the directory, then use `mchmod` to allow `hr` access.
 
-    $ mput -f more-donuts.txt ~~/stor/suggestionBox/more-donuts.txt
-    $ mchmod +hr ~~/stor/suggestionBox/more-donuts.txt
+    mput -f more-donuts.txt ~~/stor/suggestionBox/more-donuts.txt
+    mchmod +hr ~~/stor/suggestionBox/more-donuts.txt
 
 Or, to combine the two steps:
 
-    $ mput -f more-donuts.txt --role-tags=public-write,hr ~~/stor/suggestionBox/more-donuts.txt
+    mput -f more-donuts.txt --role-tags=public-write,hr ~~/stor/suggestionBox/more-donuts.txt
 
 <!-- -->
 
@@ -498,7 +502,7 @@ Or, to combine the two steps:
 
 ### Using Context
 
-##### Preventing Overwrites
+#### Preventing Overwrites
 
 Giving `putobject` access allows users to overwrite existing Manta objects or
 metadata. To prevent this, you can check for the `overwrite` context in the
@@ -532,7 +536,7 @@ Some examples of aperture rules:
 * `Can getobject if sourceip = 10.0.0.0/32`
 * `Can putobject if day in (Monday, Tuesday, Wednesday, Thursday, Friday)`
 
-For more information see <https://github.com/joyent/node-aperture>
+For more information see <https://github.com/TritonDataCenter/node-aperture>
 
 Note: Aperture as a language supports explicit deny as the effect of a rule.
 However, explicit deny is not supported in Joyent's access control system.
@@ -541,12 +545,11 @@ However, explicit deny is not supported in Joyent's access control system.
 
 ## Actions
 
-#### CloudAPI Actions
+### CloudAPI Actions
 
 | action | related operations |
 | --- | --- |
 | ... | ... |
-
 
 #### Manta Actions
 
@@ -564,7 +567,7 @@ However, explicit deny is not supported in Joyent's access control system.
 
 ## Context for Rules
 
-#### General
+### General
 
 A list of context available to include in rules
 
@@ -597,5 +600,5 @@ Context specific to Manta requests:
 | parentdirectory | string | full path of the parent directory |
 | ... | ... | ... |
 
-[aperture]: https://github.com/joyent/node-aperture
-[types]: https://github.com/joyent/node-aperture#types
+[aperture]: https://github.com/TritonDataCenter/node-aperture
+[types]: https://github.com/TritonDataCenter/node-aperture#types

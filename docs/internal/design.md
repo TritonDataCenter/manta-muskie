@@ -6,8 +6,8 @@
 
 <!--
     Copyright 2020 Joyent, Inc.
+    Copyright 2022 MNX Cloud, Inc.
 -->
-
 
 # Deployment Architecture
 
@@ -26,10 +26,10 @@ allowed in muskie to support anonymous GETs (signed URLs and `GET
 
 # Dependencies
 
-At runtime, muskie depends on [mahi](https://github.com/joyent/mahi) for
+At runtime, muskie depends on [mahi](https://github.com/TritonDataCenter/mahi) for
 authentication/authorization, the
-[electric-moray](https://github.com/joyent/electric-moray) stack for
-object traffic, and [mako](https://github.com/joyent/mako) for writing objects.
+[electric-moray](https://github.com/TritonDataCenter/electric-moray) stack for
+object traffic, and [mako](https://github.com/TritonDataCenter/mako) for writing objects.
 
 ## Storage Picker
 
@@ -41,7 +41,7 @@ query this information:
   selects storage nodes from the local cache on writes (this is purely in-memory
   so all muskie *processes* have a cached copy)
 
-- use the [Storinfo](https://github.com/joyent/manta-storinfo) service which
+- use the [Storinfo](https://github.com/TritonDataCenter/manta-storinfo) service which
   works in a similar way as picker to avoid hitting Moray directly for every
   object write
 
@@ -49,9 +49,10 @@ By default, Muskie is configured to use Storinfo. If the service is not in the
 Manta deployment and you wish to eliminate the dependency on it, you can
 switch to use the local picker by updating SAPI metadata:
 
-    $ sdc-sapi /services/$(sdc-sapi /services?name=webapi | json -Ha uuid) \
-        -X PUT -d '{"action": "update", "metadata": {"WEBAPI_USE_PICKER": true}}'
-
+```shell
+sdc-sapi /services/$(sdc-sapi /services?name=webapi | json -Ha uuid) \
+    -X PUT -d '{"action": "update", "metadata": {"WEBAPI_USE_PICKER": true}}'
+```
 
 # Monitoring
 
@@ -124,7 +125,7 @@ has 100% connect success rate, muskie completes the request. If all the stripes
 are exhausted, muskie returns an HTTP 503 error code.  To make a practical
 example, assume the following topology of storage nodes:
 
-```
+```txt
 DC1  | DC2 | DC3
 -----+-----+-----
 A,D,G|B,E,H|C,F,I
@@ -133,7 +134,7 @@ A,D,G|B,E,H|C,F,I
 On a Put request, muskie might select the following configurations (totally
 random):
 
-```
+```txt
 1. B,C
 2. I,A,
 3. E,D
@@ -154,7 +155,7 @@ the user, and the other requests are abandoned.
 
 Deletion of objects is actually very simple - muskie simply deletes the metadata
 record in moray.  Actual blobs of data are asynchronously garbage collected.
-See [manta-mola](https://github.com/joyent/manta-mola) for more information.
+See [manta-mola](https://github.com/TritonDataCenter/manta-mola) for more information.
 
 ## PutDirectory
 
@@ -165,7 +166,7 @@ and then simply saves the directory record into Moray.
 
 Additionally, directories are setup with postgres triggers to maintain a count
 of entries (this is returned in the `result-set-size` HTTP header).  See
-`moray.js` in [node-libmanta](https://github.com/joyent/node-libmanta) for the
+`moray.js` in [node-libmanta](https://github.com/TritonDataCenter/node-libmanta) for the
 actual meat, but this allows muskie to not ask moray to do `SELECT count(*)`,
 which is known to be very slow at scale in postgres.
 
