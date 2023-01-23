@@ -6,6 +6,7 @@
 
 <!--
     Copyright (c) 2017, Joyent, Inc.
+    Copyright 2023 MNX Cloud, Inc.
 -->
 
 
@@ -25,14 +26,14 @@ up anonymous traffic, which is only allowed in muskie to support anonymous GETs
 
 # Dependencies
 
-At runtime, muskie depends on [mahi](https://github.com/joyent/mahi) for
-authentication/authorization, the
-[electric-moray](https://github.com/joyent/electric-moray) stack for
-object traffic, and [mako](https://github.com/joyent/mako) for writing objects.
-The same [moray](https://github.com/joyent/moray) instance that
-[marlin](https://github.com/joyent/manta-marlin) uses is contacted for all APIs
-involving job management.  Lastly,
-[medusa](https://github.com/joyent/manta-medusa) is needed for `mlogin`
+At runtime, muskie depends on [mahi](https://github.com/tritondatacenter/mahi)
+for authentication/authorization, the
+[electric-moray](https://github.com/TritonDataCenter/electric-moray) stack for
+object traffic, and [mako](https://github.com/TritonDataCenter/mako) for writing
+objects.  The same [moray](https://github.com/TritonDataCenter/moray) instance
+that [marlin](https://github.com/TritonDataCenter/manta-marlin) uses is
+contacted for all APIs involving job management.  Lastly,
+[medusa](https://github.com/TritonDataCenter/manta-medusa) is needed for `mlogin`
 functionality.
 
 ## Storage Picker
@@ -145,7 +146,7 @@ the user, and the other requests are abandoned.
 
 Deletion of objects is actually very simple - muskie simply deletes the metadata
 record in moray.  Actual blobs of data are asynchronously garbage collected.
-See [manta-mola](https://github.com/joyent/manta-mola) for more information.
+See [manta-mola](https://github.com/TritonDataCenter/manta-mola) for more information.
 
 ## PutDirectory
 
@@ -156,7 +157,7 @@ and then simply saves the directory record into Moray.
 
 Additionally, directories are setup with postgres triggers to maintain a count
 of entries (this is returned in the `result-set-size` HTTP header).  See
-`moray.js` in [node-libmanta](https://github.com/joyent/node-libmanta) for the
+`moray.js` in [node-libmanta](https://github.com/TritonDataCenter/node-libmanta) for the
 actual meat, but this allows muskie to not ask moray to do `SELECT count(*)`,
 which is known to be very slow at scale in postgres.
 

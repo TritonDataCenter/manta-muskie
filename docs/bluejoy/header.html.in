@@ -7,6 +7,7 @@
 
 <!--
     Copyright (c) 2017, Joyent, Inc.
+    Copyright 2023 MNX Cloud, Inc.
 -->
 
 <html lang="en">
@@ -31,7 +32,7 @@
 	<script type="text/javascript">
 	$(document).ready(function() {
 		$("a").click(function() {
-			var href = $(this).attr("href");if (href.indexOf("my.joyentcloud.com") > -1) {
+			var href = $(this).attr("href");if (href.indexOf("my.mnx.io") > -1) {
 				_gaq.push(["_link", href]);return false;
 			}
 		});
@@ -40,7 +41,7 @@
 </head>
 <body>
 <div id="header">
-    <div class="logo"><a href="https://joyent.com"><img src="%(mediaroot)s/img/logo.svg"></a></div>
+    <div class="logo"><a href="https://www.tritondatacenter.com"><img src="%(mediaroot)s/img/logo.svg"></a></div>
     <h1>Object Storage and Converged Analytics</h1>
-    <a class="dev-center" href="https://www.joyent.com/getting-started"><span>For More Documentation and Support</span><br>Visit the Getting Started page</a>
+    <a class="dev-center" href="https://www.tritondatacenter.com/getting-started"><span>For More Documentation and Support</span><br>Visit the Getting Started page</a>
 </div>

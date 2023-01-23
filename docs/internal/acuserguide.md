@@ -6,11 +6,12 @@
 
 <!--
     Copyright (c) 2014, Joyent, Inc.
+    Copyright 2023 MNX Cloud, Inc.
 -->
 
 # Access Control User Guide
 
-With the introduction of access control for the Joyent Cloud, customers can
+With the introduction of access control for Triton Data Center, customers can
 create users under their accounts and maintain fine-grained control over
 resources.
 
@@ -35,12 +36,12 @@ that describe who can access what and under what conditions. Rules can be
 broken down to four logical components.
 
 * Principal - the "subject", or the identity the rule applies to e.g. Bob
-  the Contractor. Principals in the Joyent Cloud are users.
+  the Contractor. Principals in Triton Data Center are users.
 * Action - the "verb", or the action a user takes e.g., PutObject, CreateJob
 * Resource - the "object", or target of the action e.g., machine, Manta object
 * Context - any extra constraints e.g. "between 08:00-17:00", "from eu-ams1"
 
-Rules for access control for Joyent are written with the [Aperture][aperture]
+Rules for access control for Triton are written with the [Aperture][aperture]
 access control language. With Aperture, you can define rules with each of the
 components above in a human-readable way.
 
@@ -104,7 +105,7 @@ For a more detailed example, see the "Making a Request" example below.
 
 ### User Management
 
-The basic building blocks of access control in the Joyent Cloud are rules,
+The basic building blocks of access control in Triton Data Center are rules,
 policies, users and roles.
 
 * **Rules** are specified using individual Aperture sentences. They contain
@@ -539,11 +540,12 @@ The rules you write for access control are in a human-readable language that
 are parsed and evaluated by [Aperture][aperture].
 
 Aperture is a general purpose access control language, and valid Aperture rules
-can contain all the components of a rule, but when writing rules for the Joyent
-Cloud, you should only specify the "action" and "conditions" parts of the rule.
-The "principal" and "resource" parts are checked by the user having access to
-the roles specified in the role tags on the resource, instead of by the rules
-themselves. See the Resource Management section above for more details.
+can contain all the components of a rule, but when writing rules for Triton
+Data Center, you should only specify the "action" and "conditions" parts of the
+rule.  The "principal" and "resource" parts are checked by the user having
+access to the roles specified in the role tags on the resource, instead of by
+the rules themselves. See the Resource Management section above for more
+details.
 
 Some examples of aperture rules:
 
@@ -551,10 +553,10 @@ Some examples of aperture rules:
 * `Can putobject if day in (Monday, Tuesday, Wednesday, Thursday, Friday)`
 * `Can createjob`
 
-For more information see <https://github.com/joyent/node-aperture>
+For more information see <https://github.com/tritondatacenter/node-aperture>
 
 Note: Aperture as a language supports explicit deny as the effect of a rule.
-However, explicit deny is not supported in Joyent's access control system.
+However, explicit deny is not supported in Triton's access control system.
 
 # Appendix
 
@@ -621,5 +623,5 @@ Context specific to Manta requests:
 | parentdirectory | string | full path of the parent directory |
 | ... | ... | ... |
 
-[aperture]: https://github.com/joyent/node-aperture
-[types]: https://github.com/joyent/node-aperture#types
+[aperture]: https://github.com/tritondatacenter/node-aperture
+[types]: https://github.com/tritondatacenter/node-aperture#types
