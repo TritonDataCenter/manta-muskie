@@ -6,13 +6,14 @@
 
 <!--
     Copyright 2019 Joyent, Inc.
+    Copyright 2023 MNX Cloud, Inc.
 -->
 
 # manta-muskie: The Manta WebAPI
 
 This repository is part of the Joyent Manta project.  For contribution
 guidelines, issues, and general documentation, visit the main
-[Manta](http://github.com/joyent/manta) project page.
+[Manta](http://github.com/TritonDataCenter/manta) project page.
 
 manta-muskie holds the source code for the Manta WebAPI, otherwise known as
 "the front door".  It is analogous to CloudAPI for SDC.  See the restdown
@@ -27,7 +28,7 @@ Developer notes are in this README.
 
 There are currently two active branches of this repository, for the two
 active major versions of Manta. See the [mantav2 overview
-document](https://github.com/joyent/manta/blob/master/docs/mantav2.md) for
+document](https://github.com/TritonDataCenter/manta/blob/master/docs/mantav2.md) for
 details on major Manta versions.
 
 - [`master`](../../tree/master/) - For development of mantav2, the latest
@@ -42,7 +43,7 @@ muskie by starting up a local instance of the server that's configured
 to point to the rest of your existing SDC/Manta deployment.  This
 setup depends on several prerequisites in your development
 environment, (not the least of which IS a development environment, see
-[here](https://mo.joyent.com/docs/engdoc/master/engnotes/buildzoneconfig/manta-triton.html)
+[here](https://mo.TritonDataCenter.com/docs/engdoc/master/engnotes/buildzoneconfig/manta-triton.html)
 to set up a dev zone (NOTE: internal documentation))
 
 1. You should set up a **non-operator** SDC account that will also have access
@@ -181,7 +182,7 @@ Manta. If you're doing this for the first time, and not sure what to
 do, I had success with `make buildimage` which leaves you with an
 image and manifest in `./bits`. You can then import this image and
 follow this guide to upgrading manta components:
-https://github.com/joyent/manta/blob/master/docs/operator-guide.md#upgrading-manta-components
+https://github.com/TritonDataCenter/manta/blob/master/docs/operator-guide.md#upgrading-manta-components
 
 If you run into any problems when following this procedure against the latest
 version of #master, please let us know.  There are are a couple of things to
@@ -222,7 +223,7 @@ check first before reporting problems:
 
 ## Metrics
 
-Muskie exposes metrics via [node-artedi](https://github.com/joyent/node-artedi).
+Muskie exposes metrics via [node-artedi](https://github.com/TritonDataCenter/node-artedi).
 See the [design](./docs/internal/design.md) document for more information about
 the metrics that are exposed, and how to access them. For development, it is
 probably easiest to use `curl` to scrape metrics:
@@ -243,11 +244,11 @@ development or staging environment.
 ## Notes on DNS and service discovery
 
 Like most other components in Triton and Manta, Muskie (deployed with service
-name "webapi") uses [Registrar](https://github.com/joyent/registrar/) to
-register its instances in internal DNS so that other components can find them.
-The general mechanism is [documented in detail in the Registrar
-README](https://github.com/joyent/registrar/blob/master/README.md).  There are
-some quirks worth noting about how Muskie uses this mechanism.
+name "webapi") uses [Registrar](https://github.com/TritonDataCenter/registrar/)
+to register its instances in internal DNS so that other components can find
+them.  The general mechanism is [documented in detail in the Registrar
+README](https://github.com/TritonDataCenter/registrar/blob/master/README.md).
+There are some quirks worth noting about how Muskie uses this mechanism.
 
 First, while most components use local config-agent manifests that are checked
 into the component repository (e.g., `$repo_root/sapi_manifest/registrar`),
@@ -270,8 +271,9 @@ this is that you can find the IP address of a Muskie zone whose zonename you
 know by querying for `$zonename.manta.$dns_suffix`, but there is no way to
 enumerate the Muskie instances using DNS, nor is there a way to add that without
 changing the DNS name for webapi instances, which would be a flag day for
-Muppet.**  (This may explain why [muppet](https://github.com/joyent/muppet) is a
-ZooKeeper consumer rather than just a DNS client.)
+Muppet.**  (This may explain why
+[muppet](https://github.com/TritonDataCenter/muppet) is a ZooKeeper consumer
+rather than just a DNS client.)
 
 ## Dtrace Probes
 
