@@ -6,6 +6,7 @@
 
 /*
  * Copyright 2021 Joyent, Inc.
+ * Copyright 2023 MNX Cloud, Inc.
  */
 
 @Library('jenkins-joylib@v1.0.8') _
@@ -37,6 +38,11 @@ pipeline {
         stage('check') {
             steps{
                 sh('make check')
+            }
+        }
+        stage('test') {
+            steps{
+                sh('make test-unit')
             }
         }
         // avoid bundling devDependencies
