@@ -6,6 +6,7 @@
 
 #
 # Copyright 2021 Joyent, Inc.
+# Copyright 2023 MNX Cloud, Inc.
 #
 
 #
@@ -82,7 +83,7 @@ endif
 #
 
 .PHONY: all
-all: $(SMF_MANIFESTS) $(STAMP_NODE_MODULES) manta-scripts
+all $(TAP_EXEC): $(SMF_MANIFESTS) $(STAMP_NODE_MODULES) manta-scripts
 
 check:: python2-symlink
 
@@ -92,8 +93,8 @@ manta-scripts: deps/manta-scripts/.git
 	cp deps/manta-scripts/*.sh $(BUILD)/scripts
 
 .PHONY: test-unit
-test-unit: $(STAMP_NODE_MODULES) | $(NPM_EXEC) $(TAP_EXEC)
-	$(TAP_EXEC) -j10 -o test.tap test/unit/*.test.js
+test-unit: $(STAMP_NODE_MODULES) | $(NPM_EXEC)
+	NODE=$(NODE_EXEC) $(TAP_EXEC) -j10 -o test.tap test/unit/*.test.js
 
 .PHONY: test
 test:
