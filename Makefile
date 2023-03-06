@@ -43,6 +43,8 @@ TEST_JOBS ?= 10
 TEST_TIMEOUT_S ?= 1200
 TEST_FILTER ?= .*
 
+TAP_EXEC := ./node_modules/.bin/tap
+
 ENGBLD_USE_BUILDIMAGE	= true
 ENGBLD_REQUIRE		:= $(shell git submodule update --init deps/eng)
 include ./deps/eng/tools/mk/Makefile.defs
@@ -90,8 +92,8 @@ manta-scripts: deps/manta-scripts/.git
 	cp deps/manta-scripts/*.sh $(BUILD)/scripts
 
 .PHONY: test-unit
-test-unit: $(STAMP_NODE_MODULES) | $(TAP_EXEC)
-	./node_modules/.bin/tap -j10 -o test.tap test/unit/*.test.js
+test-unit: $(STAMP_NODE_MODULES) | $(NPM_EXEC) $(TAP_EXEC)
+	$(TAP_EXEC) -j10 -o test.tap test/unit/*.test.js
 
 .PHONY: test
 test:
