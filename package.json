@@ -6,7 +6,7 @@
     "private": true,
     "repository": {
         "type": "git",
-        "url": "git+ssh://git@github.com:joyent/muskie.git"
+        "url": "git+ssh://git@github.com:TritonDataCenter/muskie.git"
     },
     "dependencies": {
         "ajv": "5.2.2",
