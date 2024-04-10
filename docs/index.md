@@ -11,6 +11,7 @@ apisections: Directories, Objects, SnapLinks, Multipart Uploads
 
 <!--
     Copyright 2020 Joyent, Inc.
+    Copyright 2024 MNX Cloud, Inc.
 -->
 
 # REST API
@@ -35,7 +36,7 @@ There are also detailed reference materials:
 
 Any content formatted like this:
 
-    $ curl -is https://us-east.manta.joyent.com
+    $ curl -is https://us-central.manta.mnx.io
 
 is a command-line example that you can run from a shell. All other examples and
 information are formatted like this:
@@ -99,7 +100,7 @@ Formalized:
     key=val&key=val... (query parameters, url, sorted lexicographically)
 
 For example, suppose you wanted to share a link to
-`https://us-east.manta.joyent.com/$MANTA_USER/stor/image.png`.  The following
+`https://us-central.manta.mnx.io/$MANTA_USER/stor/image.png`.  The following
 would be the signing string (newlines inserted for readability):
 
     GET\n
@@ -110,7 +111,7 @@ would be the signing string (newlines inserted for readability):
 You would sign that entire string with your private key, URL encode the
 signature and then append it to the URL query string:
 
-    https://us-east.manta.joyent.com/$MANTA_USER/stor/image.png?algorithm=RSA-SHA256&expires=1354201912&keyId=%2F$MANTA_USER%2Fkeys%2F8e%3A36%3A43%3Aac%3Ad0%3A61%3A60%3A18%3A20%3Af5%3Ab7%3Aec%3A3a%3Ad8%3A79%3A2d&signature=RR5s5%2Fa0xpwvukU2tn3LAe2QRHGRJVdbWu%2FQZk%2BYgnVmuWI59n8EG0G6KN5INp30r7xC0EOSMvgmyfrLFQTG1482fNsjedwfFXVZq0%2BeUV6dI36pe69FxMuRKh4ILy47l6wCqD4qvFsFwmeqmzfkn03MmU15JsJt2yqTtnz%2FGkToZCpaHugW5YferGNeAY%2FrTwLTrB%2BrsKovY35rK9eokPbJTDlNx97JX5%2F7ol3cgtRbstLuROfpCycJ5OxC3NAeXeUD7weGQxAY6ypoEq5HFiZoA3gT4lDdYyO7LKKPkE8dSqcqVqgdtflpf%2FYibKwGg5Vm%2F9Ze%2Fwq%2Bsb1RgSAJsA%3D%3D
+    https://us-central.manta.mnx.io/$MANTA_USER/stor/image.png?algorithm=RSA-SHA256&expires=1354201912&keyId=%2F$MANTA_USER%2Fkeys%2F8e%3A36%3A43%3Aac%3Ad0%3A61%3A60%3A18%3A20%3Af5%3Ab7%3Aec%3A3a%3Ad8%3A79%3A2d&signature=RR5s5%2Fa0xpwvukU2tn3LAe2QRHGRJVdbWu%2FQZk%2BYgnVmuWI59n8EG0G6KN5INp30r7xC0EOSMvgmyfrLFQTG1482fNsjedwfFXVZq0%2BeUV6dI36pe69FxMuRKh4ILy47l6wCqD4qvFsFwmeqmzfkn03MmU15JsJt2yqTtnz%2FGkToZCpaHugW5YferGNeAY%2FrTwLTrB%2BrsKovY35rK9eokPbJTDlNx97JX5%2F7ol3cgtRbstLuROfpCycJ5OxC3NAeXeUD7weGQxAY6ypoEq5HFiZoA3gT4lDdYyO7LKKPkE8dSqcqVqgdtflpf%2FYibKwGg5Vm%2F9Ze%2Fwq%2Bsb1RgSAJsA%3D%3D
 
 ## Interacting with the Joyent Manta Storage Service from the shell (bash)
 
@@ -225,7 +226,7 @@ body.  An HTTP status code of `204` is returned on success.
         -H 'content-type: application/json; type=directory'
 
     PUT /$MANTA_USER/stor/foo HTTP/1.1
-    Host: us-east.manta.joyent.com
+    Host: us-central.manta.mnx.io
     Accept: */*
     content-type: application/json; type=directory
     Date: Thu, 29 Nov 2012 23:48:00 GMT
@@ -287,7 +288,7 @@ A stream of JSON objects, one record for each child.
     $ manta /$MANTA_USER/stor/
 
     GET /$MANTA_USER/stor HTTP/1.1
-    Host: us-east.manta.joyent.com
+    Host: us-central.manta.mnx.io
     Accept: */*
     Authorization: $Authorization
 
@@ -314,7 +315,7 @@ from this request.  On success an HTTP `204` is returned;
     $ manta /$MANTA_USER/stor/foo -X DELETE
 
     DELETE /$MANTA_USER/stor/foo HTTP/1.1
-    Host: us-east.manta.joyent.com
+    Host: us-central.manta.mnx.io
     Accept: */*
     Date: Fri, 30 Nov 2012 00:31:00 GMT
     Authorization: $Authorization
@@ -382,7 +383,7 @@ created the object.  You are allowed up to 4 KB of header data.
             -d '{"hello": "world"}'
 
     PUT /$MANTA_USER/stor/foo.json HTTP/1.1
-    Host: us-east.manta.joyent.com
+    Host: us-central.manta.mnx.io
     Accept: */*
     content-type: application/json
     Date: Fri, 30 Nov 2012 00:55:06 GMT
@@ -421,7 +422,7 @@ You cannot change "critical" headers:
             -H 'content-type: application/json'
 
     PUT /$MANTA_USER/stor/foo.json?metadata=true HTTP/1.1
-    Host: us-east.manta.joyent.com
+    Host: us-central.manta.mnx.io
     Accept: */*
     content-type: application/json
     m-foo: bar
@@ -455,7 +456,7 @@ content negotiation (i.e. for matching against the "Accept" header).
     $ manta /$MANTA_USER/stor/foo.json
 
     GET /$MANTA_USER/stor/foo.json HTTP/1.1
-    Host: us-east.manta.joyent.com
+    Host: us-central.manta.mnx.io
     Accept: */*
     Date: Fri, 30 Nov 2012 00:59:17 GMT
     Authorization: $Authorization
@@ -486,7 +487,7 @@ Deletes an object from the service. On success an HTTP `204` is returned.
 
     DELETE /$MANTA_USER/stor/foo/bar.json HTTP/1.1
     User-Agent: curl/7.21.2 (i386-pc-solaris2.11) libcurl/7.21.2 OpenSSL/0.9.8w zlib/1.2.3
-    Host: us-east.manta.joyent.com
+    Host: us-central.manta.mnx.io
     Accept: */*
     Date: Fri, 30 Nov 2012 01:01:33 GMT
     Authorization: $Authorization
@@ -521,7 +522,7 @@ First make an object, then create a link:
          -H 'Location: /$MANTA_USER/stor/foo.json'
 
     PUT /$MANTA_USER/stor/foo.json.2 HTTP/1.1
-    Host: us-east.manta.joyent.com
+    Host: us-central.manta.mnx.io
     Accept: */*
     content-type: application/json; type=link
     Location: /$MANTA_USER/stor/foo.json
@@ -597,7 +598,7 @@ Manta login.
     $ manta /$MANTA_USER/uploads -X POST -H 'content-type: application/json' --data-binary @mpu.json
 
     POST /$MANTA_USER/uploads HTTP/1.1
-    Host: us-east.manta.joyent.com
+    Host: us-central.manta.mnx.io
     User-Agent: curl/7.51.0
     Accept: */*
     content-type: application/json
@@ -660,7 +661,7 @@ requires consecutive parts starting from part 0.  See
 
     PUT /$MANTA_USER/uploads/d52/d52da3a7-a55c-4961-b95a-84fbfc5d7903/0
     HTTP/1.1
-    Host: us-east.manta.joyent.com
+    Host: us-central.manta.mnx.io
     User-Agent: curl/7.51.0
     Accept: */*
     content-type: text/plain
@@ -696,7 +697,7 @@ Content-type will be `application/json`.  An HTTP `204` is returned on success.
 
     GET /$MANTA_USER/uploads/d52/d52da3a7-a55c-4961-b95a-84fbfc5d7903/state
     HTTP/1.1
-    Host: us-east.manta.joyent.com
+    Host: us-central.manta.mnx.io
     User-Agent: curl/7.51.0
     Accept: */*
     date: Wed, 10 Jan 2018 22:08:51 GMT
@@ -766,7 +767,7 @@ multipart upload was created.
 
     POST /$MANTA_USER/uploads/af1/af143a31-c332-4442-a9a9-773894fe98c3/commit
     HTTP/1.1
-    Host: us-east.manta.joyent.com
+    Host: us-central.manta.mnx.io
     User-Agent: curl/7.51.0
     Accept: */*
     content-type: application/json
@@ -802,7 +803,7 @@ is returned.
 
     POST /$MANTA_USER/uploads/d52/d52da3a7-a55c-4961-b95a-84fbfc5d7903/abort
     HTTP/1.1
-    Host: us-east.manta.joyent.com
+    Host: us-central.manta.mnx.io
     User-Agent: curl/7.51.0
     Accept: */*
     date: Wed, 10 Jan 2018 22:14:01 GMT
@@ -830,7 +831,7 @@ On success, an HTTP `301` is returned, with the parts directory URI in the
     $ manta /$MANTA_USER/uploads/d52da3a7-a55c-4961-b95a-84fbfc5d7903
 
     GET /$MANTA_USER/uploads/d52da3a7-a55c-4961-b95a-84fbfc5d7903 HTTP/1.1
-    Host: us-east.manta.joyent.com
+    Host: us-central.manta.mnx.io
     User-Agent: curl/7.51.0
     Accept: */*
     date: Wed, 10 Jan 2018 23:15:49 GMT
@@ -854,7 +855,7 @@ HTTP `404`:
 
     GET /$MANTA_USER/uploads/1afb5e32-ae0e-4b4a-b4db-efaa3c694527 HTTP/1.1
     Host: 172.27.13.143:8080
-    Host: us-east.manta.joyent.com
+    Host: us-central.manta.mnx.io
     User-Agent: curl/7.51.0
     Accept: */*
     date: Wed, 10 Jan 2018 23:19:25 GMT
