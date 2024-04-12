@@ -54,7 +54,7 @@
         "qlocker": "^1.0.1",
         "restify-clients": "2.6.7",
         "smartdc": "^9.0.0",
-        "tap": "12.x",
+        "tap": "18.x",
         "ufds": "^1.6.1"
     },
     "scripts": {
