@@ -6,6 +6,7 @@
 
 #
 # Copyright 2021 Joyent, Inc.
+# Copyright 2024 MNX Cloud, Inc.
 #
 
 #
@@ -22,8 +23,7 @@ RESTDOWN_EXT =		.md
 JS_FILES :=		bin/mlocate bin/mpicker \
 			$(shell ls *.js) \
 			$(shell find lib test -name '*.js')
-JSL_CONF_NODE =		tools/jsl.node.conf
-JSL_FILES_NODE =	$(JS_FILES)
+ESLINT_FILES  =         $(JS_FILES)
 JSSTYLE_FILES =		$(JS_FILES)
 JSSTYLE_FLAGS =		-f tools/jsstyle.conf
 
@@ -33,11 +33,11 @@ SMF_MANIFESTS_IN =	smf/manifests/muskie.xml.in \
 #
 # Variables
 #
-NAME 			= muskie
+NAME			= muskie
 NODE_PREBUILT_TAG       = zone64
 NODE_PREBUILT_VERSION	:= v6.17.1
-#  minimal-64-lts 19.4.0
-NODE_PREBUILT_IMAGE     = 5417ab20-3156-11ea-8b19-2b66f5e7a439
+#  minimal-64-lts 91.4.0
+NODE_PREBUILT_IMAGE     = a7199134-7e94-11ec-be67-db6f482136c2
 
 TEST_JOBS ?= 10
 TEST_TIMEOUT_S ?= 1200
@@ -47,6 +47,8 @@ ENGBLD_USE_BUILDIMAGE	= true
 ENGBLD_REQUIRE		:= $(shell git submodule update --init deps/eng)
 include ./deps/eng/tools/mk/Makefile.defs
 TOP ?= $(error Unable to access eng.git submodule Makefiles.)
+
+BUILD_PLATFORM  = 20210826T002459Z
 
 include ./deps/eng/tools/mk/Makefile.node_modules.defs
 ifeq ($(shell uname -s),SunOS)
@@ -64,8 +66,8 @@ RELEASE_TARBALL :=	$(NAME)-pkg-$(STAMP).tar.gz
 ROOT :=			$(shell pwd)
 RELSTAGEDIR :=		/tmp/$(NAME)-$(STAMP)
 
-# This image is triton-origin-x86_64-19.4.0
-BASE_IMAGE_UUID = 59ba2e5e-976f-4e09-8aac-a4a7ef0395f5
+# This image is triton-origin-x86_64-21.4.0
+BASE_IMAGE_UUID = 502eeef2-8267-489f-b19c-a206906f57ef
 BUILDIMAGE_NAME = mantav2-webapi
 BUILDIMAGE_DESC	= Manta webapi
 BUILDIMAGE_PKGSRC = haproxy-2.0.25
