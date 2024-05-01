@@ -36,7 +36,7 @@ SMF_MANIFESTS_IN =	smf/manifests/muskie.xml.in \
 NAME			= muskie
 NODE_PREBUILT_TAG       = zone64
 NODE_PREBUILT_VERSION	:= v6.17.1
-#  minimal-64-lts 91.4.0
+#  minimal-64-lts 21.4.0
 NODE_PREBUILT_IMAGE     = a7199134-7e94-11ec-be67-db6f482136c2
 
 TEST_JOBS ?= 10
