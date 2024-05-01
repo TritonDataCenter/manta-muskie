@@ -6,6 +6,7 @@
 
 /*
  * Copyright 2020 Joyent, Inc.
+ * Copyright 2024 MNX Cloud, Inc.
  */
 
 var format = require('util').format;
@@ -258,7 +259,7 @@ function _ensureRbacSettings(opts, cb) {
                 rejectUnauthorized: false,
                 user: opts.account.login,
                 // This elects to use the newer arg format for CreateRole.
-                // See https://apidocs.joyent.com/cloudapi/#900
+                // See https://apidocs.tritondatacenter.com/cloudapi/#900
                 version: '~9',
                 url: cloudapiUrl
             });
